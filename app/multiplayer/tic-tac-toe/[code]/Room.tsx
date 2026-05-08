@@ -201,10 +201,16 @@ export function TTTRoomClient({
     }
   };
 
-  const shareUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/multiplayer/tic-tac-toe/${roomId}`
-      : "";
+  const copyLink = async () => {
+    try {
+      const url = `${window.location.origin}/multiplayer/tic-tac-toe/${roomId}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <>
@@ -230,21 +236,13 @@ export function TTTRoomClient({
             >
               {copied ? "Copied ✓" : "Copy code"}
             </button>
-            {shareUrl && (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(shareUrl);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1500);
-                  } catch {}
-                }}
-                className="px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] transition-colors"
-              >
-                Copy link
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={copyLink}
+              className="px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] transition-colors"
+            >
+              Copy link
+            </button>
           </div>
         </div>
       </div>
