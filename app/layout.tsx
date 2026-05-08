@@ -81,6 +81,18 @@ export default function RootLayout({
                     <li>Tailwind v4</li>
                     <li>Supabase</li>
                     <li>Framer Motion</li>
+                    <li>
+                      Icons by{" "}
+                      <a
+                        href="https://game-icons.net"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:text-white"
+                      >
+                        game-icons.net
+                      </a>{" "}
+                      (CC BY 3.0)
+                    </li>
                   </ul>
                 </div>
               </div>

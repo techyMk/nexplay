@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Game } from "@/lib/types";
 import { recordPlay } from "@/lib/recentlyPlayed";
 import { CUSTOM_GAMES } from "@/games/registry";
+import { GameArt } from "./GameArt";
 
 export function GameFrame({ game }: { game: Game }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,7 +46,7 @@ export function GameFrame({ game }: { game: Game }) {
           style={{ background: game.gradient }}
         >
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <div className="text-9xl drop-shadow-2xl">{game.glyph}</div>
+            <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
             <div className="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 ml-1">
                 <path d="M8 5v14l11-7z" />

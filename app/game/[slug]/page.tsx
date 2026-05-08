@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { GAMES, getCategory, getGame } from "@/lib/catalog";
 import { GameFrame } from "@/components/GameFrame";
 import { GameCard } from "@/components/GameCard";
+import { GameArt } from "@/components/GameArt";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -44,10 +45,10 @@ export default async function GamePage({
       {/* Title bar */}
       <div className="flex items-start gap-4 mb-6">
         <div
-          className="hidden sm:flex w-16 h-16 rounded-2xl items-center justify-center text-3xl shadow-lg"
+          className="hidden sm:flex w-16 h-16 rounded-2xl items-center justify-center shadow-lg"
           style={{ background: game.gradient }}
         >
-          {game.glyph}
+          <GameArt icon={game.icon} glyph={game.glyph} size="sm" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">

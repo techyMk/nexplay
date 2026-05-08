@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { Game } from "@/lib/types";
+import { GameArt } from "./GameArt";
 
 export function Hero({ games }: { games: Game[] }) {
   const list = games.slice(0, Math.max(1, Math.min(games.length, 5)));
@@ -97,20 +98,17 @@ export function Hero({ games }: { games: Game[] }) {
         </div>
 
         <div className="hidden lg:flex flex-col justify-end items-end gap-3">
-          <div className="text-[200px] xl:text-[260px] drop-shadow-[0_20px_60px_rgba(0,0,0,0.5)] leading-none">
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={`glyph-${game.slug}`}
-                initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0.85, rotate: 8 }}
-                transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-                className="inline-block"
-              >
-                {game.glyph}
-              </motion.span>
-            </AnimatePresence>
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`art-${game.slug}`}
+              initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.85, rotate: 8 }}
+              transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+            >
+              <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -129,8 +127,8 @@ export function Hero({ games }: { games: Game[] }) {
                 }`}
                 style={{ background: g.gradient }}
               >
-                <div className="absolute inset-0 flex items-center justify-center text-xl">
-                  {g.glyph}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <GameArt icon={g.icon} glyph={g.glyph} size="sm" />
                 </div>
                 {i === active && (
                   <div className="absolute inset-x-0 bottom-0 h-0.5 bg-white" />

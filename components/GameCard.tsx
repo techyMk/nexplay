@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Game } from "@/lib/types";
+import { GameArt } from "./GameArt";
 
 export type GameCardSize = "default" | "large" | "wide" | "tall";
 
@@ -69,14 +70,13 @@ export function GameCard({
               }}
             />
 
-            {/* Glyph */}
-            <div
-              className={`absolute inset-0 flex items-center justify-center select-none drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-500 group-hover:scale-110 ${
-                isBig ? "text-8xl md:text-9xl" : "text-6xl md:text-7xl"
-              }`}
-              style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.3))" }}
-            >
-              {game.glyph}
+            {/* Art (Iconify SVG with emoji fallback) */}
+            <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
+              <GameArt
+                icon={game.icon}
+                glyph={game.glyph}
+                size={isBig ? "xl" : "lg"}
+              />
             </div>
 
             {/* Bottom gradient veil */}

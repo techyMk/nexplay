@@ -54,6 +54,7 @@ export const CATEGORIES: Category[] = [
 export const GAMES: Game[] = [
   {
     slug: "tic-tac-toe",
+    icon: "game-icons:tic-tac-toe",
     title: "Tic-Tac-Toe",
     short: "Classic 3-in-a-row, online with friends.",
     description:
@@ -72,6 +73,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "snake",
+    icon: "game-icons:snake",
     title: "Snake",
     short: "Eat, grow, don't bite yourself.",
     description:
@@ -89,6 +91,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "2048",
+    icon: "game-icons:cubes",
     title: "2048",
     short: "Combine tiles, reach 2048.",
     description:
@@ -106,6 +109,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "connect-four",
+    icon: "game-icons:filled-disc",
     title: "Connect Four",
     short: "Drop, line up four, win.",
     description:
@@ -123,6 +127,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "pong",
+    icon: "game-icons:tennis-ball",
     title: "Pong",
     short: "The original — paddle vs paddle.",
     description:
@@ -139,6 +144,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "memory-match",
+    icon: "game-icons:brain",
     title: "Memory Match",
     short: "Find the pairs, beat the clock.",
     description:
@@ -155,6 +161,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "flappy",
+    icon: "game-icons:hummingbird",
     title: "Flappy",
     short: "Tap to flap. Don't crash.",
     description:
@@ -172,6 +179,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "hextris",
+    icon: "game-icons:hexagonal-nut",
     title: "Hextris",
     short: "Hexagonal Tetris reimagined.",
     description:
@@ -189,6 +197,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "neon-runner",
+    icon: "game-icons:running-shoe",
     title: "Neon Runner",
     short: "Endless runner through neon worlds.",
     description:
@@ -205,6 +214,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "drift-king",
+    icon: "game-icons:racing-car",
     title: "Drift King",
     short: "Top-down arcade racing & drifting.",
     description:
@@ -221,6 +231,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "checkers",
+    icon: "game-icons:chess-pawn",
     title: "Checkers",
     short: "Hop, capture, become king.",
     description:
@@ -237,6 +248,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "treasure-hunt",
+    icon: "game-icons:treasure-map",
     title: "Treasure Hunt",
     short: "Top-down adventure & exploration.",
     description:
@@ -253,6 +265,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "tetris",
+    icon: "game-icons:tetris-block",
     title: "Tetris",
     short: "Stack the falling blocks. Clear lines.",
     description:
@@ -271,6 +284,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "minesweeper",
+    icon: "game-icons:mining-helmet",
     title: "Minesweeper",
     short: "Reveal cells. Don't hit the bomb.",
     description:
@@ -288,6 +302,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "breakout",
+    icon: "game-icons:brick-wall",
     title: "Breakout",
     short: "Bounce, smash, repeat.",
     description:
@@ -305,6 +320,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "asteroids",
+    icon: "game-icons:rocket",
     title: "Asteroids",
     short: "Vector-graphics space shooter.",
     description:
@@ -323,6 +339,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "whack-a-mole",
+    icon: "game-icons:gavel",
     title: "Whack-a-Mole",
     short: "30 seconds. Bonk every mole.",
     description:
@@ -340,6 +357,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "doodle-jump",
+    icon: "game-icons:rabbit",
     title: "Doodle Jump",
     short: "Jump up forever.",
     description:
@@ -357,6 +375,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "chrome-dino",
+    icon: "game-icons:trex",
     title: "Chrome Dino",
     short: "The offline runner that's now online.",
     description:
@@ -374,6 +393,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "wordle",
+    icon: "game-icons:scroll-quill",
     title: "Word Master",
     short: "Six guesses, five letters.",
     description:
@@ -391,6 +411,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "sudoku",
+    icon: "game-icons:perspective-dice-six",
     title: "Sudoku",
     short: "Fill the 9x9. Easy/Medium/Hard.",
     description:
@@ -409,6 +430,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "match-three",
+    icon: "game-icons:diamonds",
     title: "Gem Match",
     short: "Swap, match, cascade combo.",
     description:
@@ -426,6 +448,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "tower-of-hanoi",
+    icon: "game-icons:stone-tower",
     title: "Tower of Hanoi",
     short: "Stack the disks. Solve in min moves.",
     description:
@@ -443,6 +466,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "bubble-shooter",
+    icon: "game-icons:bubbles",
     title: "Bubble Shooter",
     short: "Aim, fire, pop.",
     description:
@@ -460,6 +484,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "agar-clone",
+    icon: "game-icons:bubbling-flask",
     title: "Agario",
     short: "Eat smaller cells. Don't get eaten.",
     description:
@@ -477,6 +502,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "slither",
+    icon: "game-icons:snake-tongue",
     title: "Slither",
     short: "Snake, but massively multiplayer.",
     description:
@@ -494,6 +520,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "krunker",
+    icon: "game-icons:machine-gun-magazine",
     title: "Krunker",
     short: "Browser FPS — fast and pixelated.",
     description:
@@ -511,6 +538,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "skribbl",
+    icon: "game-icons:paint-brush",
     title: "Skribbl",
     short: "Draw and guess with friends.",
     description:
@@ -528,6 +556,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "geoguessr-clone",
+    icon: "game-icons:earth-asia-oceania",
     title: "GeoGuessr",
     short: "Where in the world is this?",
     description:
@@ -545,6 +574,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "agma",
+    icon: "game-icons:lightning-storm",
     title: "Agma.io",
     short: "Cell-eater with power-ups.",
     description:
@@ -562,6 +592,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "diep",
+    icon: "game-icons:battle-tank",
     title: "Diep.io",
     short: "Tank battle royale.",
     description:
