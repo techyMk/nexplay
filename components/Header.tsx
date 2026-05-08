@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { SearchBar } from "./SearchBar";
 import { AuthMenu } from "./AuthMenu";
 
@@ -19,7 +20,9 @@ export function Header() {
         </Link>
 
         <div className="flex-1 max-w-xl mx-auto">
-          <SearchBar />
+          <Suspense fallback={<div className="h-10 rounded-xl bg-[var(--surface)] border border-[var(--border)]" />}>
+            <SearchBar />
+          </Suspense>
         </div>
 
         <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-[var(--muted)]">
