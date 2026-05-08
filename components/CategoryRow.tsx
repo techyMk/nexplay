@@ -33,12 +33,12 @@ export function CategoryRow({
       </div>
 
       <div className="flex gap-3 md:gap-4 overflow-x-auto pb-3 -mx-4 px-4 no-scrollbar snap-x snap-mandatory">
-        {games.map((game) => (
+        {games.map((game, i) => (
           <div
             key={game.slug}
             className="flex-shrink-0 w-40 sm:w-44 md:w-48 snap-start"
           >
-            <GameCard game={game} />
+            <GameCard game={game} index={i} />
           </div>
         ))}
       </div>

@@ -51,11 +51,13 @@ middleware.ts                Refreshes Supabase auth cookies
    NEXT_PUBLIC_SUPABASE_ANON_KEY=...
    ```
 
-4. Open the Supabase **SQL editor** and paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql). Run it.
+4. Open the Supabase **SQL editor** and run, in order:
+   - [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) (profiles + scores)
+   - [`supabase/migrations/0002_multiplayer.sql`](supabase/migrations/0002_multiplayer.sql) (rooms + Realtime)
 5. (Optional) In **Authentication → Providers → Email**, you can disable "Confirm email" for faster local testing.
 6. Restart `npm run dev`.
 
-You should now see a **Log in** button in the header. Sign up, play Snake, get a score — your run is saved and appears on `/leaderboard/snake`.
+You should now see a **Log in** button in the header. Sign up, play Snake, get a score — your run is saved and appears on `/leaderboard/snake`. To play multiplayer, go to `/multiplayer/tic-tac-toe`, create a room, and share the 6-character code with a friend (open in another browser to test it solo).
 
 ## Games
 
