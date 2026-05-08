@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
@@ -18,6 +19,10 @@ export const metadata: Metadata = {
   title: "Nexplay — Play free games online",
   description:
     "Free browser games, no downloads required. Play classics solo, climb the leaderboards, or invite friends to play live.",
+  icons: {
+    icon: [{ url: "/icon.webp", type: "image/webp" }],
+    apple: "/nexplay-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -40,10 +45,14 @@ export default function RootLayout({
               <div className="px-4 sm:px-6 lg:px-8 py-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-7 h-7 rounded-md bg-gradient-to-br from-[var(--accent)] via-[var(--accent-2)] to-[var(--accent-3)] flex items-center justify-center text-xs font-black text-white">
-                      N
-                    </div>
-                    <span className="font-black text-sm">
+                    <Image
+                      src="/nexplay-icon.png"
+                      alt="Nexplay"
+                      width={32}
+                      height={32}
+                      className="rounded-md"
+                    />
+                    <span className="font-black text-base">
                       Nex<span className="text-gradient">play</span>
                     </span>
                   </div>
@@ -94,9 +103,38 @@ export default function RootLayout({
                 </div>
               </div>
               <div className="border-t border-[var(--border)]">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-[var(--muted)]">
-                  <p>© {new Date().getFullYear()} Nexplay</p>
-                  <p>Play. Repeat.</p>
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--muted)]">
+                  <p>© {new Date().getFullYear()} Nexplay · Play. Repeat.</p>
+                  <a
+                    href="https://techymk.vercel.app/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 font-medium hover:text-[var(--foreground)] transition-colors"
+                  >
+                    Designed &amp; developed by
+                    <span className="inline-flex items-center gap-1.5 font-bold text-[var(--foreground)]">
+                      <Image
+                        src="/icon.webp"
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                      techyMk
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-3 h-3 opacity-60"
+                      aria-hidden
+                    >
+                      <path d="M7 17L17 7M7 7h10v10" />
+                    </svg>
+                  </a>
                 </div>
               </div>
             </footer>

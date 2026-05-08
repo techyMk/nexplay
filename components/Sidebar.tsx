@@ -57,7 +57,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed lg:sticky top-14 left-0 z-40 lg:z-0 h-[calc(100vh-3.5rem)] w-56 shrink-0 transition-transform lg:transition-none ${
+        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 h-[calc(100vh-4rem)] w-56 shrink-0 transition-transform lg:transition-none ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
