@@ -19,13 +19,28 @@ async function createRoomAction() {
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=${JOIN_PATH}`);
 
+  // Look up the host's profile so they appear immediately in the players list
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_emoji")
+    .eq("id", user.id)
+    .single();
+
+  const hostPlayer = {
+    user_id: user.id,
+    display_name:
+      profile?.display_name ?? user.email?.split("@")[0] ?? "Player",
+    avatar: profile?.avatar_emoji ?? "🎮",
+    score: 0,
+  };
+
   let lastErr: string | null = null;
   for (let i = 0; i < 5; i++) {
     const code = generateRoomCode(6);
     const { error } = await supabase.from("skribbl_rooms").insert({
       id: code,
       host_user_id: user.id,
-      state: INITIAL_STATE,
+      state: { ...INITIAL_STATE, players: [hostPlayer] },
       participants: [user.id],
       status: "lobby",
     });
