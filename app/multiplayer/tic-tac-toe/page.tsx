@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { INITIAL_TTT_STATE, generateRoomCode } from "@/lib/multiplayer";
 import { JoinForm } from "@/components/JoinForm";
+import { RecentRoomsList, type RecentRoom } from "@/components/RecentRoomsList";
 
 export const metadata = { title: "Multiplayer Tic-Tac-Toe — Nexplay" };
 
@@ -39,20 +40,22 @@ export default async function TicTacToeLobbyPage() {
   if (!isSupabaseConfigured) return <SetupNotice />;
 
   const supabase = await createClient();
-  let myRecentRooms: { id: string; status: string; created_at: string }[] = [];
+  let myRecentRooms: RecentRoom[] = [];
+  let myUserId = "";
   if (supabase) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
+      myUserId = user.id;
       const { data } = await supabase
         .from("rooms")
-        .select("id, status, created_at")
+        .select("id, status, created_at, host_user_id")
         .eq("game_slug", "tic-tac-toe")
         .or(`host_user_id.eq.${user.id},guest_user_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(5);
-      myRecentRooms = data ?? [];
+      myRecentRooms = (data ?? []) as RecentRoom[];
     }
   }
 
@@ -90,38 +93,7 @@ export default async function TicTacToeLobbyPage() {
       </div>
 
       {myRecentRooms.length > 0 && (
-        <div>
-          <h2 className="text-sm font-bold text-[var(--muted)] uppercase tracking-wider mb-2">
-            Your recent rooms
-          </h2>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
-            {myRecentRooms.map((r) => (
-              <Link
-                key={r.id}
-                href={`/multiplayer/tic-tac-toe/${r.id}`}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--surface-2)] transition-colors"
-              >
-                <div className="font-mono text-lg font-bold tracking-wider">
-                  {r.id}
-                </div>
-                <div
-                  className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase tracking-wider ${
-                    r.status === "playing"
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : r.status === "finished"
-                        ? "bg-zinc-500/20 text-zinc-400"
-                        : "bg-yellow-500/20 text-yellow-400"
-                  }`}
-                >
-                  {r.status}
-                </div>
-                <div className="ml-auto text-xs text-[var(--muted)]">
-                  {new Date(r.created_at).toLocaleString()}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+        <RecentRoomsList rooms={myRecentRooms} myUserId={myUserId} />
       )}
     </div>
   );
