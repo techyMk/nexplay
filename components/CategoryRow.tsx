@@ -16,27 +16,27 @@ export function CategoryRow({
   if (games.length === 0) return null;
 
   return (
-    <section className="mb-10">
-      <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
-          {emoji && <span>{emoji}</span>}
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-lg md:text-xl font-black flex items-center gap-2">
+          {emoji && <span className="text-xl">{emoji}</span>}
           {title}
         </h2>
         {href && (
           <Link
             href={href}
-            className="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
+            className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] font-medium transition-colors"
           >
             View all →
           </Link>
         )}
       </div>
 
-      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-3 -mx-4 px-4 no-scrollbar snap-x snap-mandatory">
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar snap-x snap-mandatory">
         {games.map((game, i) => (
           <div
             key={game.slug}
-            className="flex-shrink-0 w-40 sm:w-44 md:w-48 snap-start"
+            className="flex-shrink-0 w-36 sm:w-40 md:w-44 snap-start"
           >
             <GameCard game={game} index={i} />
           </div>

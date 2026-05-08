@@ -59,7 +59,7 @@ export default async function GamePage({
                 <Link
                   key={catSlug}
                   href={`/category/${catSlug}`}
-                  className="px-2 py-0.5 rounded-md bg-[var(--surface)] text-[var(--muted)] hover:text-white transition-colors"
+                  className="px-2 py-0.5 rounded-md bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {c.emoji} {c.title}
                 </Link>
@@ -77,7 +77,7 @@ export default async function GamePage({
           <p className="text-[var(--muted)] mt-1">{game.short}</p>
         </div>
         <div className="hidden md:flex flex-col items-end gap-1 text-right shrink-0">
-          <div className="text-2xl font-black text-yellow-400">
+          <div className="text-2xl font-black text-amber-500">
             ⭐ {game.rating.toFixed(1)}
           </div>
           <div className="text-xs text-[var(--muted)]">

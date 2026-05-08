@@ -20,63 +20,59 @@ export function Hero({ games }: { games: Game[] }) {
   if (!game) return null;
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] mb-10">
+    <section className="relative overflow-hidden rounded-2xl mb-8">
       <AnimatePresence mode="wait">
         <motion.div
           key={`bg-${game.slug}`}
-          initial={{ opacity: 0, scale: 1.06 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
-          transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6 }}
           className="absolute inset-0"
           style={{ background: game.gradient }}
         />
       </AnimatePresence>
 
       <div
-        className="absolute inset-0 opacity-50 mix-blend-overlay pointer-events-none"
+        className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 25% 25%, rgba(255,255,255,0.55), transparent 50%), radial-gradient(circle at 80% 60%, rgba(0,0,0,0.45), transparent 60%)",
+            "radial-gradient(circle at 25% 25%, rgba(255,255,255,0.55), transparent 50%), radial-gradient(circle at 80% 60%, rgba(0,0,0,0.4), transparent 60%)",
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/35 to-transparent pointer-events-none" />
 
-      <div className="relative grid lg:grid-cols-[1fr_auto] gap-8 p-6 md:p-12 min-h-[360px] md:min-h-[460px] z-10">
+      <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 p-6 md:p-10 min-h-[260px] md:min-h-[320px] z-10">
         <div className="flex flex-col justify-end">
           <AnimatePresence mode="wait">
             <motion.div
               key={`text-${game.slug}`}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.4 }}
               className="text-white max-w-xl"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2.5 py-1 rounded-md bg-white text-black text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 rounded-md bg-white text-black text-[10px] font-black uppercase tracking-widest">
                   Featured
                 </span>
                 {game.isNew && (
-                  <span className="px-2.5 py-1 rounded-md bg-[var(--accent-2)] text-white text-[10px] font-black uppercase tracking-widest">
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--accent-2)] text-white text-[10px] font-black uppercase tracking-widest">
                     New
                   </span>
                 )}
-                <span className="text-[10px] text-white/70 uppercase tracking-widest">
-                  {game.categories.slice(0, 2).join(" • ")}
-                </span>
               </div>
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-4 drop-shadow-2xl leading-[1.05]">
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-2 drop-shadow leading-[1.05]">
                 {game.title}
               </h1>
-              <p className="text-base md:text-lg text-white/85 mb-6 max-w-md leading-relaxed">
+              <p className="text-sm md:text-base text-white/85 mb-4 max-w-md">
                 {game.description}
               </p>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/game/${game.slug}`}
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white text-black font-bold text-sm hover:scale-105 transition-transform shadow-2xl"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-black font-bold text-sm hover:scale-105 transition-transform shadow-md"
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                     <path d="M8 5v14l11-7z" />
@@ -85,57 +81,47 @@ export function Hero({ games }: { games: Game[] }) {
                 </Link>
                 <Link
                   href={`/leaderboard/${game.slug}`}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white font-bold text-sm hover:bg-white/20 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
                 >
                   🏆 Leaderboard
                 </Link>
-                <span className="text-xs text-white/60 hidden sm:inline">
-                  ⭐ {game.rating.toFixed(1)} · {game.plays.toLocaleString()} plays
-                </span>
               </div>
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <div className="hidden lg:flex flex-col justify-end items-end gap-3">
+        <div className="hidden lg:flex flex-col justify-end items-end">
           <AnimatePresence mode="wait">
             <motion.div
               key={`art-${game.slug}`}
-              initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.85, rotate: 8 }}
-              transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.5 }}
+              className="drop-shadow-[0_12px_36px_rgba(0,0,0,0.3)]"
             >
-              <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
+              <GameArt icon={game.icon} glyph={game.glyph} size="xl" />
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
 
-      {/* Thumbnails strip */}
       {list.length > 1 && (
-        <div className="relative z-10 px-6 md:px-12 pb-5">
-          <div className="flex gap-2 md:gap-3">
-            {list.map((g, i) => (
-              <button
-                key={g.slug}
-                type="button"
-                onClick={() => setActive(i)}
-                aria-label={`Show ${g.title}`}
-                className={`group relative shrink-0 rounded-xl overflow-hidden transition-all ${
-                  i === active ? "w-20 h-12 ring-2 ring-white" : "w-12 h-12 ring-1 ring-white/30 hover:ring-white/70"
-                }`}
-                style={{ background: g.gradient }}
-              >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <GameArt icon={g.icon} glyph={g.glyph} size="sm" />
-                </div>
-                {i === active && (
-                  <div className="absolute inset-x-0 bottom-0 h-0.5 bg-white" />
-                )}
-              </button>
-            ))}
-          </div>
+        <div className="relative z-10 px-6 md:px-10 pb-4 flex gap-2">
+          {list.map((g, i) => (
+            <button
+              key={g.slug}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-label={`Show ${g.title}`}
+              className="h-1 rounded-full transition-all"
+              style={{
+                width: i === active ? 28 : 12,
+                background:
+                  i === active ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.45)",
+              }}
+            />
+          ))}
         </div>
       )}
     </section>

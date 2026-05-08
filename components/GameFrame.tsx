@@ -36,7 +36,7 @@ export function GameFrame({ game }: { game: Game }) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-[var(--border)]"
+      className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-[var(--border)] shadow-md"
     >
       {!started ? (
         <button

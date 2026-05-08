@@ -27,10 +27,10 @@ export function SearchBar() {
         placeholder="Search games…"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-full h-10 pl-10 pr-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-glow)] text-sm placeholder:text-[var(--muted)] transition-colors"
+        className="w-full h-9 pl-9 pr-3 rounded-lg bg-[var(--surface-2)] border border-transparent focus:border-[var(--accent)] focus:bg-white focus:outline-none text-sm placeholder:text-[var(--muted)] transition-all"
       />
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]"
+        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
