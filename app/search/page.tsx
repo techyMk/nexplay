@@ -1,5 +1,6 @@
 import { searchGames } from "@/lib/catalog";
 import { GameGrid } from "@/components/GameGrid";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = {
   title: "Search — Nexplay",
@@ -16,6 +17,9 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-4">
+        <BackButton fallback="/" />
+      </div>
       <h1 className="text-2xl md:text-3xl font-black mb-2">
         {query ? `Results for "${query}"` : "Search"}
       </h1>

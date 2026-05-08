@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Player, SkribblState } from "@/lib/skribbl/state";
 import { SkribblRoomClient } from "./Room";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = { title: "Skribbl Room — Nexplay" };
 
@@ -81,13 +81,8 @@ export default async function SkribblRoomPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 md:py-10">
-      <div className="flex items-center gap-3 mb-4">
-        <Link
-          href="/multiplayer/skribbl"
-          className="text-sm text-[var(--muted)] hover:text-white"
-        >
-          ← Lobby
-        </Link>
+      <div className="mb-4">
+        <BackButton fallback="/multiplayer/skribbl" label="Lobby" />
       </div>
 
       <SkribblRoomClient

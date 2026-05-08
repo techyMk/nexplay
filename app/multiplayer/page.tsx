@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = { title: "Multiplayer — Nexplay" };
 
@@ -41,6 +42,9 @@ const MULTIPLAYER_GAMES = [
 export default function MultiplayerHub() {
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 md:py-12">
+      <div className="mb-4">
+        <BackButton fallback="/" />
+      </div>
       <div className="text-center mb-10">
         <div className="text-5xl mb-3">👥</div>
         <h1 className="text-3xl md:text-4xl font-black mb-2">Multiplayer</h1>
