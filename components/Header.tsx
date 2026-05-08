@@ -12,8 +12,8 @@ export function Header() {
           <Image
             src="/nexplay-logo.png"
             alt="Nexplay"
-            width={160}
-            height={64}
+            width={2000}
+            height={1000}
             priority
             className="h-12 w-auto group-hover:scale-105 transition-transform"
           />

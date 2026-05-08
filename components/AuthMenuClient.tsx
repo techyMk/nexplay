@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Avatar } from "./Avatar";
 
 export function AuthMenuClient({
   displayName,
@@ -30,9 +31,8 @@ export function AuthMenuClient({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] flex items-center justify-center text-base">
-          {avatar}
-        </div>
+        <Avatar value={avatar} size="sm" />
+
         <span className="hidden sm:inline text-sm font-medium max-w-[120px] truncate">
           {displayName}
         </span>
@@ -54,7 +54,7 @@ export function AuthMenuClient({
           <form action="/logout" method="post">
             <button
               type="submit"
-              className="block w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-2)] text-red-400 transition-colors"
+              className="block w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-2)] text-red-500 transition-colors"
             >
               Log out
             </button>

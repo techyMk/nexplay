@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
+import { Avatar } from "@/components/Avatar";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -104,19 +105,17 @@ export default async function LeaderboardPage({
               <div
                 className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-sm ${
                   i === 0
-                    ? "bg-yellow-500/20 text-yellow-400"
+                    ? "bg-yellow-100 text-yellow-700"
                     : i === 1
-                      ? "bg-zinc-300/20 text-zinc-300"
+                      ? "bg-zinc-100 text-zinc-600"
                       : i === 2
-                        ? "bg-amber-700/30 text-amber-400"
+                        ? "bg-amber-100 text-amber-700"
                         : "bg-[var(--surface-2)] text-[var(--muted)]"
                 }`}
               >
                 {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
               </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] flex items-center justify-center text-base">
-                {row.avatar_emoji || "🎮"}
-              </div>
+              <Avatar value={row.avatar_emoji} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate">
                   {row.display_name || "Player"}

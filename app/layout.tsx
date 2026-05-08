@@ -48,9 +48,9 @@ export default function RootLayout({
                     <Image
                       src="/nexplay-icon.png"
                       alt="Nexplay"
-                      width={32}
-                      height={32}
-                      className="rounded-md"
+                      width={2000}
+                      height={2000}
+                      className="w-8 h-8 rounded-md"
                     />
                     <span className="font-black text-base">
                       Nex<span className="text-gradient">play</span>
