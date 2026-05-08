@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyMove, INITIAL_TTT_STATE, type TTTState } from "@/lib/multiplayer";
 
@@ -14,6 +14,14 @@ type Initial = {
   host: Profile | null;
   guest: Profile | null;
 };
+
+type RoomRow = {
+  state: TTTState;
+  status: "waiting" | "playing" | "finished";
+  guest_user_id: string | null;
+};
+
+type RealtimeStatus = "connecting" | "live" | "polling" | "error";
 
 export function TTTRoomClient({
   roomId,
@@ -34,8 +42,44 @@ export function TTTRoomClient({
   const [guest, setGuest] = useState(initial.guest);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rtStatus, setRtStatus] = useState<RealtimeStatus>("connecting");
 
-  // Realtime subscription: listen for any UPDATE on this room
+  // Refs so the realtime callback / polling can read latest values without
+  // forcing a re-subscribe.
+  const guestUserIdRef = useRef(guestUserId);
+  guestUserIdRef.current = guestUserId;
+  const guestRef = useRef(guest);
+  guestRef.current = guest;
+  const lastEventAtRef = useRef<number>(Date.now());
+
+  // Apply a row update from either realtime or polling.
+  const applyRow = useCallback(
+    async (row: RoomRow, source: "realtime" | "poll") => {
+      lastEventAtRef.current = Date.now();
+      console.debug(`[room ${roomId}] update via ${source}`, row);
+      setState(row.state);
+      setStatus(row.status);
+      if (row.guest_user_id !== guestUserIdRef.current) {
+        setGuestUserId(row.guest_user_id);
+        if (row.guest_user_id && !guestRef.current) {
+          const supabase = createClient();
+          const { data } = await supabase
+            .from("profiles")
+            .select("display_name, avatar_emoji")
+            .eq("id", row.guest_user_id)
+            .single();
+          if (data)
+            setGuest({
+              name: data.display_name ?? "Player",
+              avatar: data.avatar_emoji ?? "🎮",
+            });
+        }
+      }
+    },
+    [roomId],
+  );
+
+  // Realtime: subscribe once per room.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -49,39 +93,53 @@ export function TTTRoomClient({
           filter: `id=eq.${roomId}`,
         },
         (payload) => {
-          const row = payload.new as {
-            state: TTTState;
-            status: "waiting" | "playing" | "finished";
-            guest_user_id: string | null;
-          };
-          setState(row.state);
-          setStatus(row.status);
-          if (row.guest_user_id !== guestUserId) {
-            setGuestUserId(row.guest_user_id);
-            // Re-fetch guest profile if a player just joined
-            if (row.guest_user_id && !guest) {
-              supabase
-                .from("profiles")
-                .select("display_name, avatar_emoji")
-                .eq("id", row.guest_user_id)
-                .single()
-                .then(({ data }) => {
-                  if (data)
-                    setGuest({
-                      name: data.display_name ?? "Player",
-                      avatar: data.avatar_emoji ?? "🎮",
-                    });
-                });
-            }
-          }
+          applyRow(payload.new as RoomRow, "realtime");
         },
       )
-      .subscribe();
+      .subscribe((s, err) => {
+        console.debug(`[room ${roomId}] subscribe status: ${s}`, err);
+        if (s === "SUBSCRIBED") setRtStatus("live");
+        else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setRtStatus("error");
+        else if (s === "CLOSED") setRtStatus("polling");
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId, guestUserId, guest]);
+  }, [roomId, applyRow]);
+
+  // Polling fallback: refetch every 3s. Cheap, and saves us if realtime
+  // misses a beat (publication misconfig, browser sleep, etc.).
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+
+    const poll = async () => {
+      const { data, error: err } = await supabase
+        .from("rooms")
+        .select("state, status, guest_user_id")
+        .eq("id", roomId)
+        .single();
+      if (cancelled) return;
+      if (err) {
+        console.warn(`[room ${roomId}] poll error`, err);
+        return;
+      }
+      if (data) {
+        applyRow(data as RoomRow, "poll");
+        // If realtime hasn't given us anything in the last ~6s, mark as polling
+        if (Date.now() - lastEventAtRef.current > 6000 && rtStatus === "live") {
+          setRtStatus("polling");
+        }
+      }
+    };
+
+    const id = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [roomId, applyRow, rtStatus]);
 
   const myMark: "X" | "O" | null = useMemo(() => {
     if (myRole === "host") return "X";
@@ -98,7 +156,7 @@ export function TTTRoomClient({
     const next = applyMove(state, myMark, i);
     if (!next) return;
 
-    // Optimistic update for snappy UI; realtime will reconcile.
+    // Optimistic update for snappy UI; realtime/polling will reconcile.
     setState(next);
 
     const supabase = createClient();
@@ -154,8 +212,11 @@ export function TTTRoomClient({
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 mb-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-[var(--muted)]">
-              Room code
+            <div className="flex items-center gap-2">
+              <div className="text-xs uppercase tracking-wider text-[var(--muted)]">
+                Room code
+              </div>
+              <RealtimeBadge status={rtStatus} />
             </div>
             <div className="font-mono text-3xl font-black tracking-[0.25em]">
               {roomId}
@@ -259,7 +320,6 @@ export function TTTRoomClient({
         })}
       </div>
 
-      {/* Rematch — host only, after game ends */}
       {state.winner && myRole === "host" && (
         <div className="text-center">
           <button
@@ -276,6 +336,34 @@ export function TTTRoomClient({
         </div>
       )}
     </>
+  );
+}
+
+function RealtimeBadge({ status }: { status: RealtimeStatus }) {
+  const config = {
+    connecting: { label: "connecting", color: "bg-zinc-400", pulse: true },
+    live: { label: "live", color: "bg-emerald-500", pulse: false },
+    polling: { label: "polling", color: "bg-yellow-500", pulse: false },
+    error: { label: "offline", color: "bg-red-500", pulse: false },
+  }[status];
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold"
+      title={`Realtime sync: ${config.label}`}
+    >
+      <span className="relative flex h-2 w-2">
+        {config.pulse && (
+          <span
+            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${config.color}`}
+          />
+        )}
+        <span
+          className={`relative inline-flex rounded-full h-2 w-2 ${config.color}`}
+        />
+      </span>
+      {config.label}
+    </span>
   );
 }
 
