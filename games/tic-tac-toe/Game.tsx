@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Cell = "X" | "O" | null;
@@ -128,12 +129,20 @@ export default function TicTacToe() {
         {!winner && full && <span>It&apos;s a draw.</span>}
       </div>
 
-      <button
-        onClick={reset}
-        className="mt-2 px-5 py-2 rounded-lg bg-white text-black text-sm font-bold hover:scale-105 transition-transform"
-      >
-        New round
-      </button>
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={reset}
+          className="px-5 py-2 rounded-lg bg-white text-black text-sm font-bold hover:scale-105 transition-transform"
+        >
+          New round
+        </button>
+        <Link
+          href="/multiplayer/tic-tac-toe"
+          className="px-5 py-2 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20 transition-colors"
+        >
+          Play with a friend →
+        </Link>
+      </div>
     </div>
   );
 }

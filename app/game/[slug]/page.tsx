@@ -37,43 +37,103 @@ export default async function GamePage({
       g.categories.some((c) => game.categories.includes(c)),
   ).slice(0, 6);
 
+  const isMultiplayer = game.players === "multiplayer" || game.players === "both";
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      {/* Title bar */}
+      <div className="flex items-start gap-4 mb-6">
+        <div
+          className="hidden sm:flex w-16 h-16 rounded-2xl items-center justify-center text-3xl shadow-lg"
+          style={{ background: game.gradient }}
+        >
+          {game.glyph}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
+            {game.categories.slice(0, 2).map((catSlug) => {
+              const c = getCategory(catSlug);
+              if (!c) return null;
+              return (
+                <Link
+                  key={catSlug}
+                  href={`/category/${catSlug}`}
+                  className="px-2 py-0.5 rounded-md bg-[var(--surface)] text-[var(--muted)] hover:text-white transition-colors"
+                >
+                  {c.emoji} {c.title}
+                </Link>
+              );
+            })}
+            {game.isNew && (
+              <span className="px-2 py-0.5 rounded-md bg-[var(--accent-2)] text-white font-bold uppercase tracking-wider">
+                New
+              </span>
+            )}
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+            {game.title}
+          </h1>
+          <p className="text-[var(--muted)] mt-1">{game.short}</p>
+        </div>
+        <div className="hidden md:flex flex-col items-end gap-1 text-right shrink-0">
+          <div className="text-2xl font-black text-yellow-400">
+            ⭐ {game.rating.toFixed(1)}
+          </div>
+          <div className="text-xs text-[var(--muted)]">
+            {game.plays.toLocaleString()} plays
+          </div>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 mb-10">
         <div>
           <GameFrame game={game} />
         </div>
 
-        <aside className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <h1 className="text-2xl font-black mb-1">{game.title}</h1>
-          <p className="text-sm text-[var(--muted)] mb-4">{game.short}</p>
-
-          <div className="flex items-center gap-3 text-sm mb-4">
-            <span className="flex items-center gap-1 text-yellow-400">
-              ⭐ {game.rating.toFixed(1)}
-            </span>
-            <span className="text-[var(--muted)]">
-              {game.plays.toLocaleString()} plays
-            </span>
-          </div>
-
+        <aside className="space-y-4">
           <Link
             href={`/leaderboard/${game.slug}`}
-            className="block w-full text-center mb-4 px-4 py-2.5 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--accent)] transition-colors text-sm font-bold"
+            className="block rounded-2xl p-5 border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] to-[var(--surface-2)] hover:border-[var(--accent)] card-lift"
           >
-            🏆 Leaderboard
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🏆</div>
+              <div>
+                <div className="font-black">Leaderboard</div>
+                <div className="text-xs text-[var(--muted)]">
+                  See top scores worldwide
+                </div>
+              </div>
+            </div>
           </Link>
 
-          <div className="space-y-3 text-sm">
+          {isMultiplayer && (
+            <Link
+              href={`/multiplayer/${game.slug}`}
+              className="block rounded-2xl p-5 relative overflow-hidden card-lift"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]" />
+              <div className="relative flex items-center gap-3 text-white">
+                <div className="text-3xl">👥</div>
+                <div>
+                  <div className="font-black">Play with a friend</div>
+                  <div className="text-xs text-white/85">
+                    Real-time, share a code
+                  </div>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 space-y-4">
             <div>
-              <div className="text-[var(--muted)] text-xs uppercase tracking-wider mb-1">
+              <div className="text-[var(--muted)] text-[10px] uppercase tracking-widest mb-1.5 font-bold">
                 Controls
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {game.controls.map((c) => (
                   <span
                     key={c}
-                    className="px-2 py-1 rounded-md bg-[var(--surface-2)] text-xs"
+                    className="px-2.5 py-1 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs font-medium"
                   >
                     {c}
                   </span>
@@ -82,38 +142,23 @@ export default async function GamePage({
             </div>
 
             <div>
-              <div className="text-[var(--muted)] text-xs uppercase tracking-wider mb-1">
-                Players
+              <div className="text-[var(--muted)] text-[10px] uppercase tracking-widest mb-1.5 font-bold">
+                Mode
               </div>
-              <div className="capitalize">{game.players}</div>
-            </div>
-
-            <div>
-              <div className="text-[var(--muted)] text-xs uppercase tracking-wider mb-1">
-                Categories
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {game.categories.map((catSlug) => {
-                  const c = getCategory(catSlug);
-                  if (!c) return null;
-                  return (
-                    <Link
-                      key={catSlug}
-                      href={`/category/${catSlug}`}
-                      className="px-2 py-1 rounded-md bg-[var(--surface-2)] text-xs hover:bg-[var(--accent)] transition-colors"
-                    >
-                      {c.emoji} {c.title}
-                    </Link>
-                  );
-                })}
+              <div className="text-sm capitalize">
+                {game.players === "both"
+                  ? "Single + multiplayer"
+                  : game.players}
               </div>
             </div>
 
             <div>
-              <div className="text-[var(--muted)] text-xs uppercase tracking-wider mb-1">
+              <div className="text-[var(--muted)] text-[10px] uppercase tracking-widest mb-1.5 font-bold">
                 About
               </div>
-              <p className="text-sm leading-relaxed">{game.description}</p>
+              <p className="text-sm leading-relaxed text-[var(--muted)]">
+                {game.description}
+              </p>
             </div>
           </div>
         </aside>
@@ -125,8 +170,8 @@ export default async function GamePage({
             You might also like
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 md:gap-4">
-            {related.map((g) => (
-              <GameCard key={g.slug} game={g} />
+            {related.map((g, i) => (
+              <GameCard key={g.slug} game={g} index={i} />
             ))}
           </div>
         </section>

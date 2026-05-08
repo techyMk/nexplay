@@ -34,12 +34,22 @@ export default async function CategoryPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-      <div className="mb-6">
-        <div className="text-5xl mb-2">{category.emoji}</div>
-        <h1 className="text-3xl md:text-4xl font-black">
-          {category.title} games
-        </h1>
-        <p className="text-[var(--muted)] mt-2">{category.description}</p>
+      <div className="rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] to-[var(--surface-2)] p-8 mb-8 relative overflow-hidden">
+        <div className="absolute -right-8 -top-8 text-[260px] opacity-10 select-none">
+          {category.emoji}
+        </div>
+        <div className="relative">
+          <div className="text-5xl mb-3">{category.emoji}</div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-2">
+            {category.title} <span className="text-gradient">games</span>
+          </h1>
+          <p className="text-[var(--muted)] max-w-xl">
+            {category.description}
+          </p>
+          <div className="mt-3 text-xs text-[var(--muted)]">
+            {games.length} {games.length === 1 ? "game" : "games"} available
+          </div>
+        </div>
       </div>
 
       <CategoryPills activeSlug={slug} />

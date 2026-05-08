@@ -54,4 +54,24 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  tetris: dynamic(() => import("./tetris/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  minesweeper: dynamic(() => import("./minesweeper/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  breakout: dynamic(() => import("./breakout/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  asteroids: dynamic(() => import("./asteroids/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  "whack-a-mole": dynamic(() => import("./whack-a-mole/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };

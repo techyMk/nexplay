@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b0d12;
-  --surface: #141821;
-  --surface-2: #1c2230;
+  --background: #07080d;
+  --surface: #0f1320;
+  --surface-2: #181d2e;
+  --surface-3: #232a40;
   --foreground: #f5f6fa;
   --muted: #8b93a7;
-  --border: #252b39;
+  --border: #1d2235;
+  --border-strong: #2b3247;
   --accent: #7c5cff;
   --accent-2: #ff5cae;
-  --accent-glow: rgba(124, 92, 255, 0.35);
+  --accent-3: #3afff0;
+  --accent-glow: rgba(124, 92, 255, 0.45);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -34,10 +39,41 @@ body {
 body {
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
-  background-image:
-    radial-gradient(1200px 600px at 80% -10%, rgba(124, 92, 255, 0.18), transparent 60%),
-    radial-gradient(900px 500px at -10% 10%, rgba(255, 92, 174, 0.12), transparent 60%);
-  background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Aurora mesh background — fixed, parallaxes against scroll */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(900px 600px at 15% 10%, rgba(124, 92, 255, 0.22), transparent 55%),
+    radial-gradient(800px 500px at 85% 20%, rgba(255, 92, 174, 0.16), transparent 55%),
+    radial-gradient(700px 500px at 50% 100%, rgba(58, 255, 240, 0.10), transparent 60%),
+    radial-gradient(600px 400px at 90% 80%, rgba(124, 92, 255, 0.10), transparent 60%);
+  filter: blur(20px);
+  animation: aurora 28s ease-in-out infinite;
+}
+
+@keyframes aurora {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(2%, -1%) scale(1.05); }
+  66% { transform: translate(-2%, 1%) scale(0.97); }
+}
+
+/* Subtle grain overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 ::selection {
@@ -45,27 +81,59 @@ body {
   color: white;
 }
 
-/* Subtle scrollbar */
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 999px;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--surface-2);
+/* Scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--surface-3); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Glass panel */
+.glass {
+  background: rgba(15, 19, 32, 0.6);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Utility for hiding the horizontal-row scrollbar but keeping scroll */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent-3) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+/* Shimmer divider */
+.divider-shimmer {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
+
+/* Marquee for hero ribbon */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.25s ease,
+              border-color 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* Pulse glow */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 30px 8px var(--accent-glow); }
+}
+.pulse-glow { animation: pulse-glow 2.4s ease-in-out infinite; }
