@@ -161,6 +161,7 @@ export default function MatchThree() {
         className="grid gap-1.5 p-2 rounded-2xl bg-black/40 border border-white/10"
         style={{
           gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+          gridTemplateRows: `repeat(${SIZE}, 1fr)`,
           width: "min(80vh, 480px)",
           aspectRatio: "1",
         }}

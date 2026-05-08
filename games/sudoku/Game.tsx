@@ -144,7 +144,11 @@ export default function Sudoku() {
 
       <div
         className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border border-white/20"
-        style={{ width: "min(85vh, 540px)", aspectRatio: "1" }}
+        style={{
+          width: "min(85vh, 540px)",
+          aspectRatio: "1",
+          gridTemplateRows: "repeat(9, 1fr)",
+        }}
       >
         {board.map((row, r) =>
           row.map((cell, c) => {
