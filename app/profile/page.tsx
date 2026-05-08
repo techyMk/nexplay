@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GAMES } from "@/lib/catalog";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { GameArt } from "@/components/GameArt";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = { title: "Profile — Nexplay" };
 
@@ -52,6 +53,9 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 md:py-12">
+      <div className="mb-4">
+        <BackButton fallback="/" />
+      </div>
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 mb-8">
         <ProfileEditor
           initial={{

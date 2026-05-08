@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CATEGORIES, gamesByCategory, getCategory } from "@/lib/catalog";
 import { CategoryPills } from "@/components/CategoryPills";
 import { GameGrid } from "@/components/GameGrid";
+import { BackButton } from "@/components/BackButton";
 
 export function generateStaticParams() {
   return CATEGORIES.map((c) => ({ slug: c.slug }));
@@ -34,6 +35,9 @@ export default async function CategoryPage({
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
+      <div className="mb-3">
+        <BackButton fallback="/" />
+      </div>
       <div className="mb-5">
         <div className="flex items-center gap-3 mb-1">
           <span className="text-3xl">{category.emoji}</span>

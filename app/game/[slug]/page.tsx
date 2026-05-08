@@ -4,6 +4,7 @@ import { GAMES, getCategory, getGame } from "@/lib/catalog";
 import { GameFrame } from "@/components/GameFrame";
 import { GameCard } from "@/components/GameCard";
 import { GameArt } from "@/components/GameArt";
+import { BackButton } from "@/components/BackButton";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -42,6 +43,10 @@ export default async function GamePage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-4">
+        <BackButton fallback="/" />
+      </div>
+
       {/* Title bar */}
       <div className="flex items-start gap-4 mb-6">
         <div

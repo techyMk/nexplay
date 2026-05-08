@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { TTTRoomClient } from "./Room";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = { title: "Tic-Tac-Toe Room — Nexplay" };
 
@@ -81,13 +81,8 @@ export default async function TTTRoomPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-6 md:py-10">
-      <div className="flex items-center gap-3 mb-4">
-        <Link
-          href="/multiplayer/tic-tac-toe"
-          className="text-sm text-[var(--muted)] hover:text-white"
-        >
-          ← Lobby
-        </Link>
+      <div className="mb-4">
+        <BackButton fallback="/multiplayer/tic-tac-toe" label="Lobby" />
       </div>
 
       <TTTRoomClient

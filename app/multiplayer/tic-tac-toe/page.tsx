@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { INITIAL_TTT_STATE, generateRoomCode } from "@/lib/multiplayer";
 import { JoinForm } from "@/components/JoinForm";
 import { RecentRoomsList, type RecentRoom } from "@/components/RecentRoomsList";
+import { BackButton } from "@/components/BackButton";
 
 export const metadata = { title: "Multiplayer Tic-Tac-Toe — Nexplay" };
 
@@ -61,6 +62,9 @@ export default async function TicTacToeLobbyPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8 md:py-12">
+      <div className="mb-4">
+        <BackButton fallback="/multiplayer" label="Multiplayer" />
+      </div>
       <div className="text-center mb-10">
         <div className="text-6xl mb-3">❌⭕</div>
         <h1 className="text-3xl md:text-4xl font-black mb-1">

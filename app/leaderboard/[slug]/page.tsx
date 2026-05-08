@@ -4,6 +4,7 @@ import { GAMES, getGame } from "@/lib/catalog";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { GameArt } from "@/components/GameArt";
+import { BackButton } from "@/components/BackButton";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -61,6 +62,9 @@ export default async function LeaderboardPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8 md:py-12">
+      <div className="mb-4">
+        <BackButton fallback={`/game/${game.slug}`} />
+      </div>
       <div className="flex items-center gap-4 mb-6">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center"
