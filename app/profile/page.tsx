@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { GAMES } from "@/lib/catalog";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { GameArt } from "@/components/GameArt";
 
 export const metadata = { title: "Profile — Nexplay" };
 
@@ -73,10 +74,14 @@ export default async function ProfilePage() {
             return (
               <div key={slug} className="flex items-center gap-4 p-4">
                 <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
                   style={{ background: game?.gradient ?? "var(--surface-2)" }}
                 >
-                  {game?.glyph ?? "🎮"}
+                  <GameArt
+                    icon={game?.icon}
+                    glyph={game?.glyph ?? "🎮"}
+                    size="sm"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <Link
