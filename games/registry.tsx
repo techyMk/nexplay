@@ -74,4 +74,20 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  sudoku: dynamic(() => import("./sudoku/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  "match-three": dynamic(() => import("./match-three/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  "tower-of-hanoi": dynamic(() => import("./tower-of-hanoi/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
+  "bubble-shooter": dynamic(() => import("./bubble-shooter/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };

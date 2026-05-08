@@ -7,7 +7,7 @@ import {
   newGames,
   popularGames,
 } from "@/lib/catalog";
-import { CategoryPills } from "@/components/CategoryPills";
+import { BentoGrid } from "@/components/BentoGrid";
 import { CategoryRow } from "@/components/CategoryRow";
 import { GameGrid } from "@/components/GameGrid";
 import { Hero } from "@/components/Hero";
@@ -15,37 +15,36 @@ import { RecentlyPlayedRow } from "@/components/RecentlyPlayedRow";
 
 export default function Home() {
   const featured = featuredGames();
-  const popular = popularGames(10);
+  const popular = popularGames(12);
   const fresh = newGames();
-  const customCount = GAMES.filter((g) => g.source === "custom").length;
   const totalCount = GAMES.length;
   const multiplayerCount = GAMES.filter(
     (g) => g.players === "multiplayer" || g.players === "both",
   ).length;
 
+  // Bento section: 1 large + 9 normals (10 total)
+  const bentoGames = [
+    ...featured,
+    ...popular.filter((g) => !featured.some((f) => f.slug === g.slug)),
+  ].slice(0, 10);
+
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 md:py-10 max-w-[1600px] mx-auto">
       <Hero games={featured.length ? featured : GAMES.slice(0, 3)} />
 
-      {/* Stat strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <Stat icon="🎮" big={`${totalCount}`} label="Free games" />
-        <Stat icon="🛠️" big={`${customCount}`} label="Built natively" />
-        <Stat icon="👥" big={`${multiplayerCount}`} label="Multiplayer" />
-        <Stat icon="⚡" big="Realtime" label="No downloads" />
+      {/* Section: bento featured */}
+      <SectionHeader emoji="🔥" title="Trending now" subtitle="Hand-picked games everyone's playing" />
+      <div className="mb-12">
+        <BentoGrid games={bentoGames} />
       </div>
 
-      <CategoryPills />
-
       <RecentlyPlayedRow />
-
-      <CategoryRow title="Popular right now" games={popular} emoji="🔥" />
 
       {fresh.length > 0 && (
         <CategoryRow title="Fresh on Nexplay" games={fresh} emoji="✨" />
       )}
 
-      {/* Multiplayer banner */}
+      {/* Multiplayer hero card */}
       <Link
         href="/multiplayer"
         className="block mb-12 rounded-3xl overflow-hidden border border-[var(--border)] group relative card-lift"
@@ -70,12 +69,13 @@ export default function Home() {
                 Live multiplayer
               </span>
             </div>
-            <h2 className="text-2xl md:text-4xl font-black mb-2">
+            <h2 className="text-2xl md:text-4xl font-black mb-2 tracking-tight">
               Play head-to-head with friends
             </h2>
             <p className="text-white/85 text-sm md:text-base max-w-2xl">
               Real-time Tic-Tac-Toe over Supabase Realtime. Create a room, share
-              the code, play instantly. More games coming soon.
+              the code, play instantly. {multiplayerCount} multiplayer-enabled
+              games and growing.
             </p>
           </div>
           <div className="bg-white text-black px-6 py-3 rounded-xl font-bold text-sm shadow-2xl group-hover:scale-105 transition-transform whitespace-nowrap">
@@ -83,6 +83,13 @@ export default function Home() {
           </div>
         </div>
       </Link>
+
+      <CategoryRow
+        title="Popular right now"
+        href="/category/arcade"
+        emoji="🔥"
+        games={popular}
+      />
 
       <CategoryRow
         title="2 Player"
@@ -112,20 +119,34 @@ export default function Home() {
         games={gamesByCategory("arcade")}
       />
 
+      <CategoryRow
+        title="Strategy"
+        href="/category/strategy"
+        emoji="♟️"
+        games={gamesByCategory("strategy")}
+      />
+
+      {/* All games */}
       <section className="mt-12">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-2xl md:text-3xl font-black">All games</h2>
-          <span className="text-sm text-[var(--muted)]">
-            {totalCount} games
-          </span>
-        </div>
+        <SectionHeader
+          emoji="🎮"
+          title="All games"
+          subtitle={`${totalCount} games · play any, save any`}
+          right={
+            <Link
+              href="/category/arcade"
+              className="text-sm text-[var(--muted)] hover:text-white"
+            >
+              Browse →
+            </Link>
+          }
+        />
         <GameGrid games={GAMES} />
       </section>
 
+      {/* Categories panel */}
       <section className="mt-16">
-        <h2 className="text-2xl md:text-3xl font-black mb-6">
-          Browse by category
-        </h2>
+        <SectionHeader emoji="📁" title="Browse by category" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {CATEGORIES.map((cat) => {
             const count = gamesByCategory(cat.slug).length;
@@ -154,14 +175,28 @@ export default function Home() {
   );
 }
 
-function Stat({ icon, big, label }: { icon: string; big: string; label: string }) {
+function SectionHeader({
+  emoji,
+  title,
+  subtitle,
+  right,
+}: {
+  emoji?: string;
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-2xl glass p-4">
-      <div className="text-2xl mb-1">{icon}</div>
-      <div className="text-2xl md:text-3xl font-black text-gradient">{big}</div>
-      <div className="text-[11px] text-[var(--muted)] uppercase tracking-wider">
-        {label}
+    <div className="flex items-end justify-between gap-3 mb-5">
+      <div>
+        <h2 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
+          {emoji && <span>{emoji}</span>} {title}
+        </h2>
+        {subtitle && (
+          <p className="text-sm text-[var(--muted)] mt-1">{subtitle}</p>
+        )}
       </div>
+      {right}
     </div>
   );
 }
