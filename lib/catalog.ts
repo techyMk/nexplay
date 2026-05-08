@@ -109,7 +109,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "connect-four",
-    icon: "game-icons:filled-disc",
+    icon: "game-icons:disc",
     title: "Connect Four",
     short: "Drop, line up four, win.",
     description:
@@ -214,7 +214,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "drift-king",
-    icon: "game-icons:racing-car",
+    icon: "game-icons:f1-car",
     title: "Drift King",
     short: "Top-down arcade racing & drifting.",
     description:
@@ -265,7 +265,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "tetris",
-    icon: "game-icons:tetris-block",
+    icon: "game-icons:brick-pile",
     title: "Tetris",
     short: "Stack the falling blocks. Clear lines.",
     description:
@@ -375,7 +375,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "chrome-dino",
-    icon: "game-icons:trex",
+    icon: "game-icons:t-rex-skull",
     title: "Chrome Dino",
     short: "The offline runner that's now online.",
     description:
