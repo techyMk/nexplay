@@ -33,23 +33,18 @@ export default async function CategoryPage({
   const games = gamesByCategory(slug);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-      <div className="rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] to-[var(--surface-2)] p-8 mb-8 relative overflow-hidden">
-        <div className="absolute -right-8 -top-8 text-[260px] opacity-10 select-none">
-          {category.emoji}
-        </div>
-        <div className="relative">
-          <div className="text-5xl mb-3">{category.emoji}</div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-2">
-            {category.title} <span className="text-gradient">games</span>
+    <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
+      <div className="mb-5">
+        <div className="flex items-center gap-3 mb-1">
+          <span className="text-3xl">{category.emoji}</span>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">
+            {category.title}
           </h1>
-          <p className="text-[var(--muted)] max-w-xl">
-            {category.description}
-          </p>
-          <div className="mt-3 text-xs text-[var(--muted)]">
-            {games.length} {games.length === 1 ? "game" : "games"} available
-          </div>
+          <span className="ml-auto text-sm text-[var(--muted)] font-medium">
+            {games.length} {games.length === 1 ? "game" : "games"}
+          </span>
         </div>
+        <p className="text-sm text-[var(--muted)]">{category.description}</p>
       </div>
 
       <CategoryPills activeSlug={slug} />

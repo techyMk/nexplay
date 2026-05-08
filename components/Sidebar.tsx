@@ -22,7 +22,7 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setOpen(false); // close drawer on route change
+    setOpen(false);
   }, [pathname]);
 
   const isActive = (href: string) => {
@@ -34,11 +34,10 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 left-4 z-50 lg:hidden w-12 h-12 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white shadow-2xl shadow-[var(--accent-glow)] flex items-center justify-center"
+        className="fixed bottom-4 left-4 z-50 lg:hidden w-12 h-12 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white shadow-lg flex items-center justify-center"
         aria-label="Toggle menu"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
@@ -50,21 +49,20 @@ export function Sidebar() {
         </svg>
       </button>
 
-      {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 h-[calc(100vh-4rem)] w-64 shrink-0 transition-transform lg:transition-none ${
+        className={`fixed lg:sticky top-14 left-0 z-40 lg:z-0 h-[calc(100vh-3.5rem)] w-56 shrink-0 transition-transform lg:transition-none ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="h-full overflow-y-auto p-3 border-r border-[var(--border)] glass lg:bg-transparent lg:backdrop-blur-none lg:border-r-0">
-          <nav className="space-y-1">
+        <div className="h-full overflow-y-auto p-2 border-r border-[var(--border)] bg-[var(--surface)] lg:bg-transparent">
+          <nav className="space-y-0.5">
             {TOP_NAV.map((item) => (
               <NavRow
                 key={item.href}
@@ -77,13 +75,13 @@ export function Sidebar() {
             ))}
           </nav>
 
-          <div className="my-4 px-3">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+          <div className="mt-4 px-3 mb-1.5">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--muted-2)] font-bold">
               Categories
             </div>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {CATEGORIES.map((cat) => (
               <NavRow
                 key={cat.slug}
@@ -95,25 +93,16 @@ export function Sidebar() {
             ))}
           </nav>
 
-          <div className="my-4 px-3">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+          <div className="mt-4 px-3 mb-1.5">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--muted-2)] font-bold">
               Account
             </div>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
             <NavRow href="/login" emoji="🔑" label="Log in" active={isActive("/login")} />
           </nav>
-
-          <div className="mt-6 mx-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 text-xs">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold mb-1.5">
-              Tip
-            </div>
-            <p className="text-[var(--muted)] leading-relaxed">
-              Sign up to climb the leaderboards and play multiplayer with friends.
-            </p>
-          </div>
         </div>
       </aside>
     </>
@@ -136,26 +125,19 @@ function NavRow({
   return (
     <Link
       href={href}
-      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
         active
-          ? "bg-gradient-to-r from-[var(--accent)]/20 to-transparent text-white border border-[var(--accent)]/40"
-          : "text-[var(--muted)] hover:text-white hover:bg-[var(--surface)]"
+          ? "bg-[var(--surface-2)] text-[var(--foreground)] font-bold"
+          : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-2)]"
       }`}
     >
-      <span
-        className={`text-xl transition-transform ${active ? "scale-110" : "group-hover:scale-110"}`}
-      >
-        {emoji}
-      </span>
+      <span className="text-lg leading-none">{emoji}</span>
       <span className="flex-1">{label}</span>
       {hot && (
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
         </span>
-      )}
-      {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-gradient-to-b from-[var(--accent)] to-[var(--accent-2)]" />
       )}
     </Link>
   );

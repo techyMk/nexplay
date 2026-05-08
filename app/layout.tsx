@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Nexplay — Play free games online",
   description:
-    "Nexplay is a global gaming hub with hundreds of free browser games. No downloads, no logins required.",
+    "Free browser games, no downloads required. Play classics solo, climb the leaderboards, or invite friends to play live.",
 };
 
 export default function RootLayout({
@@ -36,70 +36,67 @@ export default function RootLayout({
           <Sidebar />
           <div className="flex-1 min-w-0">
             <main>{children}</main>
-            <footer className="mt-20 border-t border-[var(--border)]">
-              <div className="px-4 sm:px-6 lg:px-8 py-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+            <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
+              <div className="px-4 sm:px-6 lg:px-8 py-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent)] via-[var(--accent-2)] to-[var(--accent-3)] flex items-center justify-center text-sm font-black">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-md bg-gradient-to-br from-[var(--accent)] via-[var(--accent-2)] to-[var(--accent-3)] flex items-center justify-center text-xs font-black text-white">
                       N
                     </div>
-                    <span className="font-black">
+                    <span className="font-black text-sm">
                       Nex<span className="text-gradient">play</span>
                     </span>
                   </div>
                   <p className="text-xs text-[var(--muted)] leading-relaxed">
-                    Free browser games. No downloads, no logins required to play.
-                    Sign in to save scores and play with friends.
+                    Free browser games — no downloads, sign in to save scores or play live with friends.
                   </p>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-2 font-bold">
                     Play
                   </div>
-                  <ul className="space-y-2 text-sm">
-                    <li><a href="/" className="hover:text-white text-[var(--muted)]">Home</a></li>
-                    <li><a href="/multiplayer" className="hover:text-white text-[var(--muted)]">Multiplayer</a></li>
-                    <li><a href="/category/puzzle" className="hover:text-white text-[var(--muted)]">Puzzle</a></li>
-                    <li><a href="/category/action" className="hover:text-white text-[var(--muted)]">Action</a></li>
+                  <ul className="space-y-1.5 text-sm">
+                    <li><a href="/" className="hover:text-[var(--foreground)] text-[var(--muted)]">Home</a></li>
+                    <li><a href="/multiplayer" className="hover:text-[var(--foreground)] text-[var(--muted)]">Multiplayer</a></li>
+                    <li><a href="/category/puzzle" className="hover:text-[var(--foreground)] text-[var(--muted)]">Puzzle</a></li>
+                    <li><a href="/category/action" className="hover:text-[var(--foreground)] text-[var(--muted)]">Action</a></li>
                   </ul>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-2 font-bold">
                     Account
                   </div>
-                  <ul className="space-y-2 text-sm">
-                    <li><a href="/login" className="hover:text-white text-[var(--muted)]">Log in</a></li>
-                    <li><a href="/profile" className="hover:text-white text-[var(--muted)]">Profile</a></li>
+                  <ul className="space-y-1.5 text-sm">
+                    <li><a href="/login" className="hover:text-[var(--foreground)] text-[var(--muted)]">Log in</a></li>
+                    <li><a href="/profile" className="hover:text-[var(--foreground)] text-[var(--muted)]">Profile</a></li>
                   </ul>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-2 font-bold">
                     Built with
                   </div>
-                  <ul className="space-y-2 text-sm text-[var(--muted)]">
+                  <ul className="space-y-1.5 text-xs text-[var(--muted)]">
                     <li>Next.js 16 + React 19</li>
                     <li>Tailwind v4</li>
                     <li>Supabase</li>
-                    <li>Framer Motion</li>
                     <li>
-                      Icons by{" "}
+                      Icons:{" "}
                       <a
                         href="https://game-icons.net"
                         target="_blank"
                         rel="noreferrer"
-                        className="hover:text-white"
+                        className="hover:text-[var(--foreground)]"
                       >
                         game-icons.net
-                      </a>{" "}
-                      (CC BY 3.0)
+                      </a>
                     </li>
                   </ul>
                 </div>
               </div>
               <div className="border-t border-[var(--border)]">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between text-xs text-[var(--muted)]">
-                  <p>© {new Date().getFullYear()} Nexplay. Play. Repeat.</p>
-                  <p>Made with 💜 for browser-game lovers.</p>
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-[var(--muted)]">
+                  <p>© {new Date().getFullYear()} Nexplay</p>
+                  <p>Play. Repeat.</p>
                 </div>
               </div>
             </footer>
