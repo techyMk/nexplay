@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function JoinForm() {
+export function JoinForm({
+  basePath = "/multiplayer/tic-tac-toe",
+}: {
+  basePath?: string;
+}) {
   const router = useRouter();
   const [code, setCode] = useState("");
 
@@ -12,7 +16,7 @@ export function JoinForm() {
       onSubmit={(e) => {
         e.preventDefault();
         const c = code.trim().toUpperCase();
-        if (c.length >= 4) router.push(`/multiplayer/tic-tac-toe/${c}`);
+        if (c.length >= 4) router.push(`${basePath}/${c}`);
       }}
       className="flex flex-col gap-3 mt-3"
     >

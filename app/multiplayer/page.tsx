@@ -4,6 +4,15 @@ export const metadata = { title: "Multiplayer — Nexplay" };
 
 const MULTIPLAYER_GAMES = [
   {
+    slug: "skribbl",
+    title: "Skribbl",
+    glyph: "🎨",
+    gradient: "linear-gradient(135deg, #a855f7 0%, #facc15 100%)",
+    desc: "Real-time draw and guess with friends. 2-8 players, 60s rounds.",
+    available: true,
+    badge: "New",
+  },
+  {
     slug: "tic-tac-toe",
     title: "Tic-Tac-Toe",
     glyph: "❌⭕",
@@ -59,6 +68,11 @@ export default function MultiplayerHub() {
                 {!g.available && (
                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">
                     Soon
+                  </div>
+                )}
+                {g.badge && (
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white text-black text-[10px] font-black uppercase tracking-wider">
+                    {g.badge}
                   </div>
                 )}
               </div>

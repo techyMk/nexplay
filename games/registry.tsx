@@ -90,4 +90,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  skribbl: dynamic(() => import("./skribbl/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
