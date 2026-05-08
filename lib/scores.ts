@@ -9,25 +9,42 @@ export async function submitScore(
   gameSlug: string,
   score: number,
 ): Promise<{ ok: boolean; status: Status }> {
-  if (!isSupabaseConfigured) return { ok: false, status: "anon" };
+  if (!isSupabaseConfigured) {
+    console.warn("[submitScore] Supabase not configured");
+    return { ok: false, status: "anon" };
+  }
   try {
     const res = await fetch("/api/scores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ game_slug: gameSlug, score }),
     });
-    if (res.status === 401) return { ok: false, status: "anon" };
-    if (!res.ok) return { ok: false, status: "error" };
+
+    let body: { error?: string } | null = null;
+    try {
+      body = await res.json();
+    } catch {
+      // ignore non-JSON
+    }
+
+    if (res.status === 401) {
+      console.info("[submitScore] not signed in", { gameSlug, score });
+      return { ok: false, status: "anon" };
+    }
+    if (!res.ok) {
+      console.error(
+        `[submitScore] HTTP ${res.status} for ${gameSlug}: ${body?.error ?? "(no error message)"}`,
+        { gameSlug, score, body },
+      );
+      return { ok: false, status: "error" };
+    }
     return { ok: true, status: "submitted" };
-  } catch {
+  } catch (e) {
+    console.error("[submitScore] threw", e, { gameSlug, score });
     return { ok: false, status: "error" };
   }
 }
 
-/**
- * Submit the score once when `gameOver` rises from false to true.
- * Resets when the player starts a new run (gameOver returns to false).
- */
 export function useSubmitScoreOnGameOver(
   gameSlug: string,
   score: number,
