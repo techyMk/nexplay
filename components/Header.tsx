@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SearchBar } from "./SearchBar";
@@ -6,14 +7,16 @@ import { AuthMenu } from "./AuthMenu";
 export function Header() {
   return (
     <header className="sticky top-0 z-40 glass border-b border-[var(--border)]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-4">
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white bg-gradient-to-br from-[var(--accent)] via-[var(--accent-2)] to-[var(--accent-3)]">
-            N
-          </div>
-          <span className="text-lg font-black tracking-tight">
-            Nex<span className="text-gradient">play</span>
-          </span>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
+        <Link href="/" className="flex items-center group shrink-0">
+          <Image
+            src="/nexplay-logo.png"
+            alt="Nexplay"
+            width={160}
+            height={64}
+            priority
+            className="h-12 w-auto group-hover:scale-105 transition-transform"
+          />
         </Link>
 
         <div className="flex-1 max-w-lg mx-auto">
