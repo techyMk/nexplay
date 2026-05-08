@@ -29,7 +29,11 @@ export async function POST(request: Request) {
     (body as { game_slug?: string; score?: number }) ?? {};
 
   if (typeof game_slug !== "string" || !VALID_SLUGS.has(game_slug)) {
-    return NextResponse.json({ error: "Invalid game_slug" }, { status: 400 });
+    console.error("[POST /api/scores] invalid game_slug", { game_slug });
+    return NextResponse.json(
+      { error: `Invalid game_slug: "${game_slug}"` },
+      { status: 400 },
+    );
   }
   if (
     typeof score !== "number" ||
@@ -37,6 +41,7 @@ export async function POST(request: Request) {
     score < 0 ||
     score > MAX_SCORE
   ) {
+    console.error("[POST /api/scores] invalid score", { score });
     return NextResponse.json({ error: "Invalid score" }, { status: 400 });
   }
 
@@ -47,7 +52,19 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[POST /api/scores] supabase insert failed", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      user_id: user.id,
+      game_slug,
+      score,
+    });
+    return NextResponse.json(
+      { error: `${error.code ?? "DB"}: ${error.message}` },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: true });
