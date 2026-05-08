@@ -1,0 +1,47 @@
+import Link from "next/link";
+import type { Game } from "@/lib/types";
+import { GameCard } from "./GameCard";
+
+export function CategoryRow({
+  title,
+  href,
+  games,
+  emoji,
+}: {
+  title: string;
+  href?: string;
+  games: Game[];
+  emoji?: string;
+}) {
+  if (games.length === 0) return null;
+
+  return (
+    <section className="mb-10">
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
+          {emoji && <span>{emoji}</span>}
+          {title}
+        </h2>
+        {href && (
+          <Link
+            href={href}
+            className="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
+          >
+            View all →
+          </Link>
+        )}
+      </div>
+
+      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-3 -mx-4 px-4 no-scrollbar snap-x snap-mandatory">
+        {games.map((game) => (
+          <div
+            key={game.slug}
+            className="flex-shrink-0 w-40 sm:w-44 md:w-48 snap-start"
+          >
+            <GameCard game={game} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
