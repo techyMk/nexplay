@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyMove, INITIAL_TTT_STATE, type TTTState } from "@/lib/multiplayer";
@@ -43,6 +44,9 @@ export function TTTRoomClient({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rtStatus, setRtStatus] = useState<RealtimeStatus>("connecting");
+  const [closing, setClosing] = useState(false);
+  const [closedNotice, setClosedNotice] = useState<string | null>(null);
+  const router = useRouter();
 
   // Refs so the realtime callback / polling can read latest values without
   // forcing a re-subscribe.
@@ -119,18 +123,23 @@ export function TTTRoomClient({
         .from("rooms")
         .select("state, status, guest_user_id")
         .eq("id", roomId)
-        .single();
+        .maybeSingle();
       if (cancelled) return;
       if (err) {
         console.warn(`[room ${roomId}] poll error`, err);
         return;
       }
-      if (data) {
-        applyRow(data as RoomRow, "poll");
-        // If realtime hasn't given us anything in the last ~6s, mark as polling
-        if (Date.now() - lastEventAtRef.current > 6000 && rtStatus === "live") {
-          setRtStatus("polling");
+      if (!data) {
+        // Row no longer exists — host closed the room.
+        if (!closedNotice) {
+          setClosedNotice("The host closed this room.");
+          setTimeout(() => router.push("/multiplayer/tic-tac-toe"), 2500);
         }
+        return;
+      }
+      applyRow(data as RoomRow, "poll");
+      if (Date.now() - lastEventAtRef.current > 6000 && rtStatus === "live") {
+        setRtStatus("polling");
       }
     };
 
@@ -139,7 +148,7 @@ export function TTTRoomClient({
       cancelled = true;
       clearInterval(id);
     };
-  }, [roomId, applyRow, rtStatus]);
+  }, [roomId, applyRow, rtStatus, router, closedNotice]);
 
   const myMark: "X" | "O" | null = useMemo(() => {
     if (myRole === "host") return "X";
@@ -191,6 +200,51 @@ export function TTTRoomClient({
       .eq("id", roomId);
   };
 
+  const inProgress = status === "playing" && !state.winner;
+
+  const leaveRoom = async () => {
+    // Confirmation if there's an active game
+    if (inProgress) {
+      const verb =
+        myRole === "host"
+          ? "close this room and end the game"
+          : "leave this game";
+      if (!window.confirm(`Are you sure? This will ${verb}.`)) return;
+    }
+
+    setClosing(true);
+    const supabase = createClient();
+
+    if (myRole === "host") {
+      // Delete the room — RLS lets only the host do this.
+      const { error: err } = await supabase
+        .from("rooms")
+        .delete()
+        .eq("id", roomId);
+      if (err) {
+        setError(`Couldn't close room: ${err.message}`);
+        setClosing(false);
+        return;
+      }
+    } else if (myRole === "guest") {
+      // Clear guest seat, return room to "waiting"
+      const { error: err } = await supabase
+        .from("rooms")
+        .update({
+          guest_user_id: null,
+          status: "waiting",
+        })
+        .eq("id", roomId);
+      if (err) {
+        setError(`Couldn't leave: ${err.message}`);
+        setClosing(false);
+        return;
+      }
+    }
+    // Spectators: no DB change, just navigate away.
+    router.push("/multiplayer/tic-tac-toe");
+  };
+
   const copyCode = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
@@ -212,6 +266,18 @@ export function TTTRoomClient({
     }
   };
 
+  if (closedNotice) {
+    return (
+      <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-8 text-center">
+        <div className="text-4xl mb-3">🚪</div>
+        <h2 className="text-xl font-bold mb-1">Room closed</h2>
+        <p className="text-sm text-[var(--muted)]">
+          {closedNotice} Returning to the lobby…
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Room header */}
@@ -228,7 +294,7 @@ export function TTTRoomClient({
               {roomId}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={copyCode}
@@ -242,6 +308,18 @@ export function TTTRoomClient({
               className="px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] transition-colors"
             >
               Copy link
+            </button>
+            <button
+              type="button"
+              onClick={leaveRoom}
+              disabled={closing}
+              className="px-4 py-2 rounded-lg bg-red-500/15 text-red-300 text-sm font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {closing
+                ? "Closing…"
+                : myRole === "host"
+                  ? "Close room"
+                  : "Leave"}
             </button>
           </div>
         </div>

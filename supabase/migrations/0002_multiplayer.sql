@@ -67,6 +67,12 @@ create policy "rooms update by players or join"
     or auth.uid() = guest_user_id
   );
 
+-- Delete: only the host can close/cancel a room.
+drop policy if exists "rooms delete by host" on public.rooms;
+create policy "rooms delete by host"
+  on public.rooms for delete
+  using (auth.uid() = host_user_id);
+
 -------------------------------------------------------------------------------
 -- Realtime: stream rooms changes to subscribed clients
 -------------------------------------------------------------------------------
