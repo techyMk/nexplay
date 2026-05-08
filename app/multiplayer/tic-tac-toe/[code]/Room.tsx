@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyMove, INITIAL_TTT_STATE, type TTTState } from "@/lib/multiplayer";
+import { Avatar } from "@/components/Avatar";
 
 type Profile = { name: string; avatar: string };
 
@@ -465,9 +466,7 @@ function PlayerCard({
       }`}
     >
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] flex items-center justify-center text-2xl">
-          {profile?.avatar ?? "❓"}
-        </div>
+        <Avatar value={profile?.avatar ?? "❓"} size="md" />
         <div className="min-w-0 flex-1">
           <div className="text-xs text-[var(--muted)]">
             Player {mark}

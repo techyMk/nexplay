@@ -31,7 +31,7 @@ async function createRoomAction() {
     user_id: user.id,
     display_name:
       profile?.display_name ?? user.email?.split("@")[0] ?? "Player",
-    avatar: profile?.avatar_emoji ?? "🎮",
+    avatar: profile?.avatar_emoji ?? "liam",
     score: 0,
   };
 

@@ -12,6 +12,7 @@ import {
   pointsForGuess,
 } from "@/lib/skribbl/state";
 import { DrawingCanvas } from "@/components/skribbl/DrawingCanvas";
+import { Avatar } from "@/components/Avatar";
 
 type ChatMessage = {
   id: string;
@@ -677,7 +678,9 @@ function ChoosingPanel({
         </>
       ) : (
         <>
-          <div className="text-5xl mb-3">{drawer?.avatar ?? "🎨"}</div>
+          <div className="flex justify-center mb-3">
+            <Avatar value={drawer?.avatar ?? "🎨"} size="lg" />
+          </div>
           <h2 className="text-xl font-black mb-1">
             {drawer?.display_name ?? "Player"} is choosing…
           </h2>
@@ -721,7 +724,7 @@ function FinishedPanel({
             <div className="w-8 text-center font-black">
               {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
             </div>
-            <div className="text-2xl">{p.avatar}</div>
+            <Avatar value={p.avatar} size="sm" />
             <div className="flex-1 font-bold truncate">{p.display_name}</div>
             <div className="text-xl font-black">{p.score}</div>
           </div>
@@ -777,7 +780,7 @@ function PlayerSidebar({
               <div className="text-xs font-bold w-5 text-center text-[var(--muted)]">
                 {i + 1}
               </div>
-              <div className="text-xl">{p.avatar}</div>
+              <Avatar value={p.avatar} size="xs" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate">
                   {p.display_name} {isMe && <span className="text-[var(--accent)] text-xs">(you)</span>}
@@ -844,9 +847,11 @@ function ChatBox({
                     : ""
             }`}
           >
-            <span className="mr-1.5">{m.avatar}</span>
-            <b className="text-xs mr-1">{m.display_name}:</b>
-            <span className="text-xs">{m.text}</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Avatar value={m.avatar} size="xs" />
+              <b className="text-xs">{m.display_name}:</b>
+              <span className="text-xs">{m.text}</span>
+            </span>
           </div>
         ))}
       </div>
