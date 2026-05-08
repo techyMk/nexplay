@@ -49,11 +49,23 @@ create policy "rooms insert as host"
   on public.rooms for insert
   with check (auth.uid() = host_user_id);
 
--- Update: only the host or the guest can mutate the room state
+-- Update: existing players can mutate the room state, AND any
+-- authenticated user can claim the empty guest seat. The with-check
+-- clause ensures the caller ends up a player after the update — so a
+-- random user can only join, never grief.
 drop policy if exists "rooms update by players" on public.rooms;
-create policy "rooms update by players"
+drop policy if exists "rooms update by players or join" on public.rooms;
+create policy "rooms update by players or join"
   on public.rooms for update
-  using (auth.uid() = host_user_id or auth.uid() = guest_user_id);
+  using (
+    auth.uid() = host_user_id
+    or auth.uid() = guest_user_id
+    or guest_user_id is null
+  )
+  with check (
+    auth.uid() = host_user_id
+    or auth.uid() = guest_user_id
+  );
 
 -------------------------------------------------------------------------------
 -- Realtime: stream rooms changes to subscribed clients
