@@ -373,7 +373,7 @@ export function TTTRoomClient({
       </div>
 
       {/* Board */}
-      <div className="grid grid-cols-3 gap-2 max-w-md mx-auto aspect-square mb-4">
+      <div className="grid grid-cols-3 grid-rows-3 gap-2 max-w-md mx-auto aspect-square mb-4">
         {state.board.map((cell, i) => {
           const win = state.winLine?.includes(i);
           const playable = myTurn && !cell;

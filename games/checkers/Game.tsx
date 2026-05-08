@@ -106,7 +106,7 @@ export default function Checkers() {
       </div>
 
       <div
-        className="grid grid-cols-8 rounded-lg overflow-hidden border-4 border-amber-900"
+        className="grid grid-cols-8 grid-rows-8 rounded-lg overflow-hidden border-4 border-amber-900"
         style={{ width: "min(70vh, 480px)", aspectRatio: "1" }}
       >
         {board.flatMap((row, r) =>

@@ -197,6 +197,7 @@ export default function Game2048() {
         className="grid gap-2 p-2 rounded-xl bg-black/40"
         style={{
           gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+          gridTemplateRows: `repeat(${SIZE}, 1fr)`,
           width: "min(60vh, 360px)",
           aspectRatio: "1",
         }}
