@@ -103,6 +103,7 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
           <nav className="space-y-0.5">
             {isAuthenticated ? (
               <>
+                <NavRow href="/friends" emoji="👥" label="Friends" active={isActive("/friends")} />
                 <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
                 <LogoutRow />
               </>
