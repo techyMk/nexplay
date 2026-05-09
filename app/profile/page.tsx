@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { GAMES } from "@/lib/catalog";
+import { syncAchievements } from "@/lib/achievements-server";
+import { ACHIEVEMENTS } from "@/lib/achievements";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
@@ -51,6 +53,11 @@ export default async function ProfilePage() {
     }
   }
 
+  // Achievements summary
+  const { unlockedSet } = await syncAchievements(supabase, user.id);
+  const unlockedList = ACHIEVEMENTS.filter((a) => unlockedSet.has(a.id));
+  const recentlyUnlocked = unlockedList.slice(0, 6);
+
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 md:py-12">
       <div className="mb-4">
@@ -64,6 +71,48 @@ export default async function ProfilePage() {
             email: user.email ?? "",
           }}
         />
+      </div>
+
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-xl font-black">Achievements</h2>
+        <Link
+          href="/achievements"
+          className="text-sm text-[var(--accent)] hover:underline"
+        >
+          View all →
+        </Link>
+      </div>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-8">
+        <div className="text-sm text-[var(--muted)] mb-3">
+          {unlockedList.length} of {ACHIEVEMENTS.length} unlocked
+        </div>
+        {unlockedList.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">
+            None yet — they unlock automatically as you play. Try the{" "}
+            <Link href="/daily" className="text-[var(--accent)] hover:underline">
+              daily challenges
+            </Link>{" "}
+            to get started.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {recentlyUnlocked.map((a) => (
+              <span
+                key={a.id}
+                title={a.description}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-sm font-bold"
+              >
+                <span className="text-base">{a.emoji}</span>
+                {a.title}
+              </span>
+            ))}
+            {unlockedList.length > recentlyUnlocked.length && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-[var(--surface-2)] text-sm text-[var(--muted)]">
+                +{unlockedList.length - recentlyUnlocked.length} more
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <h2 className="text-xl font-black mb-4">Your best scores</h2>

@@ -11,6 +11,7 @@ import {
   generateRoomCode as generateSkribblCode,
   INITIAL_STATE as INITIAL_SKRIBBL_STATE,
 } from "@/lib/skribbl/state";
+import { syncAchievements } from "@/lib/achievements-server";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -66,6 +67,14 @@ export async function sendFriendRequest(displayName: string): Promise<ActionResu
         .eq("user_a", a)
         .eq("user_b", b);
       if (upErr) return { ok: false, error: upErr.message };
+      try {
+        await Promise.all([
+          syncAchievements(supabase, user.id),
+          syncAchievements(supabase, target.id),
+        ]);
+      } catch (e) {
+        console.error("[sendFriendRequest auto-accept] achievement sync failed", e);
+      }
       revalidatePath("/friends");
       return { ok: true };
     }
@@ -103,6 +112,15 @@ export async function respondToFriendRequest(
       .eq("user_b", b)
       .eq("status", "pending");
     if (upErr) return { ok: false, error: upErr.message };
+    // Both parties might have unlocked friend-count achievements.
+    try {
+      await Promise.all([
+        syncAchievements(supabase, user.id),
+        syncAchievements(supabase, otherId),
+      ]);
+    } catch (e) {
+      console.error("[respondToFriendRequest] achievement sync failed", e);
+    }
   } else {
     const { error: delErr } = await supabase
       .from("friendships")
