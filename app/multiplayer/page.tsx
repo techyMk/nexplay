@@ -43,8 +43,9 @@ const MULTIPLAYER_GAMES = [
     title: "Checkers",
     glyph: "♟️",
     gradient: "linear-gradient(135deg, #b91c1c 0%, #1f2937 100%)",
-    desc: "Online checkers. Coming soon.",
-    available: false,
+    desc: "Real-time 1-vs-1. Mandatory captures, multi-jumps, kings.",
+    available: true,
+    badge: "New",
   },
 ];
 
