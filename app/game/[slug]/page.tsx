@@ -169,6 +169,21 @@ export default async function GamePage({
             </div>
           </Link>
 
+          <Link
+            href={`/guide#guide-${game.slug}`}
+            className="block rounded-2xl p-5 border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)] card-lift"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">📖</div>
+              <div>
+                <div className="font-black">How to play</div>
+                <div className="text-xs text-[var(--muted)]">
+                  Controls, objective, tips
+                </div>
+              </div>
+            </div>
+          </Link>
+
           {isMultiplayer && (
             <Link
               href={`/multiplayer/${game.slug}`}
