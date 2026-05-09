@@ -28,6 +28,7 @@ export default function NeonRunner() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<"ready" | "play" | "over">("ready");
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("neon-runner", score, phase === "over");
 
   const stateRef = useRef({
@@ -76,7 +77,13 @@ export default function NeonRunner() {
     };
     setScore(0);
     setPhase("ready");
+    setPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (phase !== "play") return;
+    setPaused((p) => !p);
+  }, [phase]);
 
   const jump = useCallback(() => {
     if (phase === "ready") {
@@ -84,6 +91,10 @@ export default function NeonRunner() {
       return;
     }
     if (phase === "over") return;
+    if (paused) {
+      setPaused(false);
+      return;
+    }
     const st = stateRef.current;
     if (st.onGround && !st.sliding) {
       st.vy = JUMP;
@@ -101,7 +112,7 @@ export default function NeonRunner() {
         });
       }
     }
-  }, [phase]);
+  }, [phase, paused]);
 
   const setSliding = useCallback((on: boolean) => {
     const st = stateRef.current;
@@ -125,6 +136,9 @@ export default function NeonRunner() {
       } else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
         e.preventDefault();
         setSliding(true);
+      } else if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -138,7 +152,7 @@ export default function NeonRunner() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [jump, setSliding]);
+  }, [jump, setSliding, togglePause]);
 
   // Touch: tap top half = jump, hold bottom half = slide
   useEffect(() => {
@@ -176,7 +190,7 @@ export default function NeonRunner() {
       last = now;
       const st = stateRef.current;
 
-      if (phase === "play") {
+      if (phase === "play" && !paused) {
         st.elapsed += dt;
         st.speed = 380 + st.elapsed * 14;
         st.hue = (260 + st.elapsed * 50) % 360;
@@ -383,32 +397,36 @@ export default function NeonRunner() {
       ctx.fillStyle = "#08070f";
       ctx.fillRect(0, GROUND, W, H - GROUND);
 
-      // Synthwave perspective grid below the ground line: horizontal
-      // bands receding toward a vanishing point, plus vertical lines
-      // converging to the same point. Scrolls with `laneOffset` so it
-      // feels like the player is actually moving forward over a grid.
+      // Synthwave perspective grid below the ground line. Clipped to
+      // the ground rectangle so no lines leak up into the sky/buildings.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, GROUND, W, H - GROUND);
+      ctx.clip();
+
       const groundH = H - GROUND;
-      const vanishY = GROUND - 40;
+      const vanishY = GROUND; // vanish at the horizon, no overshoot
       const gridHue = (st.hue + 40) % 360;
-      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 0.55)`;
       ctx.lineWidth = 1;
-      // Horizontal bands — spacing increases nonlinearly to fake
-      // perspective depth. Animate by phase-shifting with laneOffset.
+
+      // Horizontal bands — phase-animated, ease-out spacing so far bands
+      // cluster near the horizon and the front bands sweep toward you.
+      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 1)`;
       const bandCount = 7;
       for (let i = 0; i < bandCount; i++) {
         const phase = ((st.laneOffset / 80 + i) % bandCount) / bandCount;
-        // Ease-out so far bands cluster near the horizon
         const t = phase * phase;
         const y = GROUND + t * groundH;
-        ctx.globalAlpha = 0.15 + (1 - t) * 0.5;
+        ctx.globalAlpha = 0.18 + (1 - t) * 0.45;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(W, y);
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
+
       // Vertical converging lines
-      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 0.35)`;
+      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 0.32)`;
       for (let i = -8; i <= 8; i++) {
         const xBottom = W / 2 + i * (W / 12);
         ctx.beginPath();
@@ -416,6 +434,7 @@ export default function NeonRunner() {
         ctx.lineTo(W / 2, vanishY);
         ctx.stroke();
       }
+      ctx.restore();
 
       // Glowing horizon edge line — drawn LAST so it sits on top of
       // the perspective grid and reads as the actual ground.
@@ -470,47 +489,38 @@ export default function NeonRunner() {
         }
       }
 
-      // Player
+      // Player — clean circle (or flattened ellipse when sliding) with
+      // a soft outer glow. Single solid fill for an unmistakable shape;
+      // the highlight is a tiny centered dot, not an offset puddle.
+      const px = PLAYER_X;
+      const py = st.sliding ? GROUND - PLAYER_R * 0.5 : st.y;
+      const rx = st.sliding ? PLAYER_R + 4 : PLAYER_R;
+      const ry = st.sliding ? PLAYER_R * 0.5 : PLAYER_R;
+
       ctx.shadowColor = `hsl(${st.hue}, 95%, 60%)`;
-      ctx.shadowBlur = 22;
-      const playerGrad = ctx.createRadialGradient(
-        PLAYER_X - 4,
-        st.y - 4,
-        2,
-        PLAYER_X,
-        st.y,
-        PLAYER_R + 2,
-      );
-      playerGrad.addColorStop(0, `hsl(${st.hue}, 100%, 80%)`);
-      playerGrad.addColorStop(0.5, `hsl(${st.hue}, 95%, 60%)`);
-      playerGrad.addColorStop(1, `hsl(${st.hue}, 80%, 40%)`);
-      ctx.fillStyle = playerGrad;
-      if (st.sliding) {
-        // Flattened ellipse, lower center
-        ctx.beginPath();
-        ctx.ellipse(
-          PLAYER_X,
-          GROUND - PLAYER_R * 0.6,
-          PLAYER_R + 4,
-          PLAYER_R * 0.6,
-          0,
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(PLAYER_X, st.y, PLAYER_R, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.shadowBlur = 0;
-      // Highlight
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = `hsl(${st.hue}, 90%, 58%)`;
       ctx.beginPath();
-      ctx.arc(
-        PLAYER_X - PLAYER_R * 0.32,
-        (st.sliding ? GROUND - PLAYER_R * 0.6 : st.y) - PLAYER_R * 0.32,
-        PLAYER_R * 0.28,
+      ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Crisp inner ring so the silhouette reads as a clean shape
+      ctx.strokeStyle = `hsla(${st.hue}, 100%, 80%, 0.9)`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(px, py, rx - 1, ry - 1, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Small specular highlight, top-left, well inside the body
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.ellipse(
+        px - rx * 0.35,
+        py - ry * 0.4,
+        rx * 0.22,
+        ry * 0.22,
+        0,
         0,
         Math.PI * 2,
       );
@@ -574,12 +584,23 @@ export default function NeonRunner() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [phase, score, best]);
+  }, [phase, paused, score, best]);
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a3e] to-[#0b0d12] p-2 sm:p-3">
-      <div className="shrink-0 text-white text-[11px] sm:text-xs text-center mb-2 opacity-80">
-        <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd>/<kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↑</kbd> jump · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↓</kbd> slide under bars
+      <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2">
+        <span className="opacity-80">
+          <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd>/<kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↑</kbd> jump · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↓</kbd> slide · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
+        </span>
+        {phase === "play" && (
+          <button
+            type="button"
+            onClick={togglePause}
+            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 font-bold transition-colors"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
+        )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         <div className="relative h-full max-w-full" style={{ aspectRatio: `${W} / ${H}` }}>
@@ -590,6 +611,25 @@ export default function NeonRunner() {
             onClick={jump}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 cursor-pointer"
           />
+          {phase === "play" && paused && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl">
+              <div className="text-5xl mb-2">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-sm mb-4">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to resume
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPaused(false);
+                }}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
+
           {phase !== "play" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl pointer-events-none">
               {phase === "ready" ? (
