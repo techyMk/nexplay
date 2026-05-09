@@ -11,6 +11,7 @@ import { BentoGrid } from "@/components/BentoGrid";
 import { CategoryRow } from "@/components/CategoryRow";
 import { GameGrid } from "@/components/GameGrid";
 import { Hero } from "@/components/Hero";
+import { HomeCTA } from "@/components/HomeCTA";
 import { RecentlyPlayedRow } from "@/components/RecentlyPlayedRow";
 
 export default function Home() {
@@ -79,6 +80,9 @@ export default function Home() {
       <CategoryRow title="Popular" emoji="🔥" games={popular} href="/category/arcade" />
       <CategoryRow title="2 Player" emoji="👥" games={gamesByCategory("2-player")} href="/category/2-player" />
       <CategoryRow title="Puzzle" emoji="🧩" games={gamesByCategory("puzzle")} href="/category/puzzle" />
+
+      <HomeCTA />
+
       <CategoryRow title="Action" emoji="⚔️" games={gamesByCategory("action")} href="/category/action" />
       <CategoryRow title="Arcade" emoji="🕹️" games={gamesByCategory("arcade")} href="/category/arcade" />
       <CategoryRow title="Strategy" emoji="♟️" games={gamesByCategory("strategy")} href="/category/strategy" />
