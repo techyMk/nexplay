@@ -9,6 +9,7 @@ import {
 } from "@/lib/catalog";
 import { BentoGrid } from "@/components/BentoGrid";
 import { CategoryRow } from "@/components/CategoryRow";
+import { DailyStrip } from "@/components/DailyStrip";
 import { GameGrid } from "@/components/GameGrid";
 import { GameOfTheDay } from "@/components/GameOfTheDay";
 import { Hero } from "@/components/Hero";
@@ -30,6 +31,12 @@ export default function Home() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
       <Hero games={featured.length ? featured : GAMES.slice(0, 3)} />
+
+      <RevealSection>
+        <div className="mb-8">
+          <DailyStrip />
+        </div>
+      </RevealSection>
 
       <RevealSection>
         <GameOfTheDay />
