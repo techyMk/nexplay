@@ -209,7 +209,7 @@ export function TTTRoomClient({
     // Confirmation always — even on a finished/waiting room — and adapt
     // copy if there's an active game in progress.
     const ok = await confirm({
-      icon: myRole === "host" ? "🚪" : "👋",
+      icon: myRole === "host" ? "lucide:door-closed" : "lucide:log-out",
       title: myRole === "host" ? "Close room?" : "Leave room?",
       message: inProgress
         ? myRole === "host"

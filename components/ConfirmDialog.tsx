@@ -23,7 +23,10 @@ export type ConfirmOptions = {
   cancelText?: string;
   /** Use the red destructive style for the confirm button. */
   danger?: boolean;
-  /** Big emoji to render at the top of the card (purely decorative). */
+  /**
+   * Optional Iconify icon name (e.g. "lucide:log-out"). Rendered as an
+   * SVG via the Iconify CDN. Falls back to nothing if omitted.
+   */
   icon?: string;
 };
 
@@ -125,8 +128,22 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 
                   <div className="p-6">
                     {pending.opts.icon && (
-                      <div className="text-5xl mb-3 leading-none">
-                        {pending.opts.icon}
+                      <div
+                        className={`mb-4 inline-flex items-center justify-center w-12 h-12 rounded-xl ${
+                          pending.opts.danger
+                            ? "bg-red-50 text-red-500"
+                            : "bg-[var(--accent)]/10 text-[var(--accent)]"
+                        }`}
+                      >
+                        <img
+                          src={`https://api.iconify.design/${pending.opts.icon}.svg?color=${encodeURIComponent(
+                            pending.opts.danger ? "#ef4444" : "#7c5cff",
+                          )}`}
+                          alt=""
+                          width={24}
+                          height={24}
+                          className="w-6 h-6"
+                        />
                       </div>
                     )}
                     <h2

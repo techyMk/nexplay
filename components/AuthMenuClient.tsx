@@ -31,7 +31,7 @@ export function AuthMenuClient({
     e.preventDefault();
     setOpen(false);
     const ok = await confirm({
-      icon: "👋",
+      icon: "lucide:log-out",
       title: "Log out?",
       message: "You can sign back in any time to keep saving scores.",
       confirmText: "Log out",
