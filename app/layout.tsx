@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
+import { getUser } from "@/lib/supabase/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,11 +26,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getUser();
+  const isAuthenticated = Boolean(user);
+
   return (
     <html
       lang="en"
@@ -38,7 +42,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Header />
         <div className="flex-1 flex">
-          <Sidebar />
+          <Sidebar isAuthenticated={isAuthenticated} />
           <div className="flex-1 min-w-0">
             <main>{children}</main>
             <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">

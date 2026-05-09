@@ -17,7 +17,7 @@ const TOP_NAV: NavItem[] = [
   { href: "/multiplayer", emoji: "👥", label: "Multiplayer", hot: true },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -100,12 +100,32 @@ export function Sidebar() {
           </div>
 
           <nav className="space-y-0.5">
-            <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
-            <NavRow href="/login" emoji="🔑" label="Log in" active={isActive("/login")} />
+            {isAuthenticated ? (
+              <>
+                <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
+                <LogoutRow />
+              </>
+            ) : (
+              <NavRow href="/login" emoji="🔑" label="Log in" active={isActive("/login")} />
+            )}
           </nav>
         </div>
       </aside>
     </>
+  );
+}
+
+function LogoutRow() {
+  return (
+    <form action="/logout" method="post">
+      <button
+        type="submit"
+        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-[var(--muted)] hover:text-red-500 hover:bg-red-50 transition-colors"
+      >
+        <span className="text-lg leading-none">🚪</span>
+        <span className="flex-1 text-left">Log out</span>
+      </button>
+    </form>
   );
 }
 
