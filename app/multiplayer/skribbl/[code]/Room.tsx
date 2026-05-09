@@ -369,7 +369,7 @@ export function SkribblRoomClient({
     setClosing(true);
     if (isHost) {
       await supabase.from("skribbl_rooms").delete().eq("id", roomId);
-    } else {
+    } else if (!isSpectator) {
       // Remove self from participants + players
       const newParticipants = state.players
         .filter((p) => p.user_id !== myUserId)
@@ -383,6 +383,7 @@ export function SkribblRoomClient({
         })
         .eq("id", roomId);
     }
+    // Spectators just navigate away — no DB write.
     router.push("/multiplayer/skribbl");
   };
 
@@ -399,20 +400,23 @@ export function SkribblRoomClient({
     );
   }
 
-  if (!isParticipant && roomStatus !== "lobby") {
-    return (
-      <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-8 text-center">
-        <div className="text-4xl mb-3">🔒</div>
-        <h2 className="text-xl font-bold mb-1">Round in progress</h2>
-        <p className="text-sm text-[var(--muted)]">
-          You can&apos;t join while a game is running. Wait for it to end or open a new room.
-        </p>
-      </div>
-    );
-  }
+  const isSpectator = !isParticipant;
 
   return (
     <div className="space-y-4">
+      {isSpectator && (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 flex items-center gap-3">
+          <span className="text-xl" aria-hidden>👀</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold">Watching as spectator</div>
+            <div className="text-xs text-[var(--muted)]">
+              You can see the drawing and chat, but can&apos;t guess or score.
+              Wait for the next room to play.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <RoomHeader
         roomId={roomId}
@@ -493,19 +497,22 @@ export function SkribblRoomClient({
             messages={chat}
             myUserId={myUserId}
             disabled={
+              isSpectator ||
               phase === "lobby" ||
               phase === "choosing" ||
               (phase === "drawing" && isDrawer) ||
               guessedThisRound.current
             }
             placeholder={
-              isDrawer && phase === "drawing"
-                ? "You're drawing — others guess"
-                : guessedThisRound.current
-                  ? "You guessed it!"
-                  : phase === "drawing"
-                    ? "Type your guess…"
-                    : "Chat with the room…"
+              isSpectator
+                ? "Spectators can't chat — sit back and watch"
+                : isDrawer && phase === "drawing"
+                  ? "You're drawing — others guess"
+                  : guessedThisRound.current
+                    ? "You guessed it!"
+                    : phase === "drawing"
+                      ? "Type your guess…"
+                      : "Chat with the room…"
             }
             value={chatInput}
             onChange={setChatInput}
@@ -528,7 +535,7 @@ export function SkribblRoomClient({
           disabled={closing}
           className="text-xs px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300 font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
         >
-          {closing ? "…" : isHost ? "Close room" : "Leave"}
+          {closing ? "…" : isHost ? "Close room" : isSpectator ? "Stop watching" : "Leave"}
         </button>
       </div>
     </div>
