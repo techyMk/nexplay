@@ -151,44 +151,45 @@ export default function MatchThree() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#1a0a2a] to-[#0b0d12] p-4 select-none">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a2a] to-[#0b0d12] p-2 sm:p-3 select-none">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
         <span className="px-3 py-1 rounded-lg bg-white/10">💎 {score}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">🔄 {moves}</span>
       </div>
 
-      <div
-        className="grid gap-1.5 p-2 rounded-2xl bg-black/40 border border-white/10"
-        style={{
-          gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
-          gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-          width: "min(80vh, 92vw, 480px)",
-          aspectRatio: "1",
-        }}
-      >
-        {board.map((row, r) =>
-          row.map((g, c) => {
-            const isSel = sel && sel[0] === r && sel[1] === c;
-            return (
-              <button
-                key={`${r}-${c}`}
-                onClick={() => click(r, c)}
-                className={`relative rounded-lg flex items-center justify-center text-2xl sm:text-3xl transition-all ${
-                  g === -1
-                    ? "bg-transparent"
-                    : isSel
-                      ? "bg-[var(--accent)] scale-110 z-10"
-                      : "bg-white/5 hover:bg-white/10"
-                }`}
-              >
-                {g >= 0 ? GEMS[g] : ""}
-              </button>
-            );
-          }),
-        )}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div
+          className="grid gap-1.5 p-2 rounded-2xl bg-black/40 border border-white/10 h-full max-w-full"
+          style={{
+            gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+            gridTemplateRows: `repeat(${SIZE}, 1fr)`,
+            aspectRatio: "1",
+          }}
+        >
+          {board.map((row, r) =>
+            row.map((g, c) => {
+              const isSel = sel && sel[0] === r && sel[1] === c;
+              return (
+                <button
+                  key={`${r}-${c}`}
+                  onClick={() => click(r, c)}
+                  className={`relative rounded-lg flex items-center justify-center text-xl sm:text-3xl transition-all ${
+                    g === -1
+                      ? "bg-transparent"
+                      : isSel
+                        ? "bg-[var(--accent)] scale-110 z-10"
+                        : "bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  {g >= 0 ? GEMS[g] : ""}
+                </button>
+              );
+            }),
+          )}
+        </div>
       </div>
 
-      <div className="mt-2 text-[10px] text-white/50">
+      <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">
         Click two adjacent gems to swap. Match 3+ in a row.
       </div>
 

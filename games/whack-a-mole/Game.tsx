@@ -84,15 +84,16 @@ export default function WhackAMole() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#1a0f08] to-[#0b0d12] p-4 select-none">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0f08] to-[#0b0d12] p-2 sm:p-3 select-none">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
         <span className="px-3 py-1 rounded-lg bg-white/10">🎯 {score}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">🏆 {best}</span>
       </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="grid grid-cols-3 grid-rows-3 gap-3 p-4 rounded-2xl bg-gradient-to-b from-amber-900/40 to-amber-950/40 border border-amber-900/30"
-        style={{ width: "min(75vh, 92vw, 480px)", aspectRatio: "1" }}
+        className="grid grid-cols-3 grid-rows-3 gap-3 p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-900/40 to-amber-950/40 border border-amber-900/30 h-full max-w-full"
+        style={{ aspectRatio: "1" }}
       >
         {holes.map((h, i) => (
           <button
@@ -114,7 +115,8 @@ export default function WhackAMole() {
           </button>
         ))}
       </div>
-      <div className="mt-2 text-[10px] text-white/50">Click moles when they pop up</div>
+      </div>
+      <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">Click moles when they pop up</div>
       {phase === "ready" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 gap-3">
           <div className="text-5xl">🐹</div>

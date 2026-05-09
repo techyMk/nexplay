@@ -71,8 +71,8 @@ export default function MemoryMatch() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1f2a] to-[#0b1a35] p-4">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1f2a] to-[#0b1a35] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <span className="px-3 py-1 rounded-lg bg-white/10">Moves: <b>{moves}</b></span>
         <span className="px-3 py-1 rounded-lg bg-white/10">
           Matched: <b>{cards.filter((c) => c.matched).length / 2}/{EMOJIS.length}</b>
@@ -85,9 +85,10 @@ export default function MemoryMatch() {
         </button>
       </div>
 
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="grid grid-cols-4 gap-3"
-        style={{ width: "min(70vh, 92vw, 480px)" }}
+        className="grid grid-cols-4 gap-2 sm:gap-3 h-full max-w-full"
+        style={{ aspectRatio: "1" }}
       >
         {cards.map((c) => {
           const showFace = c.flipped || c.matched;
@@ -110,6 +111,7 @@ export default function MemoryMatch() {
             </button>
           );
         })}
+      </div>
       </div>
 
       {allMatched && (

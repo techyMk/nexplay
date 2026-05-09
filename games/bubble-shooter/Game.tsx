@@ -10,9 +10,19 @@ const RADIUS = 18;
 const COLS = 12;
 const ROW_OFFSET = (W - COLS * RADIUS * 2) / 2;
 const COLORS = ["#ef4444", "#3b82f6", "#facc15", "#16a34a", "#7c5cff", "#ec4899"];
+const SHOOTER_Y = H - 60;
 
 type Bubble = { x: number; y: number; color: number };
 type Shot = { x: number; y: number; vx: number; vy: number; color: number };
+type Falling = {
+  x: number;
+  y: number;
+  vy: number;
+  vx: number;
+  color: number;
+  alpha: number;
+};
+type Pop = { x: number; y: number; color: number; t: number };
 
 function rowY(row: number) {
   return RADIUS + row * (RADIUS * 1.85);
@@ -46,10 +56,23 @@ function neighbors(r: number, c: number): [number, number][] {
     : [[r, c - 1], [r, c + 1], [r - 1, c - 1], [r - 1, c], [r + 1, c - 1], [r + 1, c]];
 }
 
+function activeColors(grid: (Bubble | null)[][]): number[] {
+  const set = new Set<number>();
+  for (const row of grid) for (const b of row) if (b) set.add(b.color);
+  return [...set];
+}
+
+function pickShotColor(grid: (Bubble | null)[][]): number {
+  const active = activeColors(grid);
+  if (active.length === 0) return Math.floor(Math.random() * 5);
+  return active[Math.floor(Math.random() * active.length)];
+}
+
 export default function BubbleShooter() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [over, setOver] = useState(false);
+  const [, forceTick] = useState(0); // re-render the next/swap pills
   const submitStatus = useSubmitScoreOnGameOver("bubble-shooter", score, over);
 
   const stateRef = useRef({
@@ -57,21 +80,29 @@ export default function BubbleShooter() {
     aim: -Math.PI / 2,
     shot: null as Shot | null,
     nextColor: Math.floor(Math.random() * 5),
+    holdColor: Math.floor(Math.random() * 5),
+    falling: [] as Falling[],
+    pops: [] as Pop[],
     mouseX: W / 2,
     mouseY: H - 80,
   });
 
   const reset = useCallback(() => {
+    const g = makeInitialBoard();
     stateRef.current = {
-      grid: makeInitialBoard(),
+      grid: g,
       aim: -Math.PI / 2,
       shot: null,
-      nextColor: Math.floor(Math.random() * 5),
+      nextColor: pickShotColor(g),
+      holdColor: pickShotColor(g),
+      falling: [],
+      pops: [],
       mouseX: W / 2,
       mouseY: H - 80,
     };
     setScore(0);
     setOver(false);
+    forceTick((n) => n + 1);
   }, []);
 
   const fire = useCallback(() => {
@@ -80,12 +111,21 @@ export default function BubbleShooter() {
     const speed = 720;
     st.shot = {
       x: W / 2,
-      y: H - 60,
+      y: SHOOTER_Y,
       vx: Math.cos(st.aim) * speed,
       vy: Math.sin(st.aim) * speed,
       color: st.nextColor,
     };
-    st.nextColor = Math.floor(Math.random() * 5);
+    st.nextColor = st.holdColor;
+    st.holdColor = pickShotColor(st.grid);
+    forceTick((n) => n + 1);
+  }, []);
+
+  const swapNext = useCallback(() => {
+    const st = stateRef.current;
+    if (st.shot) return;
+    [st.nextColor, st.holdColor] = [st.holdColor, st.nextColor];
+    forceTick((n) => n + 1);
   }, []);
 
   useEffect(() => {
@@ -101,22 +141,76 @@ export default function BubbleShooter() {
       const x = ((clientX - rect.left) / rect.width) * W;
       const y = ((clientY - rect.top) / rect.height) * H;
       const dx = x - W / 2;
-      const dy = y - (H - 60);
+      const dy = y - SHOOTER_Y;
       const ang = Math.atan2(dy, dx);
       stateRef.current.aim = Math.max(-Math.PI + 0.2, Math.min(-0.2, ang));
     };
 
     const onMove = (e: MouseEvent) => updateAim(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) updateAim(e.touches[0].clientX, e.touches[0].clientY);
+    };
     const onClick = () => fire();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === " ") {
         e.preventDefault();
         fire();
+      } else if (e.key === "q" || e.key === "Q" || e.key === "Tab") {
+        e.preventDefault();
+        swapNext();
       }
     };
     canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("touchmove", onTouchMove, { passive: true });
     canvas.addEventListener("click", onClick);
     window.addEventListener("keydown", onKey);
+
+    // Pre-compute aim line by raycasting against grid + walls
+    const computeAimLine = (
+      grid: (Bubble | null)[][],
+      angle: number,
+    ): { points: [number, number][]; targetColor?: number } => {
+      const points: [number, number][] = [[W / 2, SHOOTER_Y]];
+      let x = W / 2;
+      let y = SHOOTER_Y;
+      let dx = Math.cos(angle);
+      let dy = Math.sin(angle);
+      let bounces = 0;
+      const step = 4;
+      let targetColor: number | undefined;
+      for (let i = 0; i < 400; i++) {
+        x += dx * step;
+        y += dy * step;
+        if (x < RADIUS) {
+          x = RADIUS;
+          dx = -dx;
+          if (++bounces > 3) break;
+          points.push([x, y]);
+        } else if (x > W - RADIUS) {
+          x = W - RADIUS;
+          dx = -dx;
+          if (++bounces > 3) break;
+          points.push([x, y]);
+        }
+        if (y < RADIUS) break;
+        // collide with bubbles
+        let hit = false;
+        for (const row of grid) {
+          for (const b of row) {
+            if (!b) continue;
+            if (Math.hypot(b.x - x, b.y - y) < RADIUS * 1.85) {
+              targetColor = b.color;
+              hit = true;
+              break;
+            }
+          }
+          if (hit) break;
+        }
+        if (hit) break;
+      }
+      points.push([x, y]);
+      return { points, targetColor };
+    };
 
     const tick = (now: number) => {
       const dt = Math.min(0.033, (now - last) / 1000);
@@ -173,7 +267,13 @@ export default function BubbleShooter() {
               for (const [nr, nc] of neighbors(r, c)) stack.push([nr, nc]);
             }
             if (cluster.length >= 3) {
-              for (const [r, c] of cluster) st.grid[r][c] = null;
+              for (const [r, c] of cluster) {
+                const cell = st.grid[r][c];
+                if (cell) {
+                  st.pops.push({ x: cell.x, y: cell.y, color: cell.color, t: 0 });
+                }
+                st.grid[r][c] = null;
+              }
               setScore((s) => s + cluster.length * 10);
               // drop floaters: anything not connected to row 0
               const reachable = new Set<string>();
@@ -197,66 +297,135 @@ export default function BubbleShooter() {
                   }
                 }
               }
+              let droppedCount = 0;
               for (let r = 0; r < st.grid.length; r++) {
                 for (let c = 0; c < (st.grid[r]?.length ?? 0); c++) {
-                  if (st.grid[r][c] && !reachable.has(`${r},${c}`)) {
+                  const cell = st.grid[r][c];
+                  if (cell && !reachable.has(`${r},${c}`)) {
+                    // Convert to a falling bubble
+                    st.falling.push({
+                      x: cell.x,
+                      y: cell.y,
+                      vy: 30 + Math.random() * 40,
+                      vx: (Math.random() - 0.5) * 60,
+                      color: cell.color,
+                      alpha: 1,
+                    });
                     st.grid[r][c] = null;
-                    setScore((s) => s + 5);
+                    droppedCount++;
                   }
                 }
               }
+              if (droppedCount > 0) setScore((s) => s + droppedCount * 5);
             }
             // game over check
             const lowest = st.grid.reduce((acc, row, r) => (row.some((b) => b) ? r : acc), -1);
             if (rowY(lowest) > H - 120) setOver(true);
             // win check
             const any = st.grid.some((row) => row.some((b) => b));
-            if (!any) setOver(true); // technically win
+            if (!any) setOver(true);
           }
           st.shot = null;
+          forceTick((n) => n + 1);
         }
       }
 
-      // draw
-      ctx.fillStyle = "#0b0d12";
+      // Update falling bubbles (gravity)
+      const gravity = 1100;
+      for (const f of st.falling) {
+        f.vy += gravity * dt;
+        f.y += f.vy * dt;
+        f.x += f.vx * dt;
+        if (f.y > H + 50) f.alpha = 0;
+      }
+      st.falling = st.falling.filter((f) => f.alpha > 0);
+
+      // Update pop animation (scale up + fade)
+      for (const p of st.pops) p.t += dt;
+      st.pops = st.pops.filter((p) => p.t < 0.32);
+
+      // ---- draw ----
+      // Background gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, "#0a1530");
+      grad.addColorStop(1, "#0b0d12");
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
-      // bubbles
+
+      // Ceiling marker
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.fillRect(0, 0, W, 2);
+
+      // Aim guide line
+      if (!st.shot) {
+        const { points, targetColor } = computeAimLine(st.grid, st.aim);
+        ctx.strokeStyle = targetColor != null
+          ? COLORS[targetColor] + "AA"
+          : "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 8]);
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Grid bubbles
       for (let r = 0; r < st.grid.length; r++) {
         const row = st.grid[r];
         for (let c = 0; c < row.length; c++) {
           const b = row[c];
           if (!b) continue;
-          ctx.fillStyle = COLORS[b.color];
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, RADIUS - 1, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "rgba(255,255,255,0.35)";
-          ctx.beginPath();
-          ctx.arc(b.x - 5, b.y - 5, 5, 0, Math.PI * 2);
-          ctx.fill();
+          drawBubble(ctx, b.x, b.y, RADIUS, b.color);
         }
       }
-      // shooter line
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
-      ctx.setLineDash([4, 6]);
-      ctx.beginPath();
-      ctx.moveTo(W / 2, H - 60);
-      ctx.lineTo(W / 2 + Math.cos(st.aim) * 200, H - 60 + Math.sin(st.aim) * 200);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // shooter
-      ctx.fillStyle = COLORS[st.nextColor];
-      ctx.beginPath();
-      ctx.arc(W / 2, H - 60, RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-      // shot
-      if (st.shot) {
-        ctx.fillStyle = COLORS[st.shot.color];
-        ctx.beginPath();
-        ctx.arc(st.shot.x, st.shot.y, RADIUS, 0, Math.PI * 2);
-        ctx.fill();
+
+      // Falling bubbles
+      for (const f of st.falling) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, f.alpha));
+        drawBubble(ctx, f.x, f.y, RADIUS, f.color);
+        ctx.globalAlpha = 1;
       }
-      // hud
+
+      // Pop animations
+      for (const p of st.pops) {
+        const t = p.t / 0.32; // 0..1
+        const r = RADIUS + t * RADIUS * 1.4;
+        ctx.globalAlpha = 1 - t;
+        ctx.strokeStyle = COLORS[p.color];
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Shooter base + next bubble
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.beginPath();
+      ctx.arc(W / 2, SHOOTER_Y, RADIUS + 8, 0, Math.PI * 2);
+      ctx.fill();
+      drawBubble(ctx, W / 2, SHOOTER_Y, RADIUS, st.nextColor);
+
+      // Next-up indicator (smaller, off to the right)
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
+      ctx.beginPath();
+      ctx.arc(W - 36, SHOOTER_Y, RADIUS - 2, 0, Math.PI * 2);
+      ctx.fill();
+      drawBubble(ctx, W - 36, SHOOTER_Y, RADIUS - 6, st.holdColor);
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = "bold 10px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("NEXT", W - 36, SHOOTER_Y - RADIUS - 4);
+      ctx.textAlign = "start";
+
+      // Active shot
+      if (st.shot) {
+        drawBubble(ctx, st.shot.x, st.shot.y, RADIUS, st.shot.color);
+      }
+
+      // HUD
       ctx.fillStyle = "white";
       ctx.font = "bold 22px system-ui";
       ctx.fillText(`${score}`, 16, 32);
@@ -267,25 +436,92 @@ export default function BubbleShooter() {
     return () => {
       cancelAnimationFrame(raf);
       canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("touchmove", onTouchMove);
       canvas.removeEventListener("click", onClick);
       window.removeEventListener("keydown", onKey);
     };
-  }, [over, score, fire]);
+  }, [over, score, fire, swapNext]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-4">
-      <div className="text-white text-xs mb-2">Aim with mouse · Click or Space to shoot</div>
-      <div className="relative" style={{ width: "min(80vh, 92vw, 480px)", aspectRatio: `${W}/${H}` }}>
-        <canvas ref={canvasRef} width={W} height={H} className="rounded-xl border border-white/10 cursor-crosshair w-full h-full" />
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
-            <div className="text-4xl font-black text-white">Round over</div>
-            <div className="text-white/80">Score: {score}</div>
-            <ScoreStatus gameSlug="bubble-shooter" status={submitStatus} />
-            <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
-          </div>
-        )}
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-2 sm:p-3">
+      <div className="shrink-0 text-white text-[11px] sm:text-xs text-center mb-2 opacity-80">
+        Aim with mouse · Click or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to shoot · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> to swap next
+      </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div
+          className="relative h-full max-w-full"
+          style={{ aspectRatio: `${W} / ${H}` }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={W}
+            height={H}
+            className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 cursor-crosshair"
+          />
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
+              <div className="text-3xl sm:text-4xl font-black text-white">Round over</div>
+              <div className="text-white/80">Score: {score}</div>
+              <ScoreStatus gameSlug="bubble-shooter" status={submitStatus} />
+              <button
+                onClick={reset}
+                className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                Play again
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function drawBubble(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  colorIndex: number,
+) {
+  const color = COLORS[colorIndex];
+  const grad = ctx.createRadialGradient(
+    x - radius * 0.35,
+    y - radius * 0.35,
+    radius * 0.1,
+    x,
+    y,
+    radius,
+  );
+  grad.addColorStop(0, lighten(color, 0.35));
+  grad.addColorStop(0.7, color);
+  grad.addColorStop(1, darken(color, 0.25));
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+  ctx.fill();
+  // Highlight
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
+  ctx.beginPath();
+  ctx.arc(x - radius * 0.32, y - radius * 0.32, radius * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function lighten(hex: string, amount: number): string {
+  return mixHex(hex, "#ffffff", amount);
+}
+function darken(hex: string, amount: number): string {
+  return mixHex(hex, "#000000", amount);
+}
+function mixHex(a: string, b: string, t: number): string {
+  const ar = parseInt(a.slice(1, 3), 16);
+  const ag = parseInt(a.slice(3, 5), 16);
+  const ab = parseInt(a.slice(5, 7), 16);
+  const br = parseInt(b.slice(1, 3), 16);
+  const bg = parseInt(b.slice(3, 5), 16);
+  const bb = parseInt(b.slice(5, 7), 16);
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bl.toString(16).padStart(2, "0")}`;
 }

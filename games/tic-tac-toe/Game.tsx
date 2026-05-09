@@ -91,8 +91,8 @@ export default function TicTacToe() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1325] to-[#2a1240] p-4">
-      <div className="flex items-center gap-6 mb-4 text-white text-sm font-medium">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a1325] to-[#2a1240] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-6 mb-2 text-white text-xs sm:text-sm font-medium flex-wrap">
         <div className={`px-3 py-1 rounded-lg ${turn === "X" && !over ? "bg-[var(--accent)]" : "bg-white/10"}`}>
           You (X) — {score.x}
         </div>
@@ -102,7 +102,8 @@ export default function TicTacToe() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 grid-rows-3 gap-2 w-full max-w-[min(60vh,92vw,360px)] aspect-square">
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+      <div className="grid grid-cols-3 grid-rows-3 gap-2 h-full max-w-full aspect-square">
         {board.map((cell, i) => {
           const win = line?.includes(i);
           return (
@@ -122,23 +123,24 @@ export default function TicTacToe() {
           );
         })}
       </div>
+      </div>
 
-      <div className="mt-4 h-8 text-white text-sm">
+      <div className="shrink-0 mt-2 h-6 text-white text-xs sm:text-sm text-center">
         {winner === "X" && <span>🎉 You win!</span>}
         {winner === "O" && <span>🤖 AI wins.</span>}
         {!winner && full && <span>It&apos;s a draw.</span>}
       </div>
 
-      <div className="mt-2 flex gap-2">
+      <div className="shrink-0 mt-1 flex gap-2 justify-center">
         <button
           onClick={reset}
-          className="px-5 py-2 rounded-lg bg-white text-black text-sm font-bold hover:scale-105 transition-transform"
+          className="px-4 py-1.5 rounded-lg bg-white text-black text-xs sm:text-sm font-bold hover:scale-105 transition-transform"
         >
           New round
         </button>
         <Link
           href="/multiplayer/tic-tac-toe"
-          className="px-5 py-2 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20 transition-colors"
+          className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-xs sm:text-sm font-bold hover:bg-white/20 transition-colors"
         >
           Play with a friend →
         </Link>

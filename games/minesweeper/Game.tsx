@@ -116,20 +116,20 @@ export default function Minesweeper() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1a2a] to-[#0b0d12] p-4 select-none">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a2a] to-[#0b0d12] p-2 sm:p-3 select-none">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
         <span className="px-3 py-1 rounded-lg bg-white/10">💣 {MINES - flags}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         <button onClick={reset} className="px-3 py-1 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform">
           {over ? "💀" : won ? "🏆" : "😎"} Reset
         </button>
       </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="grid gap-px bg-black/40 p-px rounded-lg"
+        className="grid gap-px bg-black/40 p-px rounded-lg h-full max-w-full"
         style={{
           gridTemplateColumns: `repeat(${COLS}, 1fr)`,
           gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-          width: "min(85vh, 92vw, 560px)",
           aspectRatio: "1",
         }}
       >
@@ -153,7 +153,8 @@ export default function Minesweeper() {
           </button>
         )))}
       </div>
-      <div className="mt-2 text-[10px] text-white/50">
+      </div>
+      <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">
         Left-click to reveal • Right-click to flag
       </div>
       {(over || won) && (

@@ -108,8 +108,8 @@ export default function ConnectFour() {
     winLine?.some(([wr, wc]) => wr === r && wc === c);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#3a0e0e] to-[#1a1325] p-4">
-      <div className="flex items-center gap-4 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#3a0e0e] to-[#1a1325] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-4 mb-2 text-white text-xs sm:text-sm">
         <span className={turn === 1 && !over ? "font-bold" : "opacity-60"}>
           🔴 You
         </span>
@@ -119,11 +119,12 @@ export default function ConnectFour() {
         </span>
       </div>
 
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="rounded-2xl p-3 bg-blue-700/80"
-        style={{ width: "min(70vh, 92vw, 520px)" }}
+        className="rounded-2xl p-2 sm:p-3 bg-blue-700/80 h-full max-w-full"
+        style={{ aspectRatio: "7 / 7" }}
       >
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 h-full">
           {Array.from({ length: COLS }).map((_, c) => (
             <button
               key={`btn-${c}`}
@@ -155,8 +156,9 @@ export default function ConnectFour() {
           )}
         </div>
       </div>
+      </div>
 
-      <div className="mt-3 h-7 text-white text-sm">
+      <div className="shrink-0 mt-2 h-6 text-white text-xs sm:text-sm text-center">
         {winLine && turn === 1 && <span>🎉 You connected four!</span>}
         {winLine && turn === 2 && <span>🤖 AI got four in a row.</span>}
         {!winLine && full && <span>Board full — draw!</span>}
@@ -164,7 +166,7 @@ export default function ConnectFour() {
 
       <button
         onClick={reset}
-        className="mt-2 px-5 py-2 rounded-lg bg-white text-black text-sm font-bold hover:scale-105 transition-transform"
+        className="shrink-0 mt-1 mx-auto px-5 py-2 rounded-lg bg-white text-black text-xs sm:text-sm font-bold hover:scale-105 transition-transform"
       >
         New game
       </button>

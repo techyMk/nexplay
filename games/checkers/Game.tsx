@@ -94,8 +94,8 @@ export default function Checkers() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#1a0a0a] to-[#0b0d12] p-4">
-      <div className="flex items-center gap-4 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a0a] to-[#0b0d12] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
         <span className={turn === "b" && !winner ? "font-bold" : "opacity-50"}>
           ⚫ Black {turn === "b" && !winner ? "(your turn)" : ""}
         </span>
@@ -105,9 +105,10 @@ export default function Checkers() {
         </span>
       </div>
 
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="grid grid-cols-8 grid-rows-8 rounded-lg overflow-hidden border-4 border-amber-900"
-        style={{ width: "min(70vh, 92vw, 480px)", aspectRatio: "1" }}
+        className="grid grid-cols-8 grid-rows-8 rounded-lg overflow-hidden border-4 border-amber-900 h-full max-w-full"
+        style={{ aspectRatio: "1" }}
       >
         {board.flatMap((row, r) =>
           row.map((p, c) => {
@@ -147,6 +148,7 @@ export default function Checkers() {
           }),
         )}
       </div>
+      </div>
 
       {winner && (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
@@ -164,7 +166,7 @@ export default function Checkers() {
 
       <button
         onClick={reset}
-        className="mt-3 px-4 py-2 rounded-lg bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors"
+        className="shrink-0 mt-2 mx-auto px-4 py-2 rounded-lg bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors"
       >
         Reset
       </button>

@@ -165,34 +165,38 @@ export default function Snake() {
   }, [running]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1f0d] to-[#0b0d12] p-4">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm">
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1f0d] to-[#0b0d12] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
         <span className="px-3 py-1 rounded-lg bg-white/10">Score: <b>{score}</b></span>
         <span className="px-3 py-1 rounded-lg bg-white/10">Best: <b>{best}</b></span>
       </div>
-      <div className="relative" style={{ maxWidth: "100%", maxHeight: "75%" }}>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          className="rounded-xl border border-white/10"
-          style={{ width: "min(80vh, 92vw, 528px)", aspectRatio: `${W}/${H}`, height: "auto" }}
-        />
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
-            <div className="text-3xl font-black text-white mb-1">Game over</div>
-            <div className="text-white/80">Score: {score}</div>
-            <ScoreStatus gameSlug="snake" status={submitStatus} />
-            <button
-              onClick={reset}
-              className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-            >
-              Play again
-            </button>
-          </div>
-        )}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div
+          className="relative h-full max-w-full"
+          style={{ aspectRatio: `${W} / ${H}` }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={W}
+            height={H}
+            className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
+          />
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
+              <div className="text-3xl font-black text-white mb-1">Game over</div>
+              <div className="text-white/80">Score: {score}</div>
+              <ScoreStatus gameSlug="snake" status={submitStatus} />
+              <button
+                onClick={reset}
+                className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                Play again
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="mt-3 text-xs text-white/60">Arrow keys / WASD</div>
+      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">Arrow keys / WASD</div>
     </div>
   );
 }
