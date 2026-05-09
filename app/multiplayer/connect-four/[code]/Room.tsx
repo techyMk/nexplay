@@ -221,9 +221,19 @@ export function C4RoomClient({
         return;
       }
     } else if (myRole === "guest") {
+      // Clear guest seat AND reset the board so the next guest doesn't
+      // walk into a half-played match.
+      const freshState = {
+        ...INITIAL_C4_STATE,
+        board: INITIAL_C4_STATE.board.map((row) => [...row]),
+      };
       const { error: err } = await supabase
         .from("rooms")
-        .update({ guest_user_id: null, status: "waiting" })
+        .update({
+          guest_user_id: null,
+          status: "waiting",
+          state: freshState,
+        })
         .eq("id", roomId);
       if (err) {
         setError(`Couldn't leave: ${err.message}`);
