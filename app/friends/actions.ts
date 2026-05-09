@@ -6,6 +6,7 @@ import { pairOrder } from "@/lib/social";
 import { generateRoomCode, INITIAL_TTT_STATE } from "@/lib/multiplayer";
 import { INITIAL_C4_STATE } from "@/lib/connect-four";
 import { INITIAL_PONG_STATE } from "@/lib/pong";
+import { INITIAL_CHECKERS_STATE } from "@/lib/checkers";
 import {
   generateRoomCode as generateSkribblCode,
   INITIAL_STATE as INITIAL_SKRIBBL_STATE,
@@ -182,7 +183,7 @@ export async function unfriend(otherId: string): Promise<ActionResult> {
  */
 export async function inviteToPlay(
   toUserId: string,
-  gameSlug: "tic-tac-toe" | "skribbl" | "connect-four" | "pong",
+  gameSlug: "tic-tac-toe" | "skribbl" | "connect-four" | "pong" | "checkers",
 ): Promise<ActionResult & { roomId?: string }> {
   const { supabase, user, error } = await requireUser();
   if (error || !user) return { ok: false, error: error ?? "Not signed in" };
@@ -228,6 +229,16 @@ export async function inviteToPlay(
       game_slug: "pong",
       host_user_id: user.id,
       state: INITIAL_PONG_STATE,
+      status: "waiting",
+    });
+    if (roomErr) return { ok: false, error: roomErr.message };
+  } else if (gameSlug === "checkers") {
+    roomId = generateRoomCode(6);
+    const { error: roomErr } = await supabase.from("rooms").insert({
+      id: roomId,
+      game_slug: "checkers",
+      host_user_id: user.id,
+      state: INITIAL_CHECKERS_STATE,
       status: "waiting",
     });
     if (roomErr) return { ok: false, error: roomErr.message };
@@ -307,7 +318,9 @@ export async function respondToInvite(
           ? `/multiplayer/connect-four/${invite.room_id}`
           : invite.game_slug === "pong"
             ? `/multiplayer/pong/${invite.room_id}`
-            : `/multiplayer/skribbl/${invite.room_id}`;
+            : invite.game_slug === "checkers"
+              ? `/multiplayer/checkers/${invite.room_id}`
+              : `/multiplayer/skribbl/${invite.room_id}`;
     return { ok: true, redirectTo: path };
   }
   return { ok: true };
