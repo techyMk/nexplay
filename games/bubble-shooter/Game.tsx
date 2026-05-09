@@ -275,7 +275,7 @@ export default function BubbleShooter() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-4">
       <div className="text-white text-xs mb-2">Aim with mouse · Click or Space to shoot</div>
-      <div className="relative" style={{ width: "min(80vh, 480px)", aspectRatio: `${W}/${H}` }}>
+      <div className="relative" style={{ width: "min(80vh, 92vw, 480px)", aspectRatio: `${W}/${H}` }}>
         <canvas ref={canvasRef} width={W} height={H} className="rounded-xl border border-white/10 cursor-crosshair w-full h-full" />
         {over && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">

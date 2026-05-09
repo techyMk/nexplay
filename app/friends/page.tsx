@@ -49,20 +49,25 @@ export default async function FriendsPage() {
   const friends: FriendRow[] = [];
   const incoming: RequestRow[] = [];
   const outgoing: RequestRow[] = [];
+  const blocked: FriendRow[] = [];
 
   for (const r of all) {
     const otherId = otherParty(r, user.id);
     const p = profileById.get(otherId);
     const display_name = p?.display_name ?? "Unknown";
     const avatar = p?.avatar_emoji ?? "liam";
+    const target = { user_id: otherId, display_name, avatar };
 
     if (r.status === "accepted") {
-      friends.push({ user_id: otherId, display_name, avatar });
+      friends.push(target);
     } else if (r.status === "pending") {
       const isIncoming = r.initiated_by !== user.id;
-      const target = { user_id: otherId, display_name, avatar };
       if (isIncoming) incoming.push(target);
       else outgoing.push(target);
+    } else if (r.status === "blocked" && r.initiated_by === user.id) {
+      // Only show blocks initiated by me — the OTHER person blocking me
+      // shouldn't surface in my UI.
+      blocked.push(target);
     }
   }
 
@@ -85,6 +90,7 @@ export default async function FriendsPage() {
         friends={friends}
         incoming={incoming}
         outgoing={outgoing}
+        blocked={blocked}
       />
 
       <p className="mt-8 text-xs text-[var(--muted)] text-center">

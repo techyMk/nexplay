@@ -198,7 +198,7 @@ export default function Game2048() {
         style={{
           gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-          width: "min(60vh, 360px)",
+          width: "min(60vh, 92vw, 360px)",
           aspectRatio: "1",
         }}
       >

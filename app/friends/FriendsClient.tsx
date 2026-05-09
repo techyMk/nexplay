@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/Avatar";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
+  blockUser,
   inviteToPlay,
   respondToFriendRequest,
   sendFriendRequest,
+  unblockUser,
   unfriend,
 } from "./actions";
 
@@ -25,11 +27,13 @@ export function FriendsClient({
   friends,
   incoming,
   outgoing,
+  blocked = [],
 }: {
   myUserId: string;
   friends: FriendRow[];
   incoming: RequestRow[];
   outgoing: RequestRow[];
+  blocked?: FriendRow[];
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -116,6 +120,27 @@ export function FriendsClient({
     setBusy(null);
   };
 
+  const onBlock = async (row: FriendRow) => {
+    const ok = await confirm({
+      icon: "lucide:ban",
+      title: `Block ${row.display_name}?`,
+      message:
+        "They won't be able to send you friend requests or game invites. Any existing friendship is removed.",
+      confirmText: "Block",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(row.user_id);
+    await blockUser(row.user_id);
+    setBusy(null);
+  };
+
+  const onUnblock = async (row: FriendRow) => {
+    setBusy(row.user_id);
+    await unblockUser(row.user_id);
+    setBusy(null);
+  };
+
   const onInvite = async (row: FriendRow, gameSlug: "tic-tac-toe" | "skribbl") => {
     setBusy(row.user_id);
     const res = await inviteToPlay(row.user_id, gameSlug);
@@ -138,7 +163,7 @@ export function FriendsClient({
         <div className="text-xs uppercase tracking-widest text-[var(--muted)] mb-2 font-bold">
           Add by username
         </div>
-        <form onSubmit={onAdd} className="flex gap-2">
+        <form onSubmit={onAdd} className="flex flex-col sm:flex-row gap-2">
           <input
             value={addInput}
             onChange={(e) => setAddInput(e.target.value)}
@@ -149,7 +174,7 @@ export function FriendsClient({
           <button
             type="submit"
             disabled={adding || !addInput.trim()}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-sm font-bold disabled:opacity-50 hover:scale-[1.02] transition-transform"
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-sm font-bold disabled:opacity-50 hover:scale-[1.02] transition-transform shrink-0"
           >
             {adding ? "Sending…" : "Add friend"}
           </button>
@@ -227,10 +252,28 @@ export function FriendsClient({
               busy={busy === r.user_id}
               onInvite={onInvite}
               onUnfriend={onUnfriend}
+              onBlock={onBlock}
             />
           </Row>
         ))}
       </Section>
+
+      {/* Blocked users */}
+      {blocked.length > 0 && (
+        <Section title={`Blocked (${blocked.length})`} emoji="🚫">
+          {blocked.map((r) => (
+            <Row key={r.user_id} row={r} online={false}>
+              <button
+                onClick={() => onUnblock(r)}
+                disabled={busy === r.user_id}
+                className="px-3 py-1.5 rounded-lg bg-[var(--surface-2)] text-xs font-bold hover:bg-[var(--surface-3)] transition-colors disabled:opacity-50"
+              >
+                Unblock
+              </button>
+            </Row>
+          ))}
+        </Section>
+      )}
     </div>
   );
 }
@@ -299,35 +342,38 @@ function FriendActions({
   busy,
   onInvite,
   onUnfriend,
+  onBlock,
 }: {
   row: FriendRow;
   busy: boolean;
   onInvite: (row: FriendRow, slug: "tic-tac-toe" | "skribbl") => void;
   onUnfriend: (row: FriendRow) => void;
+  onBlock: (row: FriendRow) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   return (
     <>
       <div className="relative">
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setInviteOpen((v) => !v)}
           disabled={busy}
           className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-bold hover:scale-105 transition-transform disabled:opacity-50"
         >
-          ▶ Invite to play
+          ▶ Invite
         </button>
-        {open && (
+        {inviteOpen && (
           <>
             <div
               className="fixed inset-0 z-10"
-              onClick={() => setOpen(false)}
+              onClick={() => setInviteOpen(false)}
               aria-hidden
             />
             <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
               <button
                 onClick={() => {
-                  setOpen(false);
+                  setInviteOpen(false);
                   onInvite(row, "tic-tac-toe");
                 }}
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)]"
@@ -336,7 +382,7 @@ function FriendActions({
               </button>
               <button
                 onClick={() => {
-                  setOpen(false);
+                  setInviteOpen(false);
                   onInvite(row, "skribbl");
                 }}
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)]"
@@ -347,25 +393,56 @@ function FriendActions({
           </>
         )}
       </div>
-      <button
-        onClick={() => onUnfriend(row)}
-        disabled={busy}
-        className="w-7 h-7 flex items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--muted)] hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-50"
-        title="Remove friend"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="w-3.5 h-3.5"
-          aria-hidden
+      <div className="relative">
+        <button
+          onClick={() => setMoreOpen((v) => !v)}
+          disabled={busy}
+          className="w-7 h-7 flex items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] transition-colors disabled:opacity-50"
+          title="More"
         >
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="19" cy="12" r="1" />
-          <circle cx="5" cy="12" r="1" />
-        </svg>
-      </button>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="w-3.5 h-3.5"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="1" />
+            <circle cx="19" cy="12" r="1" />
+            <circle cx="5" cy="12" r="1" />
+          </svg>
+        </button>
+        {moreOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setMoreOpen(false)}
+              aria-hidden
+            />
+            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-white shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  onUnfriend(row);
+                }}
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)]"
+              >
+                Remove friend
+              </button>
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  onBlock(row);
+                }}
+                className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Block user
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }
