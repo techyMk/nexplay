@@ -173,15 +173,23 @@ export default function Pong() {
       const speed = 380;
 
       if (live) {
-        // Player input — left paddle is always W/S; right paddle is
-        // arrow keys in local 2P, AI-controlled in AI mode.
-        if (k.has("w") || k.has("W")) st.leftY -= speed * dt;
-        if (k.has("s") || k.has("S")) st.leftY += speed * dt;
-
-        if (modeRef.current === "local") {
+        // Player input. In AI mode the player owns the left paddle and
+        // can drive it with EITHER W/S or arrow keys (so muscle memory
+        // works either way). In local 2P, W/S is left and arrows are
+        // right — the two halves of the keyboard.
+        if (modeRef.current === "ai") {
+          if (k.has("w") || k.has("W") || k.has("ArrowUp"))
+            st.leftY -= speed * dt;
+          if (k.has("s") || k.has("S") || k.has("ArrowDown"))
+            st.leftY += speed * dt;
+        } else {
+          if (k.has("w") || k.has("W")) st.leftY -= speed * dt;
+          if (k.has("s") || k.has("S")) st.leftY += speed * dt;
           if (k.has("ArrowUp")) st.rightY -= speed * dt;
           if (k.has("ArrowDown")) st.rightY += speed * dt;
-        } else {
+        }
+
+        if (modeRef.current === "ai") {
           // AI: track the ball with a tunable response. Recompute the
           // target only every few frames to make easier difficulties feel
           // less robotic. Add a per-difficulty jitter to the target.
@@ -410,7 +418,7 @@ export default function Pong() {
         <div className="opacity-70 hidden sm:inline">
           {mode === "ai" ? (
             <>
-              You <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">W/S</kbd> · AI on right
+              You <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">W/S</kbd> or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↑↓</kbd> · AI on right
             </>
           ) : (
             <>
