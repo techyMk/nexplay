@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { SearchBar } from "./SearchBar";
 import { AuthMenu } from "./AuthMenu";
+import { NotificationBell } from "./NotificationBell";
 
 export function Header() {
   return (
@@ -50,6 +51,7 @@ export function Header() {
           </Link>
         </nav>
 
+        <NotificationBell />
         <AuthMenu />
       </div>
     </header>
