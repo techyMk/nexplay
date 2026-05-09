@@ -318,12 +318,14 @@ export default function NeonRunner() {
           }
         }
 
-        const gained = Math.floor(st.speed * dt * 0.06);
+        // ~ 1 point per pixel travelled, like classic endless runners.
+        // At base speed (380) that's ~380/sec, ramping with the game.
+        const gained = Math.round(st.speed * dt);
         if (gained > 0) {
           setScore((s) => {
             const ns = s + gained;
-            // Milestone flash every 100
-            const ms = Math.floor(ns / 100);
+            // Milestone flash every 1,000 points
+            const ms = Math.floor(ns / 1000);
             if (ms > st.lastMilestone) {
               st.flash = 1;
               st.lastMilestone = ms;
@@ -380,21 +382,49 @@ export default function NeonRunner() {
       // Ground
       ctx.fillStyle = "#08070f";
       ctx.fillRect(0, GROUND, W, H - GROUND);
-      // Glowing edge line
-      const lineGrad = ctx.createLinearGradient(0, GROUND - 1, 0, GROUND + 4);
+
+      // Synthwave perspective grid below the ground line: horizontal
+      // bands receding toward a vanishing point, plus vertical lines
+      // converging to the same point. Scrolls with `laneOffset` so it
+      // feels like the player is actually moving forward over a grid.
+      const groundH = H - GROUND;
+      const vanishY = GROUND - 40;
+      const gridHue = (st.hue + 40) % 360;
+      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 0.55)`;
+      ctx.lineWidth = 1;
+      // Horizontal bands — spacing increases nonlinearly to fake
+      // perspective depth. Animate by phase-shifting with laneOffset.
+      const bandCount = 7;
+      for (let i = 0; i < bandCount; i++) {
+        const phase = ((st.laneOffset / 80 + i) % bandCount) / bandCount;
+        // Ease-out so far bands cluster near the horizon
+        const t = phase * phase;
+        const y = GROUND + t * groundH;
+        ctx.globalAlpha = 0.15 + (1 - t) * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // Vertical converging lines
+      ctx.strokeStyle = `hsla(${gridHue}, 95%, 65%, 0.35)`;
+      for (let i = -8; i <= 8; i++) {
+        const xBottom = W / 2 + i * (W / 12);
+        ctx.beginPath();
+        ctx.moveTo(xBottom, H);
+        ctx.lineTo(W / 2, vanishY);
+        ctx.stroke();
+      }
+
+      // Glowing horizon edge line — drawn LAST so it sits on top of
+      // the perspective grid and reads as the actual ground.
+      const lineGrad = ctx.createLinearGradient(0, GROUND - 2, 0, GROUND + 4);
       lineGrad.addColorStop(0, `hsla(${st.hue}, 90%, 60%, 0.0)`);
-      lineGrad.addColorStop(0.5, `hsla(${st.hue}, 90%, 65%, 1)`);
+      lineGrad.addColorStop(0.5, `hsla(${st.hue}, 95%, 70%, 1)`);
       lineGrad.addColorStop(1, `hsla(${st.hue}, 90%, 60%, 0.0)`);
       ctx.fillStyle = lineGrad;
-      ctx.fillRect(0, GROUND - 2, W, 5);
-
-      // Lane stripes (fastest)
-      const lanePeriod = 80;
-      const laneStart = -(((st.laneOffset % lanePeriod) + lanePeriod) % lanePeriod);
-      ctx.fillStyle = `hsla(${(st.hue + 50) % 360}, 90%, 65%, 0.7)`;
-      for (let x = laneStart; x < W + lanePeriod; x += lanePeriod) {
-        ctx.fillRect(x, GROUND + 22, 38, 3);
-      }
+      ctx.fillRect(0, GROUND - 2, W, 6);
 
       // Particles
       for (const p of st.particles) {
