@@ -48,7 +48,7 @@ export default async function RootLayout({
           <div className="flex-1 min-w-0">
             <main>{children}</main>
             <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
-              <div className="px-4 sm:px-6 lg:px-8 py-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <div className="px-4 sm:px-6 lg:px-8 py-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 <div>
                   <Image
                     src="/nexplay-logo.png"
@@ -68,6 +68,7 @@ export default async function RootLayout({
                   <ul className="space-y-1.5 text-sm">
                     <li><a href="/" className="hover:text-[var(--foreground)] text-[var(--muted)]">Home</a></li>
                     <li><a href="/multiplayer" className="hover:text-[var(--foreground)] text-[var(--muted)]">Multiplayer</a></li>
+                    <li><a href="/guide" className="hover:text-[var(--foreground)] text-[var(--muted)]">How to play</a></li>
                     <li><a href="/category/puzzle" className="hover:text-[var(--foreground)] text-[var(--muted)]">Puzzle</a></li>
                     <li><a href="/category/action" className="hover:text-[var(--foreground)] text-[var(--muted)]">Action</a></li>
                   </ul>
@@ -79,27 +80,6 @@ export default async function RootLayout({
                   <ul className="space-y-1.5 text-sm">
                     <li><a href="/login" className="hover:text-[var(--foreground)] text-[var(--muted)]">Log in</a></li>
                     <li><a href="/profile" className="hover:text-[var(--foreground)] text-[var(--muted)]">Profile</a></li>
-                  </ul>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-2 font-bold">
-                    Built with
-                  </div>
-                  <ul className="space-y-1.5 text-xs text-[var(--muted)]">
-                    <li>Next.js 16 + React 19</li>
-                    <li>Tailwind v4</li>
-                    <li>Supabase</li>
-                    <li>
-                      Icons:{" "}
-                      <a
-                        href="https://game-icons.net"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:text-[var(--foreground)]"
-                      >
-                        game-icons.net
-                      </a>
-                    </li>
                   </ul>
                 </div>
               </div>
