@@ -49,7 +49,7 @@ export default function RootLayout({
                     alt="Nexplay"
                     width={2000}
                     height={1000}
-                    className="h-10 w-auto mb-3"
+                    className="h-14 w-auto mb-3"
                   />
                   <p className="text-xs text-[var(--muted)] leading-relaxed">
                     Free browser games — no downloads, sign in to save scores or play live with friends.
