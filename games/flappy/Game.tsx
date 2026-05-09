@@ -16,6 +16,17 @@ const FLAP = -420;
 
 type Pipe = { x: number; gapY: number; passed: boolean };
 
+function makeInitialPipes(): Pipe[] {
+  return [
+    { x: W + 200, gapY: 100 + Math.random() * (H - 200 - GAP), passed: false },
+    {
+      x: W + 200 + PIPE_GAP_X,
+      gapY: 100 + Math.random() * (H - 200 - GAP),
+      passed: false,
+    },
+  ];
+}
+
 export default function Flappy() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -27,7 +38,7 @@ export default function Flappy() {
   const stateRef = useRef({
     y: H / 2,
     vy: 0,
-    pipes: [] as Pipe[],
+    pipes: makeInitialPipes(),
     nextPipeAt: 0,
   });
 
@@ -39,10 +50,7 @@ export default function Flappy() {
     stateRef.current = {
       y: H / 2,
       vy: 0,
-      pipes: [
-        { x: W + 200, gapY: 200 + Math.random() * (H - 400), passed: false },
-        { x: W + 200 + PIPE_GAP_X, gapY: 200 + Math.random() * (H - 400), passed: false },
-      ],
+      pipes: makeInitialPipes(),
       nextPipeAt: 0,
     };
     setScore(0);
@@ -97,10 +105,13 @@ export default function Flappy() {
 
         // pipes scroll
         for (const p of st.pipes) p.x -= 200 * dt;
-        if (st.pipes[0].x < -PIPE_W) {
+        if (st.pipes.length > 0 && st.pipes[0].x < -PIPE_W) {
           st.pipes.shift();
+          const lastX = st.pipes.length > 0
+            ? st.pipes[st.pipes.length - 1].x
+            : W;
           st.pipes.push({
-            x: st.pipes[st.pipes.length - 1].x + PIPE_GAP_X,
+            x: lastX + PIPE_GAP_X,
             gapY: 100 + Math.random() * (H - 200 - GAP),
             passed: false,
           });
