@@ -6,6 +6,7 @@ import {
   challengesSatisfiedBy,
   todayKey,
 } from "@/lib/daily";
+import { syncAchievements } from "@/lib/achievements-server";
 
 const VALID_SLUGS = new Set(GAMES.map((g) => g.slug));
 const MAX_SCORE = 10_000_000;
@@ -101,5 +102,15 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, completed });
+  // Achievement sync — recompute stats and unlock anything new. Failures
+  // here are non-fatal; the score is already saved.
+  let achievements: string[] = [];
+  try {
+    const result = await syncAchievements(supabase, user.id);
+    achievements = result.newlyUnlocked;
+  } catch (e) {
+    console.error("[POST /api/scores] achievement sync failed", e);
+  }
+
+  return NextResponse.json({ ok: true, completed, achievements });
 }

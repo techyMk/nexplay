@@ -103,6 +103,7 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
             {isAuthenticated ? (
               <>
                 <NavRow href="/friends" emoji="👥" label="Friends" active={isActive("/friends")} />
+                <NavRow href="/achievements" emoji="🏆" label="Achievements" active={isActive("/achievements")} />
                 <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
                 <LogoutRow />
