@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { getUser } from "@/lib/supabase/server";
@@ -40,9 +41,10 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Header />
-        <div className="flex-1 flex">
-          <Sidebar isAuthenticated={isAuthenticated} />
+        <ConfirmProvider>
+          <Header />
+          <div className="flex-1 flex">
+            <Sidebar isAuthenticated={isAuthenticated} />
           <div className="flex-1 min-w-0">
             <main>{children}</main>
             <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
@@ -136,9 +138,10 @@ export default async function RootLayout({
                   </a>
                 </div>
               </div>
-            </footer>
+              </footer>
+            </div>
           </div>
-        </div>
+        </ConfirmProvider>
       </body>
     </html>
   );

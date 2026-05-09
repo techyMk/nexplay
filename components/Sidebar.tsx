@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CATEGORIES } from "@/lib/catalog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useConfirm } from "./ConfirmDialog";
 
 type NavItem = {
   href: string;
@@ -116,8 +117,23 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
 }
 
 function LogoutRow() {
+  const confirm = useConfirm();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await confirm({
+      icon: "👋",
+      title: "Log out?",
+      message: "You can sign back in any time to keep saving scores.",
+      confirmText: "Log out",
+      danger: true,
+    });
+    if (ok) formRef.current?.submit();
+  };
+
   return (
-    <form action="/logout" method="post">
+    <form ref={formRef} action="/logout" method="post" onSubmit={onSubmit}>
       <button
         type="submit"
         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-[var(--muted)] hover:text-red-500 hover:bg-red-50 transition-colors"

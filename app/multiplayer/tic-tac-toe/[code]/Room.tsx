@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyMove, INITIAL_TTT_STATE, type TTTState } from "@/lib/multiplayer";
 import { Avatar } from "@/components/Avatar";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type Profile = { name: string; avatar: string };
 
@@ -48,6 +49,7 @@ export function TTTRoomClient({
   const [closing, setClosing] = useState(false);
   const [closedNotice, setClosedNotice] = useState<string | null>(null);
   const router = useRouter();
+  const confirm = useConfirm();
 
   // Refs so the realtime callback / polling can read latest values without
   // forcing a re-subscribe.
@@ -204,14 +206,22 @@ export function TTTRoomClient({
   const inProgress = status === "playing" && !state.winner;
 
   const leaveRoom = async () => {
-    // Confirmation if there's an active game
-    if (inProgress) {
-      const verb =
-        myRole === "host"
-          ? "close this room and end the game"
-          : "leave this game";
-      if (!window.confirm(`Are you sure? This will ${verb}.`)) return;
-    }
+    // Confirmation always — even on a finished/waiting room — and adapt
+    // copy if there's an active game in progress.
+    const ok = await confirm({
+      icon: myRole === "host" ? "🚪" : "👋",
+      title: myRole === "host" ? "Close room?" : "Leave room?",
+      message: inProgress
+        ? myRole === "host"
+          ? "This ends the game for both players."
+          : "Your spot will open for someone else to join."
+        : myRole === "host"
+          ? "The room will be deleted."
+          : "You can rejoin via the room code later if it's still open.",
+      confirmText: myRole === "host" ? "Close room" : "Leave",
+      danger: true,
+    });
+    if (!ok) return;
 
     setClosing(true);
     const supabase = createClient();

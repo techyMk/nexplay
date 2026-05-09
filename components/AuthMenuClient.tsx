@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./Avatar";
+import { useConfirm } from "./ConfirmDialog";
 
 export function AuthMenuClient({
   displayName,
@@ -13,6 +14,8 @@ export function AuthMenuClient({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -23,6 +26,19 @@ export function AuthMenuClient({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  const onLogoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOpen(false);
+    const ok = await confirm({
+      icon: "👋",
+      title: "Log out?",
+      message: "You can sign back in any time to keep saving scores.",
+      confirmText: "Log out",
+      danger: true,
+    });
+    if (ok) formRef.current?.submit();
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -51,7 +67,12 @@ export function AuthMenuClient({
           >
             Profile
           </Link>
-          <form action="/logout" method="post">
+          <form
+            ref={formRef}
+            action="/logout"
+            method="post"
+            onSubmit={onLogoutSubmit}
+          >
             <button
               type="submit"
               className="block w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-2)] text-red-500 transition-colors"

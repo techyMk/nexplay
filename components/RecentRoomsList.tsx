@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useConfirm } from "./ConfirmDialog";
 
 export type RecentRoom = {
   id: string;
@@ -23,9 +24,17 @@ export function RecentRoomsList({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   const cancel = async (roomId: string) => {
-    if (!confirm(`Cancel room ${roomId}?`)) return;
+    const ok = await confirmDialog({
+      icon: "🗑️",
+      title: "Cancel room?",
+      message: `Room ${roomId} will be deleted. Anyone with this code won't be able to join.`,
+      confirmText: "Delete room",
+      danger: true,
+    });
+    if (!ok) return;
     setPending(roomId);
     setError(null);
     const supabase = createClient();
