@@ -201,17 +201,26 @@ export default function Tetris() {
   }, [over, level, tryMove, lockAndSpawn]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-4 gap-4">
-      <div>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          className="rounded-xl border border-white/10"
-          style={{ height: "min(85vh, 560px)", width: "auto", aspectRatio: `${W}/${H}` }}
-        />
+    <div className="absolute inset-0 flex items-stretch justify-center bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3 gap-3 sm:gap-4">
+      <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
+        <div className="relative h-full max-w-full" style={{ aspectRatio: `${W} / ${H}` }}>
+          <canvas
+            ref={canvasRef}
+            width={W}
+            height={H}
+            className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
+          />
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
+              <div className="text-3xl sm:text-4xl font-black text-white">Game over</div>
+              <div className="text-white/80">Score: {score} • Lines: {lines}</div>
+              <ScoreStatus gameSlug="tetris" status={submitStatus} />
+              <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="text-white text-xs space-y-3 hidden sm:block">
+      <div className="text-white text-xs space-y-2 hidden sm:flex sm:flex-col sm:justify-center shrink-0">
         <div className="px-3 py-2 rounded-lg bg-white/5">
           <div className="opacity-60 uppercase tracking-wider">Score</div>
           <div className="text-2xl font-black">{score}</div>
@@ -232,14 +241,6 @@ export default function Tetris() {
           ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop
         </div>
       </div>
-      {over && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
-          <div className="text-4xl font-black text-white">Game over</div>
-          <div className="text-white/80">Score: {score} • Lines: {lines}</div>
-          <ScoreStatus gameSlug="tetris" status={submitStatus} />
-          <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
-        </div>
-      )}
     </div>
   );
 }

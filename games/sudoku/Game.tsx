@@ -126,15 +126,15 @@ export default function Sudoku() {
   const selVal = sel ? board[sel.r][sel.c].value : 0;
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-4 select-none">
-      <div className="flex items-center gap-3 mb-3 text-white text-sm flex-wrap justify-center">
-        <span className="px-3 py-1 rounded-lg bg-white/10">📊 {initial.diff}</span>
-        <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
-        <span className="px-3 py-1 rounded-lg bg-white/10">❌ {errors}</span>
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-2 sm:p-3 select-none overflow-auto">
+      <div className="shrink-0 flex items-center gap-2 mb-2 text-white text-xs flex-wrap justify-center">
+        <span className="px-2 py-1 rounded-lg bg-white/10">📊 {initial.diff}</span>
+        <span className="px-2 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
+        <span className="px-2 py-1 rounded-lg bg-white/10">❌ {errors}</span>
         <select
           value={puzzleIdx}
           onChange={(e) => setPuzzleIdx(parseInt(e.target.value, 10))}
-          className="px-3 py-1 rounded-lg bg-white/10 text-white text-xs"
+          className="px-2 py-1 rounded-lg bg-white/10 text-white text-xs"
         >
           <option value={0}>Easy</option>
           <option value={1}>Medium</option>
@@ -142,11 +142,10 @@ export default function Sudoku() {
         </select>
       </div>
 
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
-        className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border border-white/20"
+        className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border border-white/20 h-full max-w-full"
         style={{
-          width: "min(85vh, 92vw, 540px)",
-          maxWidth: "100%",
           aspectRatio: "1",
           gridTemplateRows: "repeat(9, 1fr)",
         }}
@@ -186,9 +185,10 @@ export default function Sudoku() {
           }),
         )}
       </div>
+      </div>
 
       {/* Number pad */}
-      <div className="mt-3 grid grid-cols-9 gap-1.5" style={{ width: "min(85vh, 92vw, 540px)" }}>
+      <div className="shrink-0 mt-2 grid grid-cols-9 gap-1 mx-auto" style={{ width: "min(540px, 100%)" }}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button
             key={n}

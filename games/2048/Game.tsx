@@ -159,7 +159,7 @@ export default function Game2048() {
 
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#2a1810] to-[#3a1a14] p-4 select-none"
+      className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#2a1810] to-[#3a1a14] p-2 sm:p-3 select-none"
       onTouchStart={(e) => {
         const t = e.touches[0];
         touchStart.current = { x: t.clientX, y: t.clientY };
@@ -176,12 +176,12 @@ export default function Game2048() {
         touchStart.current = null;
       }}
     >
-      <div className="flex items-center gap-3 mb-4">
-        <div className="px-3 py-2 rounded-lg bg-white/10 text-white text-center min-w-[70px]">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2">
+        <div className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-center min-w-[70px]">
           <div className="text-[10px] uppercase opacity-60">Score</div>
           <div className="font-black">{score}</div>
         </div>
-        <div className="px-3 py-2 rounded-lg bg-white/10 text-white text-center min-w-[70px]">
+        <div className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-center min-w-[70px]">
           <div className="text-[10px] uppercase opacity-60">Best</div>
           <div className="font-black">{best}</div>
         </div>
@@ -193,32 +193,33 @@ export default function Game2048() {
         </button>
       </div>
 
-      <div
-        className="grid gap-2 p-2 rounded-xl bg-black/40"
-        style={{
-          gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
-          gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-          width: "min(60vh, 92vw, 360px)",
-          aspectRatio: "1",
-        }}
-      >
-        {board.flatMap((row, r) =>
-          row.map((v, c) => (
-            <div
-              key={`${r}-${c}`}
-              className="rounded-lg flex items-center justify-center font-black text-white transition-all"
-              style={{
-                background: COLORS[v] ?? "#1c2230",
-                fontSize: v >= 1024 ? "1.1rem" : v >= 128 ? "1.6rem" : "2rem",
-              }}
-            >
-              {v > 0 && v}
-            </div>
-          )),
-        )}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div
+          className="grid gap-2 p-2 rounded-xl bg-black/40 h-full max-w-full"
+          style={{
+            gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+            gridTemplateRows: `repeat(${SIZE}, 1fr)`,
+            aspectRatio: "1",
+          }}
+        >
+          {board.flatMap((row, r) =>
+            row.map((v, c) => (
+              <div
+                key={`${r}-${c}`}
+                className="rounded-lg flex items-center justify-center font-black text-white transition-all"
+                style={{
+                  background: COLORS[v] ?? "#1c2230",
+                  fontSize: v >= 1024 ? "1.1rem" : v >= 128 ? "1.6rem" : "2rem",
+                }}
+              >
+                {v > 0 && v}
+              </div>
+            )),
+          )}
+        </div>
       </div>
 
-      <div className="mt-4 text-white/70 text-xs">
+      <div className="shrink-0 mt-2 text-white/70 text-[11px] text-center">
         Arrow keys or WASD • Swipe on mobile
       </div>
 
