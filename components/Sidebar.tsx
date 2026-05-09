@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { CATEGORIES } from "@/lib/catalog";
 import { useEffect, useRef, useState } from "react";
 import { useConfirm } from "./ConfirmDialog";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 type NavItem = {
   href: string;
@@ -20,9 +22,68 @@ const TOP_NAV: NavItem[] = [
   { href: "/guide", emoji: "📖", label: "How to play" },
 ];
 
+function useFriendsUnread(authed: boolean): number {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!authed || !isSupabaseConfigured) return;
+    const supabase = createClient();
+    let cancelled = false;
+
+    const refresh = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const [{ count: incoming }, { count: invites }] = await Promise.all([
+        supabase
+          .from("friendships")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending")
+          .neq("initiated_by", user.id)
+          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
+        supabase
+          .from("game_invites")
+          .select("*", { count: "exact", head: true })
+          .eq("to_user", user.id)
+          .eq("status", "pending"),
+      ]);
+      if (cancelled) return;
+      setCount((incoming ?? 0) + (invites ?? 0));
+    };
+
+    refresh();
+
+    const channel = supabase
+      .channel("sidebar-unread")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships" },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "game_invites" },
+        refresh,
+      )
+      .subscribe();
+
+    const id = setInterval(refresh, 30_000);
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      clearInterval(id);
+    };
+  }, [authed]);
+
+  return count;
+}
+
 export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const friendsUnread = useFriendsUnread(isAuthenticated);
 
   useEffect(() => {
     setOpen(false);
@@ -102,7 +163,7 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
           <nav className="space-y-0.5">
             {isAuthenticated ? (
               <>
-                <NavRow href="/friends" emoji="👥" label="Friends" active={isActive("/friends")} />
+                <NavRow href="/friends" emoji="👥" label="Friends" active={isActive("/friends")} count={friendsUnread} />
                 <NavRow href="/achievements" emoji="🏆" label="Achievements" active={isActive("/achievements")} />
                 <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
@@ -156,12 +217,14 @@ function NavRow({
   label,
   active,
   hot,
+  count,
 }: {
   href: string;
   emoji: string;
   label: string;
   active: boolean;
   hot?: boolean;
+  count?: number;
 }) {
   return (
     <Link
@@ -174,12 +237,19 @@ function NavRow({
     >
       <span className="text-lg leading-none">{emoji}</span>
       <span className="flex-1">{label}</span>
-      {hot && (
+      {count && count > 0 ? (
+        <span
+          className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black leading-none"
+          aria-label={`${count} pending`}
+        >
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : hot ? (
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }

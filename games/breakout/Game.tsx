@@ -91,6 +91,43 @@ export default function Breakout() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, launch, togglePause]);
 
+  // Touch input — paddle follows the finger horizontally; tap launches
+  // the ball when in "ready" phase.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const trackX = (clientX: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = ((clientX - rect.left) / rect.width) * W;
+      stateRef.current.paddleX = Math.max(
+        PADDLE_W / 2,
+        Math.min(W - PADDLE_W / 2, x),
+      );
+    };
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      trackX(t.clientX);
+    };
+    const onMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      e.preventDefault();
+      trackX(t.clientX);
+    };
+    const onTap = () => {
+      if (phase === "ready") launch();
+    };
+    canvas.addEventListener("touchstart", onStart, { passive: true });
+    canvas.addEventListener("touchmove", onMove, { passive: false });
+    canvas.addEventListener("touchend", onTap, { passive: true });
+    return () => {
+      canvas.removeEventListener("touchstart", onStart);
+      canvas.removeEventListener("touchmove", onMove);
+      canvas.removeEventListener("touchend", onTap);
+    };
+  }, [phase, launch]);
+
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
@@ -233,7 +270,7 @@ export default function Breakout() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
-        <span>Best: <b>{best}</b> · Arrow keys / A,D · Space to launch · P pauses</span>
+        <span>Best: <b>{best}</b> · Arrows / A,D or drag · Space / tap to launch · P pauses</span>
         {phase === "play" && (
           <button
             onClick={togglePause}
