@@ -48,12 +48,20 @@ export default async function DailyPage() {
   const challenges = challengesForDate(today);
 
   const ids = challenges.map((c) => c.id);
-  const { data: todayCompletions } = await supabase
+  const { data: todayCompletions, error: todayErr } = await supabase
     .from("daily_challenge_completions")
     .select("challenge_id, score")
     .eq("user_id", user.id)
     .eq("challenge_date", today)
     .in("challenge_id", ids);
+
+  // PostgREST returns "PGRST205" / "42P01" when the table is missing.
+  // That happens when migration 0009 hasn't been applied yet.
+  const tableMissing =
+    !!todayErr &&
+    (/relation .* does not exist/i.test(todayErr.message) ||
+      todayErr.code === "PGRST205" ||
+      todayErr.code === "42P01");
 
   const completedToday = new Map(
     (todayCompletions ?? []).map((r: CompletionRow) => [r.challenge_id, r.score] as const),
@@ -62,12 +70,14 @@ export default async function DailyPage() {
   // Distinct dates for streak calculation. Pull last 60 days max.
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 60);
-  const { data: recentRows } = await supabase
-    .from("daily_challenge_completions")
-    .select("challenge_date")
-    .eq("user_id", user.id)
-    .gte("challenge_date", since.toISOString().slice(0, 10))
-    .order("challenge_date", { ascending: false });
+  const { data: recentRows } = tableMissing
+    ? { data: [] as { challenge_date: string }[] }
+    : await supabase
+        .from("daily_challenge_completions")
+        .select("challenge_date")
+        .eq("user_id", user.id)
+        .gte("challenge_date", since.toISOString().slice(0, 10))
+        .order("challenge_date", { ascending: false });
 
   const distinctDates = Array.from(
     new Set((recentRows ?? []).map((r) => r.challenge_date as string)),
@@ -173,7 +183,22 @@ export default async function DailyPage() {
         <StreakBadge streak={streak} />
       </div>
 
-      {allDone && (
+      {tableMissing && (
+        <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-4 mb-5 text-sm">
+          <div className="font-black text-yellow-700 dark:text-yellow-300 mb-1 flex items-center gap-2">
+            <span>⚠️</span> Daily challenges table not set up
+          </div>
+          <p className="text-[var(--muted)] leading-relaxed">
+            The <code className="px-1 py-0.5 rounded bg-[var(--surface-2)] font-mono text-xs">daily_challenge_completions</code>{" "}
+            table doesn&apos;t exist in your Supabase project yet. Apply{" "}
+            <code className="px-1 py-0.5 rounded bg-[var(--surface-2)] font-mono text-xs">supabase/migrations/0009_daily_challenges.sql</code>{" "}
+            in the Supabase SQL Editor and reload this page. Until then,
+            completions can&apos;t be recorded.
+          </p>
+        </div>
+      )}
+
+      {!tableMissing && allDone && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 mb-5 text-sm text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-2">
           <span className="text-xl">🎉</span>
           All three done! Come back tomorrow for a new set.

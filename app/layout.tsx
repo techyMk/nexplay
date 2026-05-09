@@ -6,6 +6,7 @@ import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeScript } from "@/components/ThemeScript";
+import { ToastProvider } from "@/components/ToastProvider";
 import { getUser } from "@/lib/supabase/server";
 
 const geistSans = Geist({
@@ -46,6 +47,7 @@ export default async function RootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-full flex flex-col">
+        <ToastProvider>
         <ConfirmProvider>
           <Header />
           <div className="flex-1 flex">
@@ -176,6 +178,7 @@ export default async function RootLayout({
               </div>
           </footer>
         </ConfirmProvider>
+        </ToastProvider>
       </body>
     </html>
   );
