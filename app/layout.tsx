@@ -50,9 +50,9 @@ export default async function RootLayout({
           <Header />
           <div className="flex-1 flex">
             <Sidebar isAuthenticated={isAuthenticated} />
-          <div className="flex-1 min-w-0">
-            <main>{children}</main>
-            <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
+            <main className="flex-1 min-w-0">{children}</main>
+          </div>
+          <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-8">
                 <div className="col-span-2 sm:col-span-4 lg:col-span-4">
                   <Image
@@ -174,9 +174,7 @@ export default async function RootLayout({
                   </a>
                 </div>
               </div>
-              </footer>
-            </div>
-          </div>
+          </footer>
         </ConfirmProvider>
       </body>
     </html>
