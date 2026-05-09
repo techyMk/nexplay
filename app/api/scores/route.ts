@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { GAMES } from "@/lib/catalog";
+import {
+  challengesForDate,
+  challengesSatisfiedBy,
+  todayKey,
+} from "@/lib/daily";
 
 const VALID_SLUGS = new Set(GAMES.map((g) => g.slug));
 const MAX_SCORE = 10_000_000;
@@ -67,5 +72,34 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  // Mark any daily challenges this score satisfies. Uses upsert so a
+  // user replaying after they've already qualified is a no-op rather
+  // than an error. Failures here aren't fatal — score is already saved.
+  const today = todayKey();
+  const todays = challengesForDate(today);
+  const satisfied = challengesSatisfiedBy(todays, game_slug, score);
+  let completed: string[] = [];
+  if (satisfied.length > 0) {
+    const { error: dcErr } = await supabase
+      .from("daily_challenge_completions")
+      .upsert(
+        satisfied.map((c) => ({
+          user_id: user.id,
+          challenge_date: today,
+          challenge_id: c.id,
+          score: Math.floor(score),
+        })),
+        { onConflict: "user_id,challenge_date,challenge_id", ignoreDuplicates: true },
+      );
+    if (dcErr) {
+      console.error("[POST /api/scores] daily completions upsert failed", {
+        message: dcErr.message,
+        code: dcErr.code,
+      });
+    } else {
+      completed = satisfied.map((c) => c.id);
+    }
+  }
+
+  return NextResponse.json({ ok: true, completed });
 }

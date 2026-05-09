@@ -15,6 +15,7 @@ type NavItem = {
 
 const TOP_NAV: NavItem[] = [
   { href: "/", emoji: "🏠", label: "Home" },
+  { href: "/daily", emoji: "🎯", label: "Daily" },
   { href: "/multiplayer", emoji: "👥", label: "Multiplayer", hot: true },
   { href: "/guide", emoji: "📖", label: "How to play" },
 ];
