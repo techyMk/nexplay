@@ -42,7 +42,7 @@ export function Hero({ games }: { games: Game[] }) {
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/35 to-transparent pointer-events-none" />
 
-      <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 p-6 md:p-10 min-h-[260px] md:min-h-[320px] z-10">
+      <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 p-6 md:p-12 min-h-[300px] md:min-h-[380px] z-10">
         <div className="flex flex-col justify-end">
           <AnimatePresence mode="wait">
             <motion.div
@@ -98,9 +98,9 @@ export function Hero({ games }: { games: Game[] }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.5 }}
-              className="drop-shadow-[0_12px_36px_rgba(0,0,0,0.3)]"
+              className="drop-shadow-[0_20px_48px_rgba(0,0,0,0.35)] animate-float"
             >
-              <GameArt icon={game.icon} glyph={game.glyph} size="xl" />
+              <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
             </motion.div>
           </AnimatePresence>
         </div>
