@@ -143,7 +143,7 @@ export function FriendsClient({
 
   const onInvite = async (
     row: FriendRow,
-    gameSlug: "tic-tac-toe" | "skribbl" | "connect-four",
+    gameSlug: "tic-tac-toe" | "skribbl" | "connect-four" | "pong",
   ) => {
     setBusy(row.user_id);
     const res = await inviteToPlay(row.user_id, gameSlug);
@@ -154,7 +154,9 @@ export function FriendsClient({
           ? `/multiplayer/tic-tac-toe/${res.roomId}`
           : gameSlug === "connect-four"
             ? `/multiplayer/connect-four/${res.roomId}`
-            : `/multiplayer/skribbl/${res.roomId}`;
+            : gameSlug === "pong"
+              ? `/multiplayer/pong/${res.roomId}`
+              : `/multiplayer/skribbl/${res.roomId}`;
       router.push(path);
     } else if (!res.ok) {
       setFeedback({ kind: "err", text: res.error });
@@ -351,7 +353,7 @@ function FriendActions({
 }: {
   row: FriendRow;
   busy: boolean;
-  onInvite: (row: FriendRow, slug: "tic-tac-toe" | "skribbl" | "connect-four") => void;
+  onInvite: (row: FriendRow, slug: "tic-tac-toe" | "skribbl" | "connect-four" | "pong") => void;
   onUnfriend: (row: FriendRow) => void;
   onBlock: (row: FriendRow) => void;
 }) {
@@ -393,6 +395,15 @@ function FriendActions({
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)]"
               >
                 🔴 Connect Four
+              </button>
+              <button
+                onClick={() => {
+                  setInviteOpen(false);
+                  onInvite(row, "pong");
+                }}
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)]"
+              >
+                🏓 Pong
               </button>
               <button
                 onClick={() => {

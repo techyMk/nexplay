@@ -28,6 +28,14 @@ const MULTIPLAYER_GAMES = [
     gradient: "linear-gradient(135deg, #ef4444 0%, #f59e0b 100%)",
     desc: "Real-time 1-vs-1 — drop discs and align four in a row.",
     available: true,
+  },
+  {
+    slug: "pong",
+    title: "Pong",
+    glyph: "🏓",
+    gradient: "linear-gradient(135deg, #06b6d4 0%, #ec4899 100%)",
+    desc: "Real-time arcade classic. First to 5 points takes the round.",
+    available: true,
     badge: "New",
   },
   {
