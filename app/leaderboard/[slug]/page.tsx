@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { GAMES, getGame } from "@/lib/catalog";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { otherParty } from "@/lib/social";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
 import { Avatar } from "@/components/Avatar";
@@ -10,6 +11,8 @@ import { Avatar } from "@/components/Avatar";
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
 }
+
+type Scope = "global" | "friends";
 
 export async function generateMetadata({
   params,
@@ -33,15 +36,21 @@ type Row = {
 
 export default async function LeaderboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ scope?: string }>;
 }) {
   const { slug } = await params;
+  const { scope: rawScope } = await searchParams;
+  const scope: Scope = rawScope === "friends" ? "friends" : "global";
+
   const game = getGame(slug);
   if (!game) notFound();
 
   let rows: Row[] = [];
   let currentUserId: string | null = null;
+  let friendCount = 0;
 
   if (isSupabaseConfigured) {
     const supabase = await createClient();
@@ -51,13 +60,39 @@ export default async function LeaderboardPage({
       } = await supabase.auth.getUser();
       currentUserId = user?.id ?? null;
 
-      const { data } = await supabase
-        .from("top_scores")
-        .select("user_id, score, created_at, display_name, avatar_emoji")
-        .eq("game_slug", slug)
-        .order("score", { ascending: false })
-        .limit(50);
-      rows = (data as Row[] | null) ?? [];
+      if (scope === "friends" && !currentUserId) {
+        redirect(`/login?next=/leaderboard/${slug}?scope=friends`);
+      }
+
+      if (scope === "friends" && currentUserId) {
+        const { data: friendships } = await supabase
+          .from("friendships")
+          .select("user_a, user_b")
+          .eq("status", "accepted")
+          .or(`user_a.eq.${currentUserId},user_b.eq.${currentUserId}`);
+        const friendIds = (friendships ?? []).map((f) =>
+          otherParty(f, currentUserId!),
+        );
+        friendCount = friendIds.length;
+        const ids = [currentUserId, ...friendIds];
+
+        const { data } = await supabase
+          .from("top_scores")
+          .select("user_id, score, created_at, display_name, avatar_emoji")
+          .eq("game_slug", slug)
+          .in("user_id", ids)
+          .order("score", { ascending: false })
+          .limit(50);
+        rows = (data as Row[] | null) ?? [];
+      } else {
+        const { data } = await supabase
+          .from("top_scores")
+          .select("user_id, score, created_at, display_name, avatar_emoji")
+          .eq("game_slug", slug)
+          .order("score", { ascending: false })
+          .limit(50);
+        rows = (data as Row[] | null) ?? [];
+      }
     }
   }
 
@@ -87,11 +122,17 @@ export default async function LeaderboardPage({
         </Link>
       </div>
 
+      <ScopeToggle slug={slug} scope={scope} />
+
       {!isSupabaseConfigured ? (
         <SetupBanner />
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center text-[var(--muted)]">
-          No scores yet — be the first!
+          {scope === "friends"
+            ? friendCount === 0
+              ? <>You don&apos;t have any friends here yet — <Link href="/friends" className="text-[var(--accent)] hover:underline">add some</Link> to compare scores.</>
+              : "No scores yet — be the first to play!"
+            : "No scores yet — be the first!"}
         </div>
       ) : (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
@@ -136,6 +177,29 @@ export default async function LeaderboardPage({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ScopeToggle({ slug, scope }: { slug: string; scope: Scope }) {
+  const base =
+    "px-4 py-2 rounded-lg text-sm font-bold transition-colors";
+  const active = "bg-[var(--surface)] text-[var(--foreground)] shadow-sm";
+  const inactive = "text-[var(--muted)] hover:text-[var(--foreground)]";
+  return (
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[var(--surface-2)] mb-4">
+      <Link
+        href={`/leaderboard/${slug}`}
+        className={`${base} ${scope === "global" ? active : inactive}`}
+      >
+        🌍 Global
+      </Link>
+      <Link
+        href={`/leaderboard/${slug}?scope=friends`}
+        className={`${base} ${scope === "friends" ? active : inactive}`}
+      >
+        👥 Friends
+      </Link>
     </div>
   );
 }

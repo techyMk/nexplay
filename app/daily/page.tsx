@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Avatar } from "@/components/Avatar";
 import { BackButton } from "@/components/BackButton";
 import { GameArt } from "@/components/GameArt";
 import { getGame } from "@/lib/catalog";
+import { otherParty } from "@/lib/social";
 import type { Game } from "@/lib/types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +36,13 @@ export default async function DailyPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/daily");
+
+  const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_emoji")
+    .eq("id", user.id)
+    .maybeSingle();
+  const myAvatar = myProfile?.avatar_emoji ?? "liam";
 
   const today = todayKey();
   const challenges = challengesForDate(today);
@@ -67,6 +76,81 @@ export default async function DailyPage() {
 
   const completedCount = challenges.filter((c) => completedToday.has(c.id)).length;
   const allDone = completedCount === challenges.length;
+
+  // ---- Friend leaderboard for today ----------------------------------------
+  const { data: friendships } = await supabase
+    .from("friendships")
+    .select("user_a, user_b")
+    .eq("status", "accepted")
+    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+  const friendIds = (friendships ?? []).map((f) => otherParty(f, user.id));
+
+  type FriendStat = {
+    user_id: string;
+    name: string;
+    avatar: string;
+    todayDone: number;
+    streak: number;
+    completedIds: Set<string>;
+  };
+  let friendStats: FriendStat[] = [];
+
+  if (friendIds.length > 0) {
+    const sinceKey = since.toISOString().slice(0, 10);
+    const [{ data: profiles }, { data: friendCompletions }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, avatar_emoji")
+        .in("id", friendIds),
+      supabase
+        .from("daily_challenge_completions")
+        .select("user_id, challenge_date, challenge_id")
+        .in("user_id", friendIds)
+        .gte("challenge_date", sinceKey),
+    ]);
+
+    const profileById = new Map(
+      (profiles ?? []).map((p) => [p.id, p] as const),
+    );
+    // Group completions by user
+    const byUser = new Map<
+      string,
+      { dates: Set<string>; todayIds: Set<string> }
+    >();
+    for (const r of friendCompletions ?? []) {
+      const uid = r.user_id as string;
+      const date = r.challenge_date as string;
+      const cid = r.challenge_id as string;
+      let entry = byUser.get(uid);
+      if (!entry) {
+        entry = { dates: new Set(), todayIds: new Set() };
+        byUser.set(uid, entry);
+      }
+      entry.dates.add(date);
+      if (date === today && ids.includes(cid)) entry.todayIds.add(cid);
+    }
+
+    friendStats = friendIds.map((fid) => {
+      const profile = profileById.get(fid);
+      const stats = byUser.get(fid);
+      return {
+        user_id: fid,
+        name: profile?.display_name ?? "Player",
+        avatar: profile?.avatar_emoji ?? "liam",
+        todayDone: stats?.todayIds.size ?? 0,
+        streak: stats ? computeStreak(Array.from(stats.dates), today) : 0,
+        completedIds: stats?.todayIds ?? new Set(),
+      };
+    });
+
+    // Sort: most done today, then highest streak, then name.
+    friendStats.sort(
+      (a, b) =>
+        b.todayDone - a.todayDone ||
+        b.streak - a.streak ||
+        a.name.localeCompare(b.name),
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 md:py-12">
@@ -104,13 +188,100 @@ export default async function DailyPage() {
             index={i}
             done={completedToday.has(c.id)}
             doneScore={completedToday.get(c.id)}
+            friendsDone={friendStats.filter((f) => f.completedIds.has(c.id))}
           />
         ))}
       </div>
 
+      {friendStats.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-baseline gap-2 mb-2 px-1">
+            <span>👥</span>
+            <h2 className="text-sm font-black uppercase tracking-wider">
+              Friends today
+            </h2>
+            <span className="ml-auto text-xs text-[var(--muted)]">
+              {friendStats.filter((f) => f.todayDone > 0).length} active
+            </span>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
+            <FriendRow
+              key="me"
+              avatar={myAvatar}
+              name="You"
+              todayDone={completedCount}
+              total={challenges.length}
+              streak={streak}
+              highlight
+            />
+            {friendStats.map((f) => (
+              <FriendRow
+                key={f.user_id}
+                avatar={f.avatar}
+                name={f.name}
+                todayDone={f.todayDone}
+                total={challenges.length}
+                streak={f.streak}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-8 text-xs text-[var(--muted)] text-center">
         Challenges complete automatically when you submit a qualifying score.
         No retries needed — beat the threshold once and it sticks.
+      </div>
+    </div>
+  );
+}
+
+function FriendRow({
+  avatar,
+  name,
+  todayDone,
+  total,
+  streak,
+  highlight = false,
+}: {
+  avatar: string;
+  name: string;
+  todayDone: number;
+  total: number;
+  streak: number;
+  highlight?: boolean;
+}) {
+  const allDone = todayDone === total && total > 0;
+  return (
+    <div
+      className={`flex items-center gap-3 p-3 ${
+        highlight ? "bg-[var(--accent)]/5" : ""
+      }`}
+    >
+      <Avatar value={avatar} size="sm" />
+      <div className="flex-1 min-w-0">
+        <div className="font-bold truncate">
+          {name}
+          {highlight && (
+            <span className="ml-2 text-xs text-[var(--accent)] font-medium">(you)</span>
+          )}
+        </div>
+        <div className="text-xs text-[var(--muted)]">
+          {todayDone}/{total} today · {streak}-day streak
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            className={`w-2.5 h-2.5 rounded-full ${
+              i < todayDone
+                ? "bg-emerald-500"
+                : "bg-[var(--surface-2)] border border-[var(--border)]"
+            }`}
+          />
+        ))}
+        {allDone && <span className="ml-1 text-base">🎉</span>}
       </div>
     </div>
   );
@@ -121,11 +292,13 @@ function ChallengeCard({
   index,
   done,
   doneScore,
+  friendsDone,
 }: {
   challenge: DailyChallenge;
   index: number;
   done: boolean;
   doneScore?: number;
+  friendsDone: { user_id: string; name: string; avatar: string }[];
 }) {
   const game = getGame(challenge.gameSlug);
   return (
@@ -150,6 +323,26 @@ function ChallengeCard({
         </div>
         <div className="font-black text-lg leading-tight">{challenge.title}</div>
         <div className="text-sm text-[var(--muted)] mt-0.5">{challenge.description}</div>
+        {friendsDone.length > 0 && (
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex -space-x-2">
+              {friendsDone.slice(0, 5).map((f) => (
+                <div
+                  key={f.user_id}
+                  className="rounded-full ring-2 ring-[var(--surface)]"
+                  title={`${f.name} completed this`}
+                >
+                  <Avatar value={f.avatar} size="sm" />
+                </div>
+              ))}
+            </div>
+            <span className="text-xs text-[var(--muted)]">
+              {friendsDone.length === 1
+                ? `${friendsDone[0].name} did it too`
+                : `${friendsDone.length} friends did it`}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-end shrink-0">
         {done ? (
