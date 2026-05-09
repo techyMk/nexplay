@@ -26,8 +26,9 @@ const MULTIPLAYER_GAMES = [
     title: "Connect Four",
     glyph: "🔴",
     gradient: "linear-gradient(135deg, #ef4444 0%, #f59e0b 100%)",
-    desc: "Drop discs head-to-head with a friend. Coming soon.",
-    available: false,
+    desc: "Real-time 1-vs-1 — drop discs and align four in a row.",
+    available: true,
+    badge: "New",
   },
   {
     slug: "checkers",
