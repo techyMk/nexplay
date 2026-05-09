@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { getUser } from "@/lib/supabase/server";
 
 /**
- * Sign-up promo strip on the homepage. Uses our brand gradient with
- * abstract decorative blobs to look fun and inviting.
+ * Sign-up promo strip on the homepage. Hidden for already-signed-in
+ * visitors — there's no point pitching account creation to someone
+ * who has one. Uses our brand gradient with abstract decorative blobs.
  */
-export function HomeCTA() {
+export async function HomeCTA() {
+  const user = await getUser();
+  if (user) return null;
+
   return (
     <section className="relative my-10 overflow-hidden rounded-3xl">
       <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)] via-[var(--accent-2)] to-[var(--accent-3)]" />
