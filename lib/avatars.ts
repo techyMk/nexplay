@@ -27,9 +27,19 @@ export type AvatarSlug = (typeof AVATARS)[number]["slug"];
 
 const AVATAR_BY_SLUG = new Map(AVATARS.map((a) => [a.slug, a]));
 
-/** Returns the SVG src for a slug, or null if it's not a known avatar slug. */
+/** True when the stored value is a custom uploaded avatar URL rather than
+ *  one of the preset slugs or an emoji. */
+export function isCustomAvatarUrl(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+/** Returns the loadable image src for a stored avatar value. Custom URLs
+ *  pass through; preset slugs map to local SVGs; everything else (emoji)
+ *  returns null and is rendered as text by the Avatar component. */
 export function avatarSrc(value: string | null | undefined): string | null {
   if (!value) return null;
+  if (isCustomAvatarUrl(value)) return value;
   return AVATAR_BY_SLUG.get(value as AvatarSlug)?.src ?? null;
 }
 

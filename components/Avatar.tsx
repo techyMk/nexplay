@@ -1,13 +1,13 @@
 import Image from "next/image";
-import { avatarSrc } from "@/lib/avatars";
+import { avatarSrc, isCustomAvatarUrl } from "@/lib/avatars";
 
 /**
  * Renders a user avatar. If `value` is one of the known avatar slugs
  * ("liam", "olivia", etc.), an SVG illustration from /public/avatars is
- * shown. Otherwise the value is treated as an emoji and rendered as text.
- *
- * Background gradient is rendered behind so emoji fallbacks still feel
- * branded. SVG avatars are framed in a circle.
+ * shown. If it's an http(s) URL it's a user-uploaded image from Supabase
+ * Storage. Otherwise the value is treated as an emoji and rendered as
+ * text. Background gradient sits behind so emoji fallbacks still feel
+ * branded.
  */
 export function Avatar({
   value,
@@ -19,6 +19,7 @@ export function Avatar({
   className?: string;
 }) {
   const src = avatarSrc(value);
+  const isUpload = isCustomAvatarUrl(value);
 
   const dim = {
     xs: 24,
@@ -42,13 +43,26 @@ export function Avatar({
       style={{ width: dim, height: dim }}
     >
       {src ? (
-        <Image
-          src={src}
-          alt=""
-          width={dim}
-          height={dim}
-          className="w-full h-full object-cover"
-        />
+        isUpload ? (
+          // Custom-uploaded URL — use a plain <img> so we don't need to
+          // whitelist the Supabase Storage origin in next.config.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt=""
+            width={dim}
+            height={dim}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Image
+            src={src}
+            alt=""
+            width={dim}
+            height={dim}
+            className="w-full h-full object-cover"
+          />
+        )
       ) : (
         <span
           aria-hidden
