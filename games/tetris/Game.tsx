@@ -174,6 +174,70 @@ export default function Tetris() {
     return () => window.removeEventListener("keydown", onKey);
   }, [over, paused, togglePause, tryMove, lockAndSpawn]);
 
+  // Touch input — left/right swipe moves, tap rotates, swipe down soft
+  // drops, fast swipe down hard drops.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let lastMoveX = 0;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      startX = t.clientX;
+      startY = t.clientY;
+      startT = performance.now();
+      lastMoveX = startX;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (over || paused) return;
+      const t = e.touches[0];
+      if (!t) return;
+      // Horizontal swipe: move one cell per ~24px traveled since last move.
+      const rect = canvas.getBoundingClientRect();
+      const cellWidth = rect.width / COLS;
+      const dx = t.clientX - lastMoveX;
+      if (Math.abs(dx) > cellWidth * 0.7) {
+        const steps = Math.trunc(dx / cellWidth);
+        for (let i = 0; i < Math.abs(steps); i++) tryMove(Math.sign(steps), 0);
+        lastMoveX += steps * cellWidth;
+      }
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (over || paused) return;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      const dt = performance.now() - startT;
+      // Tap (no significant motion) → rotate
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 300) {
+        tryMove(0, 0, 1);
+        return;
+      }
+      // Mostly-vertical down swipe
+      if (dy > 40 && Math.abs(dy) > Math.abs(dx)) {
+        // Fast downward flick → hard drop
+        if (dy / Math.max(1, dt) > 0.8) {
+          while (tryMove(0, 1)) {}
+          lockAndSpawn();
+        } else {
+          if (!tryMove(0, 1)) lockAndSpawn();
+        }
+      }
+    };
+    canvas.addEventListener("touchstart", onStart, { passive: true });
+    canvas.addEventListener("touchmove", onMove, { passive: true });
+    canvas.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      canvas.removeEventListener("touchstart", onStart);
+      canvas.removeEventListener("touchmove", onMove);
+      canvas.removeEventListener("touchend", onEnd);
+    };
+  }, [over, paused, tryMove, lockAndSpawn]);
+
   useEffect(() => {
     if (over || paused) return;
     const ctx = canvasRef.current?.getContext("2d");
@@ -265,7 +329,8 @@ export default function Tetris() {
           <div className="text-xl font-bold">{level}</div>
         </div>
         <div className="px-3 py-2 rounded-lg bg-white/5 text-[10px] opacity-70 leading-relaxed">
-          ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop<br />P pause
+          ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop<br />P pause<br />
+          <span className="text-white/50">swipe / tap on mobile</span>
         </div>
         {!over && (
           <button

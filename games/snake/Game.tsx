@@ -95,6 +95,44 @@ export default function Snake() {
     return () => window.removeEventListener("keydown", onKey);
   }, [togglePause]);
 
+  // Touch swipe input — direction follows the swipe vector. Sensitivity
+  // is intentionally low (~16px) so a quick flick registers cleanly.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let startX = 0;
+    let startY = 0;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dx) < 16 && Math.abs(dy) < 16) return;
+      const dir: Dir =
+        Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? "right"
+            : "left"
+          : dy > 0
+            ? "down"
+            : "up";
+      const cur = stateRef.current.dir;
+      if (OPP[cur] !== dir) stateRef.current.nextDir = dir;
+    };
+    canvas.addEventListener("touchstart", onStart, { passive: true });
+    canvas.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      canvas.removeEventListener("touchstart", onStart);
+      canvas.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
   useEffect(() => {
     if (!running || paused) return;
     const ctx = canvasRef.current?.getContext("2d");
@@ -231,7 +269,7 @@ export default function Snake() {
           )}
         </div>
       </div>
-      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">Arrow keys / WASD</div>
+      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">Arrow keys / WASD · Swipe on mobile</div>
     </div>
   );
 }
