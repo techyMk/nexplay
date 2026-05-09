@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { sound } from "@/lib/audio";
 
 export type ConfirmOptions = {
   /** Headline of the dialog. Required. */
@@ -66,6 +67,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const finish = useCallback(
     (ok: boolean) => {
       if (!pending) return;
+      sound.play("click");
       pending.resolve(ok);
       setPending(null);
     },

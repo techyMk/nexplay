@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isSupabaseConfigured } from "./supabase/config";
+import { sound } from "./audio";
 
 type Status = "idle" | "submitting" | "submitted" | "error" | "anon";
 
@@ -62,6 +63,7 @@ export function useSubmitScoreOnGameOver(
     if (submittedThisRun.current) return;
     if (score <= 0) return;
     submittedThisRun.current = true;
+    sound.play("pop");
     setStatus("submitting");
     submitScore(gameSlug, score).then((r) => setStatus(r.status));
   }, [gameOver, gameSlug, score]);
