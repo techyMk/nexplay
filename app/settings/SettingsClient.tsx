@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useSound } from "@/lib/useSound";
 import { useConfirm } from "@/components/ConfirmDialog";
+import {
+  applyTheme,
+  getStoredTheme,
+  setTheme,
+  type Theme,
+} from "@/lib/theme";
 
 export function SettingsClient() {
   const { play, muted, setMuted } = useSound();
@@ -64,17 +70,9 @@ export function SettingsClient() {
         />
       </Section>
 
-      {/* Theme — placeholder for future */}
+      {/* Theme */}
       <Section title="Appearance" emoji="🎨">
-        <Row
-          label="Theme"
-          description="Light theme is currently the only option. Dark mode coming soon."
-          right={
-            <span className="px-2.5 py-1 rounded-md bg-[var(--surface-2)] text-xs font-bold">
-              Light
-            </span>
-          }
-        />
+        <ThemePicker />
       </Section>
 
       {/* Local data */}
@@ -95,8 +93,8 @@ export function SettingsClient() {
           <div
             className={`mt-3 text-xs px-3 py-2 rounded-lg ${
               reset.kind === "ok"
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-red-50 text-red-700 border border-red-200"
+                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                : "bg-red-500/10 text-red-600 border border-red-500/30"
             }`}
           >
             {reset.text}
@@ -197,6 +195,67 @@ function ToggleRow({
               }`}
             />
           </button>
+        </div>
+      }
+    />
+  );
+}
+
+function ThemePicker() {
+  const [theme, setThemeState] = useState<Theme>("system");
+
+  useEffect(() => {
+    setThemeState(getStoredTheme());
+    const onMq = () => {
+      // If using "system", re-apply on OS preference change
+      if (getStoredTheme() === "system") applyTheme("system");
+    };
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", onMq);
+    return () => mq.removeEventListener("change", onMq);
+  }, []);
+
+  const select = (t: Theme) => {
+    setThemeState(t);
+    setTheme(t);
+  };
+
+  const opts: { value: Theme; label: string; icon: string }[] = [
+    { value: "light", label: "Light", icon: "lucide:sun" },
+    { value: "dark", label: "Dark", icon: "lucide:moon" },
+    { value: "system", label: "System", icon: "lucide:laptop" },
+  ];
+
+  return (
+    <Row
+      label="Theme"
+      description="Light, dark, or follow your operating system."
+      right={
+        <div className="inline-flex p-0.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]">
+          {opts.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => select(o.value)}
+              aria-pressed={theme === o.value}
+              className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                theme === o.value
+                  ? "bg-[var(--surface)] shadow text-[var(--foreground)]"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              <img
+                src={`https://api.iconify.design/${o.icon}.svg?color=${encodeURIComponent(
+                  theme === o.value ? "#7c5cff" : "#71717a",
+                )}`}
+                alt=""
+                width={14}
+                height={14}
+                className="w-3.5 h-3.5"
+              />
+              {o.label}
+            </button>
+          ))}
         </div>
       }
     />

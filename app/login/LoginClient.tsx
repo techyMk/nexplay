@@ -135,12 +135,12 @@ export function LoginClient() {
           />
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="text-sm text-red-600 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
               {error}
             </div>
           )}
           {info && (
-            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+            <div className="text-sm text-emerald-600 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
               {info}
             </div>
           )}
@@ -199,7 +199,7 @@ function Field(props: {
         placeholder={props.placeholder}
         required={props.required}
         minLength={props.min}
-        className="w-full h-11 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-white focus:outline-none text-sm transition-colors"
+        className="w-full h-11 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm transition-colors"
       />
     </label>
   );
@@ -208,7 +208,7 @@ function Field(props: {
 function SetupNotice() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
-      <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-6">
+      <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
         <h1 className="text-xl font-bold mb-2">Supabase setup required</h1>
         <p className="text-sm text-[var(--muted)] mb-4">
           Accounts and leaderboards need a Supabase project. Quick setup:

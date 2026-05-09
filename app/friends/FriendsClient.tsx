@@ -169,7 +169,7 @@ export function FriendsClient({
             onChange={(e) => setAddInput(e.target.value)}
             placeholder="Manikandan"
             maxLength={32}
-            className="flex-1 h-10 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-white focus:outline-none text-sm transition-colors"
+            className="flex-1 h-10 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm transition-colors"
           />
           <button
             type="submit"
@@ -183,8 +183,8 @@ export function FriendsClient({
           <div
             className={`mt-3 text-xs px-3 py-2 rounded-lg ${
               feedback.kind === "ok"
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-red-50 text-red-700 border border-red-200"
+                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                : "bg-red-500/10 text-red-600 border border-red-500/30"
             }`}
           >
             {feedback.text}
@@ -370,7 +370,7 @@ function FriendActions({
               onClick={() => setInviteOpen(false)}
               aria-hidden
             />
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-[var(--surface)] shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
               <button
                 onClick={() => {
                   setInviteOpen(false);
@@ -420,7 +420,7 @@ function FriendActions({
               onClick={() => setMoreOpen(false)}
               aria-hidden
             />
-            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-white shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-[var(--surface)] shadow-2xl border border-[var(--border)] z-20 overflow-hidden">
               <button
                 onClick={() => {
                   setMoreOpen(false);

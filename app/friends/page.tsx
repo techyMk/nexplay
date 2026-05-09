@@ -12,7 +12,7 @@ export default async function FriendsPage() {
   if (!isSupabaseConfigured) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
-        <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-6">
+        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
           <h1 className="text-xl font-bold mb-2">Supabase setup required</h1>
         </div>
       </div>

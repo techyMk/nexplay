@@ -109,7 +109,7 @@ export function NotificationBellClient({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border)] bg-white shadow-2xl overflow-hidden z-50">
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
             <span className="text-sm font-black">Notifications</span>
             {total > 0 && (

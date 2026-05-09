@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-:root {
+/* Light theme (default) */
+:root,
+[data-theme="light"] {
   --background: #faf8f3;
   --surface: #ffffff;
   --surface-2: #f4f1e9;
@@ -22,6 +24,43 @@
   --shadow-sm: 0 1px 2px rgba(15, 15, 20, 0.06);
   --shadow-md: 0 4px 12px rgba(15, 15, 20, 0.08);
   --shadow-lg: 0 12px 32px rgba(15, 15, 20, 0.12);
+
+  --mesh-1: rgba(124, 92, 255, 0.10);
+  --mesh-2: rgba(255, 92, 174, 0.10);
+  --mesh-3: rgba(58, 200, 240, 0.08);
+
+  color-scheme: light;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --background: #0a0c14;
+  --surface: #131623;
+  --surface-2: #1c2030;
+  --surface-3: #262b40;
+
+  --foreground: #f5f6fa;
+  --foreground-2: #d8dae8;
+  --muted: #8b93a7;
+  --muted-2: #6b7388;
+
+  --border: #232842;
+  --border-strong: #2f3550;
+
+  --accent: #8b75ff;
+  --accent-2: #ff5ca2;
+  --accent-3: #22d3ee;
+  --accent-glow: rgba(139, 117, 255, 0.45);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  --mesh-1: rgba(124, 92, 255, 0.18);
+  --mesh-2: rgba(255, 92, 174, 0.14);
+  --mesh-3: rgba(58, 200, 240, 0.10);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -52,7 +91,7 @@ body {
     sans-serif;
 }
 
-/* Soft pastel mesh — gives the page colored depth without overwhelming */
+/* Pastel mesh — uses theme-aware tokens so it tones down for dark */
 body::before {
   content: "";
   position: fixed;
@@ -60,9 +99,9 @@ body::before {
   pointer-events: none;
   z-index: -1;
   background:
-    radial-gradient(900px 600px at 12% 8%, rgba(124, 92, 255, 0.10), transparent 55%),
-    radial-gradient(800px 500px at 90% 18%, rgba(255, 92, 174, 0.10), transparent 55%),
-    radial-gradient(700px 500px at 50% 110%, rgba(58, 200, 240, 0.08), transparent 60%);
+    radial-gradient(900px 600px at 12% 8%, var(--mesh-1), transparent 55%),
+    radial-gradient(800px 500px at 90% 18%, var(--mesh-2), transparent 55%),
+    radial-gradient(700px 500px at 50% 110%, var(--mesh-3), transparent 60%);
   filter: blur(12px);
 }
 
@@ -79,8 +118,9 @@ body::before {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Glass — adapts to surface tint per theme */
 .glass {
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
 }
@@ -120,7 +160,7 @@ body::before {
   transform: translateY(-3px);
 }
 
-/* Subtle floating animation for hero glyph */
+/* Hero glyph float */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }

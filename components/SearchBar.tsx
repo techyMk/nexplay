@@ -91,7 +91,7 @@ export function SearchBar() {
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           autoComplete="off"
-          className="w-full h-9 pl-9 pr-3 rounded-lg bg-[var(--surface-2)] border border-transparent focus:border-[var(--accent)] focus:bg-white focus:outline-none text-sm placeholder:text-[var(--muted)] transition-all"
+          className="w-full h-9 pl-9 pr-3 rounded-lg bg-[var(--surface-2)] border border-transparent focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm placeholder:text-[var(--muted)] transition-all"
         />
         <svg
           className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]"
@@ -108,7 +108,7 @@ export function SearchBar() {
 
       {showDropdown && (
         <div
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-white shadow-2xl border border-[var(--border)] overflow-hidden z-50"
+          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[var(--surface)] shadow-2xl border border-[var(--border)] overflow-hidden z-50"
           role="listbox"
         >
           {matches.map((g, i) => (

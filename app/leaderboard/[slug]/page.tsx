@@ -105,11 +105,11 @@ export default async function LeaderboardPage({
               <div
                 className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-sm ${
                   i === 0
-                    ? "bg-yellow-100 text-yellow-700"
+                    ? "bg-yellow-500/15 text-yellow-600"
                     : i === 1
-                      ? "bg-zinc-100 text-zinc-600"
+                      ? "bg-zinc-500/15 text-zinc-500"
                       : i === 2
-                        ? "bg-amber-100 text-amber-700"
+                        ? "bg-amber-500/15 text-amber-600"
                         : "bg-[var(--surface-2)] text-[var(--muted)]"
                 }`}
               >

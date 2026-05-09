@@ -52,7 +52,7 @@ export function ProfileEditor({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={32}
-          className="w-full h-11 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-white focus:outline-none text-sm transition-colors"
+          className="w-full h-11 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm transition-colors"
         />
       </label>
 
