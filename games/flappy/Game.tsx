@@ -21,6 +21,7 @@ export default function Flappy() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<"ready" | "play" | "over">("ready");
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("flappy", score, phase === "over");
 
   const stateRef = useRef({
@@ -46,24 +47,37 @@ export default function Flappy() {
     };
     setScore(0);
     setPhase("ready");
+    setPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (phase !== "play") return;
+    setPaused((p) => !p);
+  }, [phase]);
 
   const flap = useCallback(() => {
     if (phase === "ready") setPhase("play");
     if (phase === "over") return;
+    if (paused) {
+      setPaused(false);
+      return;
+    }
     stateRef.current.vy = FLAP;
-  }, [phase]);
+  }, [phase, paused]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "ArrowUp") {
         e.preventDefault();
         flap();
+      } else if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flap]);
+  }, [flap, togglePause]);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -77,7 +91,7 @@ export default function Flappy() {
       last = now;
       const st = stateRef.current;
 
-      if (phase === "play") {
+      if (phase === "play" && !paused) {
         st.vy += GRAVITY * dt;
         st.y += st.vy * dt;
 
@@ -174,46 +188,74 @@ export default function Flappy() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [phase, score]);
+  }, [phase, paused, score]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a1a2a] to-[#1a3344] p-4">
-      <div className="text-white text-xs mb-2">
-        Best: <b>{best}</b>
-      </div>
-      <div className="relative" style={{ width: "min(90vw, 480px)", height: "min(80vh, 640px)" }}>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          onClick={flap}
-          onTouchStart={(e) => { e.preventDefault(); flap(); }}
-          className="rounded-xl border border-white/10 cursor-pointer w-full h-full"
-        />
-        {phase !== "play" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl pointer-events-none">
-            {phase === "ready" ? (
-              <>
-                <div className="text-3xl font-black text-white mb-2">Tap or press Space</div>
-                <div className="text-white/80">to flap</div>
-              </>
-            ) : (
-              <>
-                <div className="text-4xl font-black text-white mb-2">Game over</div>
-                <div className="text-white/80 mb-2">Score: {score}</div>
-                <div className="pointer-events-auto mb-3">
-                  <ScoreStatus gameSlug="flappy" status={submitStatus} />
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); reset(); }}
-                  className="pointer-events-auto px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-                >
-                  Try again
-                </button>
-              </>
-            )}
-          </div>
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a2a] to-[#1a3344] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs">
+        <span>Best: <b>{best}</b></span>
+        {phase === "play" && (
+          <button
+            onClick={togglePause}
+            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 font-bold transition-colors"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
         )}
+      </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div className="relative h-full max-w-full" style={{ aspectRatio: `${W} / ${H}` }}>
+          <canvas
+            ref={canvasRef}
+            width={W}
+            height={H}
+            onClick={flap}
+            onTouchStart={(e) => { e.preventDefault(); flap(); }}
+            className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 cursor-pointer"
+          />
+          {paused && phase === "play" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
+              <div className="text-5xl mb-1">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-xs mb-3">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to resume
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPaused(false);
+                }}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
+          {phase !== "play" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl pointer-events-none">
+              {phase === "ready" ? (
+                <>
+                  <div className="text-3xl font-black text-white mb-2">Tap or press Space</div>
+                  <div className="text-white/80">to flap · P pauses</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl font-black text-white mb-2">Game over</div>
+                  <div className="text-white/80 mb-2">Score: {score}</div>
+                  <div className="pointer-events-auto mb-3">
+                    <ScoreStatus gameSlug="flappy" status={submitStatus} />
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); reset(); }}
+                    className="pointer-events-auto px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+                  >
+                    Try again
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ export default function Asteroids() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("asteroids", score, over);
 
   const stateRef = useRef({
@@ -49,10 +50,27 @@ export default function Asteroids() {
     };
     setScore(0);
     setOver(false);
+    setPaused(false);
   }, []);
 
-  useEffect(() => {
+  const togglePause = useCallback(() => {
     if (over) return;
+    setPaused((p) => !p);
+  }, [over]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [togglePause]);
+
+  useEffect(() => {
+    if (over || paused) return;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     let raf = 0;
@@ -208,21 +226,48 @@ export default function Asteroids() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [keys, over, score]);
+  }, [keys, over, paused, score]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#020118] to-[#0b0d12] p-4">
-      <div className="text-white text-xs mb-2">Best: <b>{best}</b> • Arrows / WASD • Space to fire</div>
-      <div className="relative w-full" style={{ maxWidth: 800, aspectRatio: `${W}/${H}`, maxHeight: "75vh" }}>
-        <canvas ref={canvasRef} width={W} height={H} className="rounded-xl border border-white/10 w-full h-full" />
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
-            <div className="text-4xl font-black text-white">Game over</div>
-            <div className="text-white/80">Score: {score}</div>
-            <ScoreStatus gameSlug="asteroids" status={submitStatus} />
-            <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
-          </div>
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#020118] to-[#0b0d12] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
+        <span>Best: <b>{best}</b> · Arrows / WASD · Space fires · P pauses</span>
+        {!over && (
+          <button
+            onClick={togglePause}
+            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 font-bold transition-colors"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
         )}
+      </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div className="relative h-full max-w-full" style={{ aspectRatio: `${W} / ${H}` }}>
+          <canvas ref={canvasRef} width={W} height={H} className="absolute inset-0 w-full h-full block rounded-xl border border-white/10" />
+          {paused && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
+              <div className="text-5xl mb-1">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-xs mb-3">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
+              </div>
+              <button
+                onClick={() => setPaused(false)}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
+              <div className="text-4xl font-black text-white">Game over</div>
+              <div className="text-white/80">Score: {score}</div>
+              <ScoreStatus gameSlug="asteroids" status={submitStatus} />
+              <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

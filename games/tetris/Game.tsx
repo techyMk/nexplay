@@ -92,6 +92,7 @@ export default function Tetris() {
   const [lines, setLines] = useState(0);
   const [level, setLevel] = useState(1);
   const [over, setOver] = useState(false);
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("tetris", score, over);
 
   const stateRef = useRef({
@@ -105,8 +106,13 @@ export default function Tetris() {
 
   const reset = useCallback(() => {
     stateRef.current = { board: emptyBoard(), piece: randomPiece(), next: randomPiece(), drop: 0 };
-    setScore(0); setLines(0); setLevel(1); setOver(false);
+    setScore(0); setLines(0); setLevel(1); setOver(false); setPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (over) return;
+    setPaused((p) => !p);
+  }, [over]);
 
   const tryMove = useCallback((dx: number, dy: number, dr = 0) => {
     const st = stateRef.current;
@@ -148,6 +154,12 @@ export default function Tetris() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (over) return;
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
+      if (paused) return; // Block gameplay input while paused
       if (e.key === "ArrowLeft" || e.key === "a") { e.preventDefault(); tryMove(-1, 0); }
       else if (e.key === "ArrowRight" || e.key === "d") { e.preventDefault(); tryMove(1, 0); }
       else if (e.key === "ArrowDown" || e.key === "s") { e.preventDefault(); if (!tryMove(0, 1)) lockAndSpawn(); }
@@ -160,10 +172,10 @@ export default function Tetris() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [over, tryMove, lockAndSpawn]);
+  }, [over, paused, togglePause, tryMove, lockAndSpawn]);
 
   useEffect(() => {
-    if (over) return;
+    if (over || paused) return;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     let raf = 0;
@@ -198,7 +210,7 @@ export default function Tetris() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [over, level, tryMove, lockAndSpawn]);
+  }, [over, paused, level, tryMove, lockAndSpawn]);
 
   return (
     <div className="absolute inset-0 flex items-stretch justify-center bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3 gap-3 sm:gap-4">
@@ -210,6 +222,21 @@ export default function Tetris() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
+          {paused && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
+              <div className="text-5xl mb-1">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-xs mb-3">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
+              </div>
+              <button
+                onClick={() => setPaused(false)}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
           {over && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
               <div className="text-3xl sm:text-4xl font-black text-white">Game over</div>
@@ -238,8 +265,16 @@ export default function Tetris() {
           <div className="text-xl font-bold">{level}</div>
         </div>
         <div className="px-3 py-2 rounded-lg bg-white/5 text-[10px] opacity-70 leading-relaxed">
-          ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop
+          ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop<br />P pause
         </div>
+        {!over && (
+          <button
+            onClick={togglePause}
+            className="px-3 py-2 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -37,6 +37,7 @@ export default function Snake() {
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
   const [running, setRunning] = useState(true);
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("snake", score, over);
 
   const stateRef = useRef({
@@ -65,10 +66,21 @@ export default function Snake() {
     setScore(0);
     setOver(false);
     setRunning(true);
+    setPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (over) return;
+    setPaused((p) => !p);
+  }, [over]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
       const map: Record<string, Dir> = {
         ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
         w: "up", s: "down", a: "left", d: "right",
@@ -81,10 +93,10 @@ export default function Snake() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [togglePause]);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running || paused) return;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
 
@@ -162,13 +174,21 @@ export default function Snake() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [running]);
+  }, [running, paused]);
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1f0d] to-[#0b0d12] p-2 sm:p-3">
-      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <span className="px-3 py-1 rounded-lg bg-white/10">Score: <b>{score}</b></span>
         <span className="px-3 py-1 rounded-lg bg-white/10">Best: <b>{best}</b></span>
+        {!over && (
+          <button
+            onClick={togglePause}
+            className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 font-bold transition-colors"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
+        )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         <div
@@ -181,6 +201,21 @@ export default function Snake() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
+          {paused && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
+              <div className="text-5xl mb-1">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-xs mb-3">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
+              </div>
+              <button
+                onClick={() => setPaused(false)}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
           {over && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
               <div className="text-3xl font-black text-white mb-1">Game over</div>
