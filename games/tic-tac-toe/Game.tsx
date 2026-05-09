@@ -102,7 +102,7 @@ export default function TicTacToe() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 grid-rows-3 gap-2 w-full max-w-[min(60vh,360px)] aspect-square">
+      <div className="grid grid-cols-3 grid-rows-3 gap-2 w-full max-w-[min(60vh,92vw,360px)] aspect-square">
         {board.map((cell, i) => {
           const win = line?.includes(i);
           return (

@@ -113,6 +113,50 @@ export async function respondToFriendRequest(
   return { ok: true };
 }
 
+/** Block a user. Replaces any existing friendship with a 'blocked' row
+ *  initiated by the caller. Blocked users can't send requests or invites. */
+export async function blockUser(otherId: string): Promise<ActionResult> {
+  const { supabase, user, error } = await requireUser();
+  if (error || !user) return { ok: false, error: error ?? "Not signed in" };
+  if (otherId === user.id) return { ok: false, error: "Can't block yourself" };
+
+  const { a, b } = pairOrder(user.id, otherId);
+  const { error: upErr } = await supabase
+    .from("friendships")
+    .upsert(
+      {
+        user_a: a,
+        user_b: b,
+        status: "blocked",
+        initiated_by: user.id,
+      },
+      { onConflict: "user_a,user_b" },
+    );
+  if (upErr) return { ok: false, error: upErr.message };
+
+  revalidatePath("/friends");
+  return { ok: true };
+}
+
+/** Unblock — only the user who blocked can lift it. Removes the row. */
+export async function unblockUser(otherId: string): Promise<ActionResult> {
+  const { supabase, user, error } = await requireUser();
+  if (error || !user) return { ok: false, error: error ?? "Not signed in" };
+
+  const { a, b } = pairOrder(user.id, otherId);
+  const { error: delErr } = await supabase
+    .from("friendships")
+    .delete()
+    .eq("user_a", a)
+    .eq("user_b", b)
+    .eq("status", "blocked")
+    .eq("initiated_by", user.id);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  revalidatePath("/friends");
+  return { ok: true };
+}
+
 export async function unfriend(otherId: string): Promise<ActionResult> {
   const { supabase, user, error } = await requireUser();
   if (error || !user) return { ok: false, error: error ?? "Not signed in" };

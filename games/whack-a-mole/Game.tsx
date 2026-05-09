@@ -92,7 +92,7 @@ export default function WhackAMole() {
       </div>
       <div
         className="grid grid-cols-3 grid-rows-3 gap-3 p-4 rounded-2xl bg-gradient-to-b from-amber-900/40 to-amber-950/40 border border-amber-900/30"
-        style={{ width: "min(75vh, 480px)", aspectRatio: "1" }}
+        style={{ width: "min(75vh, 92vw, 480px)", aspectRatio: "1" }}
       >
         {holes.map((h, i) => (
           <button

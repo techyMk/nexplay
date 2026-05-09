@@ -87,7 +87,7 @@ export default function MemoryMatch() {
 
       <div
         className="grid grid-cols-4 gap-3"
-        style={{ width: "min(70vh, 480px)" }}
+        style={{ width: "min(70vh, 92vw, 480px)" }}
       >
         {cards.map((c) => {
           const showFace = c.flipped || c.matched;

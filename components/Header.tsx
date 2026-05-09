@@ -4,11 +4,14 @@ import { Suspense } from "react";
 import { SearchBar } from "./SearchBar";
 import { AuthMenu } from "./AuthMenu";
 import { NotificationBell } from "./NotificationBell";
+import { HamburgerButton } from "./HamburgerButton";
 
 export function Header() {
   return (
     <header className="sticky top-0 z-40 glass border-b border-[var(--border)]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 h-16 flex items-center gap-2 sm:gap-4">
+        <HamburgerButton />
+
         <Link href="/" className="flex items-center group shrink-0">
           <Image
             src="/nexplay-logo.png"
@@ -16,7 +19,7 @@ export function Header() {
             width={2000}
             height={1000}
             priority
-            className="h-12 w-auto group-hover:scale-105 transition-transform"
+            className="h-10 sm:h-12 w-auto group-hover:scale-105 transition-transform"
           />
         </Link>
 

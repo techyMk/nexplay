@@ -162,7 +162,7 @@ export default function MatchThree() {
         style={{
           gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-          width: "min(80vh, 480px)",
+          width: "min(80vh, 92vw, 480px)",
           aspectRatio: "1",
         }}
       >

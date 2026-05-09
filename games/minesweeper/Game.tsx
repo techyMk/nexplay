@@ -129,7 +129,7 @@ export default function Minesweeper() {
         style={{
           gridTemplateColumns: `repeat(${COLS}, 1fr)`,
           gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-          width: "min(85vh, 560px)",
+          width: "min(85vh, 92vw, 560px)",
           aspectRatio: "1",
         }}
       >

@@ -121,7 +121,7 @@ export default function ConnectFour() {
 
       <div
         className="rounded-2xl p-3 bg-blue-700/80"
-        style={{ width: "min(70vh, 520px)" }}
+        style={{ width: "min(70vh, 92vw, 520px)" }}
       >
         <div className="grid grid-cols-7 gap-2">
           {Array.from({ length: COLS }).map((_, c) => (

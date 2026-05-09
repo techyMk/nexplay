@@ -145,7 +145,8 @@ export default function Sudoku() {
       <div
         className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border border-white/20"
         style={{
-          width: "min(85vh, 540px)",
+          width: "min(85vh, 92vw, 540px)",
+          maxWidth: "100%",
           aspectRatio: "1",
           gridTemplateRows: "repeat(9, 1fr)",
         }}
@@ -187,7 +188,7 @@ export default function Sudoku() {
       </div>
 
       {/* Number pad */}
-      <div className="mt-3 grid grid-cols-9 gap-1.5" style={{ width: "min(85vh, 540px)" }}>
+      <div className="mt-3 grid grid-cols-9 gap-1.5" style={{ width: "min(85vh, 92vw, 540px)" }}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button
             key={n}

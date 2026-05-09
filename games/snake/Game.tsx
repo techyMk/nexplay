@@ -176,7 +176,7 @@ export default function Snake() {
           width={W}
           height={H}
           className="rounded-xl border border-white/10"
-          style={{ width: "min(80vh, 528px)", aspectRatio: `${W}/${H}`, height: "auto" }}
+          style={{ width: "min(80vh, 92vw, 528px)", aspectRatio: `${W}/${H}`, height: "auto" }}
         />
         {over && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
