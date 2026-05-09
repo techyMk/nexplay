@@ -117,12 +117,17 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
         />
       )}
 
+      {/* On mobile this is a fixed slide-in panel that always fills the
+          viewport below the header. On lg+ it's a sticky column whose
+          height is capped at one viewport so position:sticky cleanly
+          stops at the flex row's bottom edge — i.e. exactly where the
+          footer starts — without ever overlapping it. */}
       <aside
-        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 h-[calc(100vh-4rem)] w-56 shrink-0 transition-transform lg:transition-none ${
+        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 w-56 shrink-0 transition-transform lg:transition-none h-[calc(100vh-4rem)] lg:h-auto lg:self-start lg:max-h-[calc(100vh-4rem)] ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="h-full overflow-y-auto p-2 border-r border-[var(--border)] bg-[var(--surface)] lg:bg-transparent">
+        <div className="h-full lg:max-h-[calc(100vh-4rem)] overflow-y-auto p-2 border-r border-[var(--border)] bg-[var(--surface)] lg:bg-transparent">
           <nav className="space-y-0.5">
             {TOP_NAV.map((item) => (
               <NavRow
