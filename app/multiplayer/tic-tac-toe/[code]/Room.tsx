@@ -238,12 +238,14 @@ export function TTTRoomClient({
         return;
       }
     } else if (myRole === "guest") {
-      // Clear guest seat, return room to "waiting"
+      // Clear guest seat AND reset the board so the next guest doesn't
+      // walk into a half-played match.
       const { error: err } = await supabase
         .from("rooms")
         .update({
           guest_user_id: null,
           status: "waiting",
+          state: INITIAL_TTT_STATE,
         })
         .eq("id", roomId);
       if (err) {

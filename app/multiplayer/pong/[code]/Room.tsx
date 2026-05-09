@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   BALL_R,
   FIELD_H,
+  INITIAL_PONG_STATE,
   PADDLE_H,
   PADDLE_W,
   PADDLE_X,
@@ -358,10 +359,12 @@ export function PongRoomClient({
   }, [myRole, handleScore]);
 
   // Reset snapshot when a fresh round starts (status flips back to playing
-  // with both scores 0, e.g. after rematch).
+  // with both scores 0, e.g. after rematch). Both sides reset locally so
+  // the guest doesn't carry over a stale paddle/ball position from the
+  // previous match before the host's first broadcast lands.
   useEffect(() => {
     if (
-      myRole === "host" &&
+      myRole !== "spectator" &&
       status === "playing" &&
       pongState.scoreL === 0 &&
       pongState.scoreR === 0 &&
@@ -520,9 +523,15 @@ export function PongRoomClient({
         return;
       }
     } else if (myRole === "guest") {
+      // Clear guest seat AND reset scores so the next guest doesn't
+      // walk into a half-played match.
       const { error: err } = await supabase
         .from("rooms")
-        .update({ guest_user_id: null, status: "waiting" })
+        .update({
+          guest_user_id: null,
+          status: "waiting",
+          state: { ...INITIAL_PONG_STATE, target: pongState.target },
+        })
         .eq("id", roomId);
       if (err) {
         setError(`Couldn't leave: ${err.message}`);

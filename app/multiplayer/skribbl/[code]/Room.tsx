@@ -172,6 +172,19 @@ export function SkribblRoomClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, isDrawer, secondsLeft]);
 
+  // Auto-end round as soon as every non-drawer has guessed correctly.
+  // Drawer triggers it so we have a single writer and avoid duplicate
+  // round_end transitions.
+  useEffect(() => {
+    if (phase !== "drawing" || !isDrawer) return;
+    const nonDrawers = state.players.length - 1;
+    if (nonDrawers <= 0) return;
+    if (state.guessers.length >= nonDrawers) {
+      endRound();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, isDrawer, state.guessers.length, state.players.length]);
+
   // ---------- Game flow ----------
   const startGame = async () => {
     if (!isHost) return;
@@ -334,12 +347,8 @@ export function SkribblRoomClient({
         } satisfies ChatMessage,
       });
 
-      // If all non-drawers have guessed, end early
-      const nonDrawers = state.players.length - 1;
-      if (newGuessers.length >= nonDrawers && isDrawer === false) {
-        // Anyone can request end; only drawer's tab will run endRound to avoid races
-        if (state.drawer_id === myUserId) endRound();
-      }
+      // The drawer's tab will see the updated guessers via postgres_changes
+      // and trigger endRound from the effect above when everyone has guessed.
       return;
     }
 
