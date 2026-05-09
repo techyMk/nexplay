@@ -44,18 +44,13 @@ export default function RootLayout({
             <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
               <div className="px-4 sm:px-6 lg:px-8 py-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Image
-                      src="/nexplay-icon.png"
-                      alt="Nexplay"
-                      width={2000}
-                      height={2000}
-                      className="w-8 h-8 rounded-md"
-                    />
-                    <span className="font-black text-base">
-                      Nex<span className="text-gradient">play</span>
-                    </span>
-                  </div>
+                  <Image
+                    src="/nexplay-logo.png"
+                    alt="Nexplay"
+                    width={2000}
+                    height={1000}
+                    className="h-10 w-auto mb-3"
+                  />
                   <p className="text-xs text-[var(--muted)] leading-relaxed">
                     Free browser games — no downloads, sign in to save scores or play live with friends.
                   </p>
