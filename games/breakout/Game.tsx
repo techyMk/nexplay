@@ -41,6 +41,7 @@ export default function Breakout() {
   const [best, setBest] = useState(0);
   const [lives, setLives] = useState(3);
   const [phase, setPhase] = useState<"ready" | "play" | "over" | "won">("ready");
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("breakout", score, phase === "over" || phase === "won");
 
   const stateRef = useRef({
@@ -68,18 +69,27 @@ export default function Breakout() {
     setScore(0);
     setLives(3);
     setPhase("ready");
+    setPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (phase !== "play") return;
+    setPaused((p) => !p);
+  }, [phase]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "ArrowUp") {
         e.preventDefault();
         if (phase === "ready") launch();
+      } else if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, launch]);
+  }, [phase, launch, togglePause]);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -92,16 +102,18 @@ export default function Breakout() {
       const st = stateRef.current;
       const k = keys.current;
 
-      if (k.has("ArrowLeft") || k.has("a")) st.paddleX -= 540 * dt;
-      if (k.has("ArrowRight") || k.has("d")) st.paddleX += 540 * dt;
-      st.paddleX = Math.max(PADDLE_W / 2, Math.min(W - PADDLE_W / 2, st.paddleX));
+      if (!paused) {
+        if (k.has("ArrowLeft") || k.has("a")) st.paddleX -= 540 * dt;
+        if (k.has("ArrowRight") || k.has("d")) st.paddleX += 540 * dt;
+        st.paddleX = Math.max(PADDLE_W / 2, Math.min(W - PADDLE_W / 2, st.paddleX));
+      }
 
       if (phase === "ready") {
         st.bx = st.paddleX;
         st.by = H - 60;
       }
 
-      if (phase === "play") {
+      if (phase === "play" && !paused) {
         st.bx += st.bvx * dt;
         st.by += st.bvy * dt;
         if (st.bx < BALL_R) { st.bx = BALL_R; st.bvx *= -1; }
@@ -216,33 +228,60 @@ export default function Breakout() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [keys, phase, score, lives]);
+  }, [keys, phase, paused, score, lives]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-4">
-      <div className="text-white text-xs mb-2">Best: <b>{best}</b> • Arrow keys / A,D • Space to launch</div>
-      <div className="relative w-full" style={{ maxWidth: 800, aspectRatio: `${W}/${H}`, maxHeight: "75vh" }}>
-        <canvas ref={canvasRef} width={W} height={H} className="rounded-xl border border-white/10 w-full h-full" />
-        {phase !== "play" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl gap-2 pointer-events-none">
-            {phase === "ready" && <>
-              <div className="text-3xl font-black text-white">Press space</div>
-              <div className="text-white/80">to launch the ball</div>
-            </>}
-            {phase === "over" && <>
-              <div className="text-4xl font-black text-white">Game over</div>
-              <div className="text-white/80">Score: {score}</div>
-              <ScoreStatus gameSlug="breakout" status={submitStatus} />
-              <button onClick={(e) => { e.stopPropagation(); reset(); }} className="pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
-            </>}
-            {phase === "won" && <>
-              <div className="text-4xl font-black text-white">🏆 You cleared it!</div>
-              <div className="text-white/80">Score: {score}</div>
-              <ScoreStatus gameSlug="breakout" status={submitStatus} />
-              <button onClick={(e) => { e.stopPropagation(); reset(); }} className="pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Next round</button>
-            </>}
-          </div>
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3">
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
+        <span>Best: <b>{best}</b> · Arrow keys / A,D · Space to launch · P pauses</span>
+        {phase === "play" && (
+          <button
+            onClick={togglePause}
+            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 font-bold transition-colors"
+          >
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </button>
         )}
+      </div>
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div className="relative h-full max-w-full" style={{ aspectRatio: `${W} / ${H}` }}>
+          <canvas ref={canvasRef} width={W} height={H} className="absolute inset-0 w-full h-full block rounded-xl border border-white/10" />
+          {paused && phase === "play" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
+              <div className="text-5xl mb-1">⏸</div>
+              <div className="text-3xl font-black text-white mb-1">Paused</div>
+              <div className="text-white/70 text-xs mb-3">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
+              </div>
+              <button
+                onClick={() => setPaused(false)}
+                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              >
+                ▶ Resume
+              </button>
+            </div>
+          )}
+          {phase !== "play" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl gap-2 pointer-events-none">
+              {phase === "ready" && <>
+                <div className="text-3xl font-black text-white">Press space</div>
+                <div className="text-white/80">to launch the ball</div>
+              </>}
+              {phase === "over" && <>
+                <div className="text-4xl font-black text-white">Game over</div>
+                <div className="text-white/80">Score: {score}</div>
+                <ScoreStatus gameSlug="breakout" status={submitStatus} />
+                <button onClick={(e) => { e.stopPropagation(); reset(); }} className="pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
+              </>}
+              {phase === "won" && <>
+                <div className="text-4xl font-black text-white">🏆 You cleared it!</div>
+                <div className="text-white/80">Score: {score}</div>
+                <ScoreStatus gameSlug="breakout" status={submitStatus} />
+                <button onClick={(e) => { e.stopPropagation(); reset(); }} className="pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Next round</button>
+              </>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
