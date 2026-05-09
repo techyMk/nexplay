@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Game } from "@/lib/types";
 import { GameArt } from "./GameArt";
+import { TilePattern } from "./TilePattern";
 
 export type GameCardSize = "default" | "large" | "wide" | "tall";
 
@@ -54,6 +55,9 @@ export function GameCard({
         className={`relative block ${ASPECT[size]} rounded-2xl overflow-hidden card-lift shadow-sm group-hover:shadow-xl ring-1 ring-black/5`}
         style={{ background: game.gradient }}
       >
+        {/* Per-game pattern texture */}
+        <TilePattern slug={game.slug} />
+
         {/* Soft inner highlights */}
         <div
           className="absolute inset-0 opacity-50 mix-blend-overlay"
