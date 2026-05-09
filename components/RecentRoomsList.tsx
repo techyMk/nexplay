@@ -28,7 +28,7 @@ export function RecentRoomsList({
 
   const cancel = async (roomId: string) => {
     const ok = await confirmDialog({
-      icon: "🗑️",
+      icon: "lucide:trash-2",
       title: "Cancel room?",
       message: `Room ${roomId} will be deleted. Anyone with this code won't be able to join.`,
       confirmText: "Delete room",
