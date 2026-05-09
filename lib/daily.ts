@@ -45,7 +45,7 @@ const POOL: DailyChallenge[] = [
   // Bubble Shooter
   { id: "bubbles-7000", gameSlug: "bubble-shooter", title: "Bubble buster", description: "Score 7,000+ in Bubble Shooter", threshold: 7000 },
   // Neon Runner
-  { id: "neon-1000", gameSlug: "neon-runner", title: "Neon dasher", description: "Score 1,000+ in Neon Runner", threshold: 1000 },
+  { id: "neon-8000", gameSlug: "neon-runner", title: "Neon dasher", description: "Score 8,000+ in Neon Runner", threshold: 8000 },
   // Asteroids
   { id: "asteroids-2500", gameSlug: "asteroids", title: "Rock smasher", description: "Score 2,500+ in Asteroids", threshold: 2500 },
 ];
