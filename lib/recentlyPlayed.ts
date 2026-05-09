@@ -16,6 +16,19 @@ export function recordPlay(slug: string) {
   } catch {
     // ignore quota / privacy mode errors
   }
+
+  // Increment the public play counter. Fire-and-forget — failures here
+  // don't affect gameplay.
+  if (typeof fetch !== "undefined") {
+    fetch("/api/plays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game_slug: slug }),
+      keepalive: true,
+    }).catch(() => {
+      // best-effort
+    });
+  }
 }
 
 export function useRecentlyPlayed(): string[] {

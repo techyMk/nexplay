@@ -5,6 +5,10 @@ import { GameFrame } from "@/components/GameFrame";
 import { GameCard } from "@/components/GameCard";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
+import { RatingWidget } from "@/components/RatingWidget";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { compactNumber } from "@/lib/format";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -24,6 +28,52 @@ export async function generateMetadata({
   };
 }
 
+async function fetchStats(slug: string) {
+  if (!isSupabaseConfigured) {
+    return { plays: 0, avgRating: null, ratingCount: 0, userRating: null, userId: null };
+  }
+  const supabase = await createClient();
+  if (!supabase) {
+    return { plays: 0, avgRating: null, ratingCount: 0, userRating: null, userId: null };
+  }
+
+  const [{ count: plays }, { data: ratingsRows }, { data: { user } }] =
+    await Promise.all([
+      supabase
+        .from("game_plays")
+        .select("*", { count: "exact", head: true })
+        .eq("game_slug", slug),
+      supabase.from("game_ratings").select("rating").eq("game_slug", slug),
+      supabase.auth.getUser(),
+    ]);
+
+  const ratings = (ratingsRows ?? []).map((r) => r.rating as number);
+  const ratingCount = ratings.length;
+  const avgRating =
+    ratingCount > 0
+      ? Math.round((ratings.reduce((s, r) => s + r, 0) / ratingCount) * 10) / 10
+      : null;
+
+  let userRating: number | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("game_ratings")
+      .select("rating")
+      .eq("user_id", user.id)
+      .eq("game_slug", slug)
+      .maybeSingle();
+    userRating = (data?.rating as number | undefined) ?? null;
+  }
+
+  return {
+    plays: plays ?? 0,
+    avgRating,
+    ratingCount,
+    userRating,
+    userId: user?.id ?? null,
+  };
+}
+
 export default async function GamePage({
   params,
 }: {
@@ -33,13 +83,13 @@ export default async function GamePage({
   const game = getGame(slug);
   if (!game) notFound();
 
+  const stats = await fetchStats(slug);
+  const isMultiplayer = game.players === "multiplayer" || game.players === "both";
   const related = GAMES.filter(
     (g) =>
       g.slug !== game.slug &&
       g.categories.some((c) => game.categories.includes(c)),
   ).slice(0, 6);
-
-  const isMultiplayer = game.players === "multiplayer" || game.players === "both";
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
@@ -81,12 +131,19 @@ export default async function GamePage({
           </h1>
           <p className="text-[var(--muted)] mt-1">{game.short}</p>
         </div>
-        <div className="hidden md:flex flex-col items-end gap-1 text-right shrink-0">
-          <div className="text-2xl font-black text-amber-500">
-            ⭐ {game.rating.toFixed(1)}
+        <div className="hidden md:flex flex-col items-end gap-0.5 text-right shrink-0">
+          <div className="text-2xl font-black text-amber-500 leading-none">
+            {stats.avgRating !== null ? `★ ${stats.avgRating.toFixed(1)}` : "★ —"}
           </div>
           <div className="text-xs text-[var(--muted)]">
-            {game.plays.toLocaleString()} plays
+            {stats.ratingCount === 0
+              ? "No ratings yet"
+              : `${stats.ratingCount} ${stats.ratingCount === 1 ? "rating" : "ratings"}`}
+          </div>
+          <div className="text-xs text-[var(--muted)] mt-1">
+            {stats.plays === 0
+              ? "Just launched"
+              : `${compactNumber(stats.plays)} ${stats.plays === 1 ? "play" : "plays"}`}
           </div>
         </div>
       </div>
@@ -131,6 +188,17 @@ export default async function GamePage({
           )}
 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 space-y-4">
+            <div>
+              <div className="text-[var(--muted)] text-[10px] uppercase tracking-widest mb-1.5 font-bold">
+                Rate this game
+              </div>
+              <RatingWidget
+                gameSlug={game.slug}
+                initialUserRating={stats.userRating}
+                isAuthenticated={Boolean(stats.userId)}
+              />
+            </div>
+
             <div>
               <div className="text-[var(--muted)] text-[10px] uppercase tracking-widest mb-1.5 font-bold">
                 Controls
