@@ -5,6 +5,7 @@ import "./globals.css";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
+import { ThemeScript } from "@/components/ThemeScript";
 import { getUser } from "@/lib/supabase/server";
 
 const geistSans = Geist({
@@ -39,7 +40,11 @@ export default async function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full flex flex-col">
         <ConfirmProvider>
           <Header />
