@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 const COLS = 10;
 const ROWS = 20;
@@ -93,6 +94,7 @@ export default function Tetris() {
   const [level, setLevel] = useState(1);
   const [over, setOver] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [started, setStarted] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("tetris", score, over);
 
   const stateRef = useRef({
@@ -106,13 +108,18 @@ export default function Tetris() {
 
   const reset = useCallback(() => {
     stateRef.current = { board: emptyBoard(), piece: randomPiece(), next: randomPiece(), drop: 0 };
-    setScore(0); setLines(0); setLevel(1); setOver(false); setPaused(false);
+    setScore(0); setLines(0); setLevel(1); setOver(false); setPaused(false); setStarted(false);
+  }, []);
+
+  const start = useCallback(() => {
+    setStarted(true);
+    setPaused(false);
   }, []);
 
   const togglePause = useCallback(() => {
-    if (over) return;
+    if (over || !started) return;
     setPaused((p) => !p);
-  }, [over]);
+  }, [over, started]);
 
   const tryMove = useCallback((dx: number, dy: number, dr = 0) => {
     const st = stateRef.current;
@@ -239,7 +246,7 @@ export default function Tetris() {
   }, [over, paused, tryMove, lockAndSpawn]);
 
   useEffect(() => {
-    if (over || paused) return;
+    if (over || paused || !started) return;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     let raf = 0;
@@ -274,7 +281,7 @@ export default function Tetris() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [over, paused, level, tryMove, lockAndSpawn]);
+  }, [over, paused, started, level, tryMove, lockAndSpawn]);
 
   return (
     <div className="absolute inset-0 flex items-stretch justify-center bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3 gap-3 sm:gap-4">
@@ -286,28 +293,38 @@ export default function Tetris() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
-          {paused && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
-              <div className="text-5xl mb-1">⏸</div>
-              <div className="text-3xl font-black text-white mb-1">Paused</div>
-              <div className="text-white/70 text-xs mb-3">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
-              </div>
-              <button
-                onClick={() => setPaused(false)}
-                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                ▶ Resume
-              </button>
-            </div>
+          {!started && !over && (
+            <GameOverlay
+              icon="🟦"
+              title="Tetris"
+              subtitle="Stack the falling pieces. Clear lines. Don't reach the top."
+              primary={{ label: "▶ Play", onClick: start }}
+            />
+          )}
+          {paused && started && !over && (
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
           )}
           {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
-              <div className="text-3xl sm:text-4xl font-black text-white">Game over</div>
-              <div className="text-white/80">Score: {score} • Lines: {lines}</div>
+            <GameOverlay
+              icon="💀"
+              title="Game over"
+              subtitle={`Score: ${score} • Lines: ${lines}`}
+              primary={{ label: "Play again", onClick: reset }}
+            >
               <ScoreStatus gameSlug="tetris" status={submitStatus} />
-              <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">Play again</button>
-            </div>
+            </GameOverlay>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
 type Board = number[][];
 
@@ -101,6 +102,8 @@ export default function Game2048() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const submitStatus = useSubmitScoreOnGameOver("2048", score, over);
 
@@ -118,7 +121,7 @@ export default function Game2048() {
 
   const tryMove = useCallback(
     (dir: Dir) => {
-      if (over) return;
+      if (over || paused || !started) return;
       const { board: nb, moved, gained } = move(board, dir);
       if (!moved) return;
       const next = addRandom(nb);
@@ -126,11 +129,29 @@ export default function Game2048() {
       setScore((s) => s + gained);
       if (gameOver(next)) setOver(true);
     },
-    [board, over],
+    [board, over, paused, started],
   );
+
+  const start = useCallback(() => {
+    setBoard(startBoard());
+    setScore(0);
+    setOver(false);
+    setStarted(true);
+    setPaused(false);
+  }, []);
+
+  const togglePause = useCallback(() => {
+    if (over || !started) return;
+    setPaused((p) => !p);
+  }, [over, started]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
       const map: Record<string, Dir> = {
         ArrowLeft: "left",
         ArrowRight: "right",
@@ -149,12 +170,14 @@ export default function Game2048() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tryMove]);
+  }, [tryMove, togglePause]);
 
   const reset = () => {
     setBoard(startBoard());
     setScore(0);
     setOver(false);
+    setStarted(false);
+    setPaused(false);
   };
 
   return (
@@ -176,7 +199,7 @@ export default function Game2048() {
         touchStart.current = null;
       }}
     >
-      <div className="shrink-0 flex items-center justify-center gap-3 mb-2">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 flex-wrap">
         <div className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-center min-w-[70px]">
           <div className="text-[10px] uppercase opacity-60">Score</div>
           <div className="font-black">{score}</div>
@@ -185,6 +208,9 @@ export default function Game2048() {
           <div className="text-[10px] uppercase opacity-60">Best</div>
           <div className="font-black">{best}</div>
         </div>
+        {started && !over && (
+          <PauseToggle paused={paused} onClick={togglePause} />
+        )}
         <button
           onClick={reset}
           className="px-4 py-2 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform"
@@ -220,21 +246,41 @@ export default function Game2048() {
       </div>
 
       <div className="shrink-0 mt-2 text-white/70 text-[11px] text-center">
-        Arrow keys or WASD • Swipe on mobile
+        Arrow keys / WASD · Swipe on mobile · P pauses
       </div>
 
+      {!started && !over && (
+        <GameOverlay
+          icon="🎲"
+          title="2048"
+          subtitle="Slide tiles, combine matching numbers, reach 2048."
+          primary={{ label: "▶ Play", onClick: start }}
+        />
+      )}
+      {paused && started && !over && (
+        <GameOverlay
+          variant="blur"
+          icon="⏸"
+          title="Paused"
+          subtitle={
+            <>
+              Press{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+              to resume
+            </>
+          }
+          primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+        />
+      )}
       {over && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
-          <div className="text-4xl font-black text-white mb-1">Game over</div>
-          <div className="text-white/80">Final score: {score}</div>
+        <GameOverlay
+          icon="🛑"
+          title="Game over"
+          subtitle={`Final score: ${score}`}
+          primary={{ label: "Play again", onClick: start }}
+        >
           <ScoreStatus gameSlug="2048" status={submitStatus} />
-          <button
-            onClick={reset}
-            className="mt-3 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-          >
-            Play again
-          </button>
-        </div>
+        </GameOverlay>
       )}
     </div>
   );

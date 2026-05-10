@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
 const HOLES = 9;
 const ROUND_SECONDS = 30;
@@ -15,7 +16,7 @@ export default function WhackAMole() {
   );
   const [score, setScore] = useState(0);
   const [time, setTime] = useState(ROUND_SECONDS);
-  const [phase, setPhase] = useState<"ready" | "play" | "over">("ready");
+  const [phase, setPhase] = useState<"ready" | "play" | "paused" | "over">("ready");
   const [best, setBest] = useState(0);
   const submitStatus = useSubmitScoreOnGameOver("whack-a-mole", score, phase === "over");
   const tickRef = useRef<NodeJS.Timeout | null>(null);
@@ -28,6 +29,21 @@ export default function WhackAMole() {
     setTime(ROUND_SECONDS);
     setPhase("play");
   };
+
+  const togglePause = useCallback(() => {
+    setPhase((p) => (p === "play" ? "paused" : p === "paused" ? "play" : p));
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [togglePause]);
 
   useEffect(() => {
     if (phase !== "play") return;
@@ -85,10 +101,13 @@ export default function WhackAMole() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0f08] to-[#0b0d12] p-2 sm:p-3 select-none">
-      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
+      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <span className="px-3 py-1 rounded-lg bg-white/10">🎯 {score}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">🏆 {best}</span>
+        {(phase === "play" || phase === "paused") && (
+          <PauseToggle paused={phase === "paused"} onClick={togglePause} />
+        )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div
@@ -118,24 +137,37 @@ export default function WhackAMole() {
       </div>
       <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">Click moles when they pop up</div>
       {phase === "ready" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 gap-3">
-          <div className="text-5xl">🐹</div>
-          <div className="text-3xl font-black text-white">Whack-a-Mole</div>
-          <div className="text-white/80">{ROUND_SECONDS} seconds. Get as many as you can.</div>
-          <button onClick={start} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-            Start
-          </button>
-        </div>
+        <GameOverlay
+          icon="🐹"
+          title="Whack-a-Mole"
+          subtitle={`${ROUND_SECONDS} seconds. Get as many as you can.`}
+          primary={{ label: "▶ Start", onClick: start }}
+        />
+      )}
+      {phase === "paused" && (
+        <GameOverlay
+          variant="blur"
+          icon="⏸"
+          title="Paused"
+          subtitle={
+            <>
+              Press{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+              to resume
+            </>
+          }
+          primary={{ label: "▶ Resume", onClick: togglePause }}
+        />
       )}
       {phase === "over" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
-          <div className="text-4xl font-black text-white">Time&apos;s up!</div>
-          <div className="text-white/80">Score: {score}</div>
+        <GameOverlay
+          icon="⏱️"
+          title="Time's up!"
+          subtitle={`Score: ${score}`}
+          primary={{ label: "Play again", onClick: start }}
+        >
           <ScoreStatus gameSlug="whack-a-mole" status={submitStatus} />
-          <button onClick={start} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-            Play again
-          </button>
-        </div>
+        </GameOverlay>
       )}
     </div>
   );
