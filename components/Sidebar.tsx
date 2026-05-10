@@ -171,11 +171,13 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
                 <NavRow href="/friends" emoji="👥" label="Friends" active={isActive("/friends")} count={friendsUnread} />
                 <NavRow href="/achievements" emoji="🏆" label="Achievements" active={isActive("/achievements")} />
                 <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
+                <NavRow href="/feedback" emoji="💬" label="Feedback" active={isActive("/feedback")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
                 <LogoutRow />
               </>
             ) : (
               <>
+                <NavRow href="/feedback" emoji="💬" label="Feedback" active={isActive("/feedback")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
                 <NavRow href="/login" emoji="🔑" label="Log in" active={isActive("/login")} />
               </>

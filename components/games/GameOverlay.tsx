@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
@@ -15,6 +16,8 @@ export function GameOverlay({
   subtitle,
   primary,
   secondary,
+  showHome = true,
+  homeHref = "/",
   children,
 }: {
   variant?: "default" | "blur";
@@ -25,6 +28,10 @@ export function GameOverlay({
   primary?: { label: string; onClick: () => void };
   /** Optional secondary button rendered next to primary. */
   secondary?: { label: string; onClick: () => void };
+  /** Show a small "Home" link below the buttons. Defaults to true so
+   *  every game-end / pause / start screen has an escape hatch. */
+  showHome?: boolean;
+  homeHref?: string;
   /** Anything else to render above the buttons (e.g. score chip). */
   children?: ReactNode;
 }) {
@@ -69,6 +76,27 @@ export function GameOverlay({
             </button>
           )}
         </div>
+      )}
+      {showHome && (
+        <Link
+          href={homeHref}
+          className="mt-1 inline-flex items-center gap-1.5 text-xs text-white/65 hover:text-white transition-colors"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-3.5 h-3.5"
+            aria-hidden
+          >
+            <path d="M3 9.5L12 3l9 6.5V21H3z" />
+            <path d="M9 21V12h6v9" />
+          </svg>
+          Home
+        </Link>
       )}
     </div>
   );
