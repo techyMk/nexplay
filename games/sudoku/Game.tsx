@@ -11,27 +11,29 @@ type Board = Cell[][];
 // Three pre-baked starting positions. (Building a generator is overkill for an MVP.)
 const PUZZLES = [
   {
-    diff: "Easy",
+    diff: "Easy" as const,
     given:
       "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79",
     solution:
       "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
   },
   {
-    diff: "Medium",
+    diff: "Medium" as const,
     given:
       "..9748...7........2.1.9.....7...24..64.1.59..98...3...3.....2..2.....97.....8..1.",
     solution:
       "519748632784623951261395847137462598645189273928537461396871425452316789873254176",
   },
   {
-    diff: "Hard",
+    diff: "Hard" as const,
     given:
       "8........3.6...9....7.....8.5..28.4.6...1.....92...........6..32.4......1....47..",
     solution:
       "812753649346982175957146283175628934638491752294375861489517326523864917761239458",
   },
 ];
+
+type Difficulty = (typeof PUZZLES)[number]["diff"];
 
 function parseBoard(s: string): Board {
   const b: Board = [];
@@ -124,101 +126,161 @@ export default function Sudoku() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, board, initial.solution]);
 
-  const isSelectedRow = (r: number) => sel?.r === r;
-  const isSelectedCol = (c: number) => sel?.c === c;
-  const isSameBox = (r: number, c: number) =>
-    sel && Math.floor(sel.r / 3) === Math.floor(r / 3) && Math.floor(sel.c / 3) === Math.floor(c / 3);
+  // Highlighting tied to difficulty:
+  //   Easy   — row + column + 3×3 box + same-value cells (full helper)
+  //   Medium — same 3×3 box only (no row/col, no same-value)
+  //   Hard   — only the selected cell itself
+  const diff = initial.diff;
+  const inSameBox = (r: number, c: number) =>
+    sel != null &&
+    Math.floor(sel.r / 3) === Math.floor(r / 3) &&
+    Math.floor(sel.c / 3) === Math.floor(c / 3);
+  const inSameRowCol = (r: number, c: number) =>
+    sel != null && (sel.r === r || sel.c === c);
   const selVal = sel ? board[sel.r][sel.c].value : 0;
 
+  const highlightCell = (r: number, c: number): "selected" | "peer" | "same" | null => {
+    if (!sel) return null;
+    if (sel.r === r && sel.c === c) return "selected";
+    if (diff === "Hard") return null;
+    if (diff === "Easy" && inSameRowCol(r, c)) return "peer";
+    if (inSameBox(r, c)) return "peer";
+    if (diff === "Easy" && selVal > 0 && board[r][c].value === selVal) return "same";
+    return null;
+  };
+
   return (
-    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-2 sm:p-3 select-none overflow-auto">
-      <div className="shrink-0 flex items-center gap-2 mb-2 text-white text-xs flex-wrap justify-center">
-        <span className="px-2 py-1 rounded-lg bg-white/10">📊 {initial.diff}</span>
-        <span className="px-2 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
-        <span className="px-2 py-1 rounded-lg bg-white/10">❌ {errors}</span>
-        <select
-          value={puzzleIdx}
-          onChange={(e) => setPuzzleIdx(parseInt(e.target.value, 10))}
-          className="px-2 py-1 rounded-lg bg-white/10 text-white text-xs"
-        >
-          <option value={0}>Easy</option>
-          <option value={1}>Medium</option>
-          <option value={2}>Hard</option>
-        </select>
+    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-2 sm:p-3 select-none">
+      {/* HUD */}
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
+        <span className="px-2.5 py-1 rounded-lg bg-white/10 inline-flex items-center gap-1.5">
+          ⏱️ <b>{String(Math.floor(time / 60)).padStart(2, "0")}:{String(time % 60).padStart(2, "0")}</b>
+        </span>
+        <span className="px-2.5 py-1 rounded-lg bg-white/10 inline-flex items-center gap-1.5">
+          ❌ <b className={errors > 3 ? "text-red-300" : ""}>{errors}</b>
+        </span>
+        {/* Difficulty segmented control */}
+        <div className="inline-flex rounded-lg bg-white/10 p-0.5 text-[11px]">
+          {PUZZLES.map((p, i) => (
+            <button
+              key={p.diff}
+              onClick={() => setPuzzleIdx(i)}
+              className={`px-2.5 py-1 rounded-md font-bold transition-colors ${
+                puzzleIdx === i
+                  ? "bg-white/20 text-white"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              {p.diff}
+            </button>
+          ))}
+        </div>
         {started && !won && (
           <PauseToggle paused={paused} onClick={() => setPaused((p) => !p)} />
         )}
       </div>
 
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-      <div
-        className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border border-white/20 h-full max-w-full"
-        style={{
-          aspectRatio: "1",
-          gridTemplateRows: "repeat(9, 1fr)",
-        }}
-      >
-        {board.map((row, r) =>
-          row.map((cell, c) => {
-            const sameVal = cell.value > 0 && cell.value === selVal;
-            const wrong =
-              !cell.given &&
-              cell.value > 0 &&
-              parseInt(initial.solution[r * 9 + c], 10) !== cell.value;
-            const isSel = sel?.r === r && sel?.c === c;
-            const highlighted = isSelectedRow(r) || isSelectedCol(c) || isSameBox(r, c);
-            return (
-              <button
-                key={`${r}-${c}`}
-                onClick={() => setSel({ r, c })}
-                className={`relative flex items-center justify-center text-base sm:text-xl font-bold transition-colors ${
-                  isSel
-                    ? "bg-[var(--accent)]/40 text-white"
-                    : highlighted
-                      ? "bg-white/10 text-white"
-                      : "bg-[var(--surface-2)] text-white"
-                }`}
-                style={{
-                  borderRight: c % 3 === 2 && c !== 8 ? "2px solid rgba(255,255,255,0.4)" : undefined,
-                  borderBottom: r % 3 === 2 && r !== 8 ? "2px solid rgba(255,255,255,0.4)" : undefined,
-                }}
-              >
-                <span
-                  className={`${cell.given ? "text-white" : wrong ? "text-red-400" : "text-[var(--accent)]"} ${sameVal && !isSel ? "underline" : ""}`}
-                >
-                  {cell.value > 0 ? cell.value : ""}
-                </span>
-              </button>
-            );
-          }),
-        )}
-      </div>
+      {/* Helper hint reflects what's currently being highlighted */}
+      <div className="shrink-0 text-center text-[10px] text-white/40 -mt-1 mb-1">
+        {diff === "Easy" && "Helpers: row · column · box · same digit"}
+        {diff === "Medium" && "Helper: 3×3 box only"}
+        {diff === "Hard" && "No helpers — only your cell is highlighted"}
       </div>
 
-      {/* Number pad */}
-      <div className="shrink-0 mt-2 grid grid-cols-9 gap-1 mx-auto" style={{ width: "min(540px, 100%)" }}>
+      {/* Board */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+        <div
+          className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border-2 border-white/30 h-full max-w-full shadow-xl"
+          style={{
+            aspectRatio: "1",
+            gridTemplateRows: "repeat(9, 1fr)",
+          }}
+        >
+          {board.map((row, r) =>
+            row.map((cell, c) => {
+              const wrong =
+                !cell.given &&
+                cell.value > 0 &&
+                parseInt(initial.solution[r * 9 + c], 10) !== cell.value;
+              const hl = highlightCell(r, c);
+              return (
+                <button
+                  key={`${r}-${c}`}
+                  onClick={() => setSel({ r, c })}
+                  className={`relative flex items-center justify-center text-base sm:text-xl font-bold transition-colors ${
+                    hl === "selected"
+                      ? "bg-[var(--accent)]/55 ring-2 ring-[var(--accent)] z-10"
+                      : hl === "peer"
+                        ? "bg-white/12"
+                        : hl === "same"
+                          ? "bg-[var(--accent)]/15"
+                          : "bg-[var(--surface-2)]"
+                  } ${cell.given ? "" : "hover:bg-white/10"}`}
+                  style={{
+                    borderRight:
+                      c % 3 === 2 && c !== 8
+                        ? "2px solid rgba(255,255,255,0.4)"
+                        : undefined,
+                    borderBottom:
+                      r % 3 === 2 && r !== 8
+                        ? "2px solid rgba(255,255,255,0.4)"
+                        : undefined,
+                  }}
+                >
+                  <span
+                    className={`${
+                      cell.given
+                        ? "text-white"
+                        : wrong
+                          ? "text-red-400"
+                          : "text-[var(--accent)]"
+                    }`}
+                  >
+                    {cell.value > 0 ? cell.value : ""}
+                  </span>
+                </button>
+              );
+            }),
+          )}
+        </div>
+      </div>
+
+      {/* Number pad + erase */}
+      <div
+        className="shrink-0 mt-3 mx-auto grid grid-cols-10 gap-1 sm:gap-1.5"
+        style={{ width: "min(560px, 100%)" }}
+      >
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button
             key={n}
             onClick={() => setValue(n)}
-            className="aspect-square rounded-lg bg-[var(--surface-2)] hover:bg-[var(--accent)] text-white font-black text-lg transition-colors"
+            disabled={!sel || won || paused || !started}
+            className="aspect-square rounded-lg bg-[var(--surface-2)] hover:bg-[var(--accent)] disabled:opacity-40 disabled:hover:bg-[var(--surface-2)] text-white font-black text-lg transition-colors"
           >
             {n}
           </button>
         ))}
+        <button
+          onClick={() => setValue(0)}
+          disabled={!sel || won || paused || !started}
+          title="Erase"
+          aria-label="Erase"
+          className="aspect-square rounded-lg bg-white/10 hover:bg-red-500/40 disabled:opacity-40 disabled:hover:bg-white/10 text-white font-black text-lg transition-colors flex items-center justify-center"
+        >
+          ⌫
+        </button>
       </div>
-      <button
-        onClick={() => setValue(0)}
-        className="mt-2 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors"
-      >
-        Erase
-      </button>
 
       {!started && !won && (
         <GameOverlay
           icon="🔢"
           title="Sudoku"
-          subtitle={`${initial.diff}. Fill the grid so every row, column, and 3×3 box has 1-9.`}
+          subtitle={
+            <>
+              <b>{initial.diff}</b>. Fill the grid so every row, column, and
+              3×3 box has 1-9.
+            </>
+          }
           primary={{ label: "▶ Play", onClick: () => setStarted(true) }}
         />
       )}
@@ -227,23 +289,22 @@ export default function Sudoku() {
           variant="blur"
           icon="⏸"
           title="Paused"
-          subtitle="The board is hidden so you can't peek."
+          subtitle="The clock is stopped — input is disabled until you resume."
           primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
         />
       )}
       {won && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
-          <div className="text-5xl">🏆</div>
-          <div className="text-3xl font-black text-white">Sudoku solved!</div>
-          <div className="text-white/80">{time}s • {errors} mistakes</div>
+        <GameOverlay
+          icon="🏆"
+          title="Sudoku solved!"
+          subtitle={`${initial.diff} · ${Math.floor(time / 60)}:${String(time % 60).padStart(2, "0")} · ${errors} mistake${errors === 1 ? "" : "s"}`}
+          primary={{
+            label: "Next puzzle",
+            onClick: () => setPuzzleIdx((i) => (i + 1) % PUZZLES.length),
+          }}
+        >
           <ScoreStatus gameSlug="sudoku" status={submitStatus} />
-          <button
-            onClick={() => setPuzzleIdx((i) => (i + 1) % PUZZLES.length)}
-            className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-          >
-            Next puzzle
-          </button>
-        </div>
+        </GameOverlay>
       )}
     </div>
   );
