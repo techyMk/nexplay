@@ -76,7 +76,13 @@ type Tank = {
   vy: number;
   hp: number;
   maxHp: number;
+  /** Where the barrel is pointing — lerps toward target each frame
+   *  so a fast mouse flick reads as a smooth swing instead of a snap. */
   turretAngle: number;
+  /** Where the body is facing — lerps toward velocity direction so
+   *  the tank visibly rotates as you drive. Without this the body is
+   *  a featureless circle and rotation doesn't read at all. */
+  bodyAngle: number;
   fireCool: number;
   alive: boolean;
   isPlayer: boolean;
@@ -97,10 +103,20 @@ type State = {
   /** Time since the player last took damage — gates HP regen so a
    *  player can't tank shots and instantly heal. */
   playerSafeFor: number;
+  /** Brief red flash on the player when hit, decays toward 0. */
+  playerHitFlash: number;
 };
 
 function rng(min: number, max: number) {
   return min + Math.random() * (max - min);
+}
+
+/** Shortest signed angular delta from `from` to `to` in [-π, π]. */
+function shortestAngle(from: number, to: number) {
+  let d = to - from;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
 }
 
 function makePolygon(): Polygon {
@@ -152,6 +168,7 @@ function makePolygon(): Polygon {
 }
 
 function makeBot(i: number): Tank {
+  const angle = Math.random() * Math.PI * 2;
   return {
     id: `bot-${i}-${Math.random().toString(36).slice(2, 5)}`,
     x: rng(200, WORLD - 200),
@@ -160,7 +177,8 @@ function makeBot(i: number): Tank {
     vy: 0,
     hp: BOT_MAX_HP,
     maxHp: BOT_MAX_HP,
-    turretAngle: Math.random() * Math.PI * 2,
+    turretAngle: angle,
+    bodyAngle: angle,
     fireCool: rng(0, BOT_FIRE_COOLDOWN),
     alive: true,
     isPlayer: false,
@@ -199,7 +217,12 @@ export default function Diep() {
     cameraY: WORLD / 2,
     elapsed: 0,
     playerSafeFor: 0,
+    playerHitFlash: 0,
   });
+  /** Mirror of HP that lives in a ref so we only call setHp when the
+   *  rounded value actually changes — avoids a React re-render on
+   *  every regen tick. */
+  const hpRef = useRef(PLAYER_MAX_HP);
 
   useEffect(() => {
     setBest(Number(localStorage.getItem("nexplay:diep-best") || 0));
@@ -215,6 +238,7 @@ export default function Diep() {
       hp: PLAYER_MAX_HP,
       maxHp: PLAYER_MAX_HP,
       turretAngle: 0,
+      bodyAngle: 0,
       fireCool: 0,
       alive: true,
       isPlayer: true,
@@ -237,6 +261,7 @@ export default function Diep() {
       cameraY: WORLD / 2,
       elapsed: 0,
       playerSafeFor: 0,
+      playerHitFlash: 0,
     };
     setScore(0);
     setHp(PLAYER_MAX_HP);
@@ -386,8 +411,11 @@ export default function Diep() {
       if (live && player.alive) {
         st.elapsed += dt;
         st.playerSafeFor += dt;
+        if (st.playerHitFlash > 0) {
+          st.playerHitFlash = Math.max(0, st.playerHitFlash - dt * 4);
+        }
 
-        // --- Player movement (WASD / arrows) ---
+        // --- Player input → target velocity ---
         const k = st.keys;
         let mx = 0;
         let my = 0;
@@ -400,17 +428,42 @@ export default function Diep() {
           mx /= mlen;
           my /= mlen;
         }
-        player.vx = mx * PLAYER_SPEED;
-        player.vy = my * PLAYER_SPEED;
+        // Smooth velocity toward the target. Acceleration time
+        // constant ~140ms — fast enough to feel responsive, slow
+        // enough that recoil and direction changes have weight.
+        const targetVx = mx * PLAYER_SPEED;
+        const targetVy = my * PLAYER_SPEED;
+        const accelK = 1 - Math.exp(-dt * 7);
+        player.vx += (targetVx - player.vx) * accelK;
+        player.vy += (targetVy - player.vy) * accelK;
 
-        // --- Player turret aim ---
-        const screenPlayerX =
-          player.x - st.cameraX + VIEW_W / 2;
-        const screenPlayerY =
-          player.y - st.cameraY + VIEW_H / 2;
-        player.turretAngle = Math.atan2(
+        // --- Body angle slowly turns to match velocity direction ---
+        // Without this the body is a featureless disc, so even though
+        // the turret is rotating the tank doesn't *look* like it's
+        // rotating. With body+arrow indicator the rotation reads.
+        const moveSpeed = Math.hypot(player.vx, player.vy);
+        if (moveSpeed > 30) {
+          const targetBody = Math.atan2(player.vy, player.vx);
+          const bdiff = shortestAngle(player.bodyAngle, targetBody);
+          const maxBodyTurn = 7 * dt;
+          player.bodyAngle += Math.max(-maxBodyTurn, Math.min(maxBodyTurn, bdiff));
+        }
+
+        // --- Turret aim with light smoothing ---
+        // Kept fast (≈18 rad/s) so it still tracks the mouse well; the
+        // tiny lag covers the rare frame where mouseScreen hasn't
+        // updated yet and removes the "snap" that read as static.
+        const screenPlayerX = player.x - st.cameraX + VIEW_W / 2;
+        const screenPlayerY = player.y - st.cameraY + VIEW_H / 2;
+        const targetTurret = Math.atan2(
           st.mouseScreen.y - screenPlayerY,
           st.mouseScreen.x - screenPlayerX,
+        );
+        const tdiff = shortestAngle(player.turretAngle, targetTurret);
+        const maxTurretTurn = 18 * dt;
+        player.turretAngle += Math.max(
+          -maxTurretTurn,
+          Math.min(maxTurretTurn, tdiff),
         );
 
         // --- Player fire ---
@@ -418,9 +471,11 @@ export default function Diep() {
         if (st.fireHeld && player.fireCool <= 0) {
           fireBullet(st, player, PLAYER_BULLET_DAMAGE, 200);
           player.fireCool = PLAYER_FIRE_COOLDOWN;
-          // Recoil
-          player.vx -= Math.cos(player.turretAngle) * 80;
-          player.vy -= Math.sin(player.turretAngle) * 80;
+          // Recoil — adds to velocity. Now that we *lerp* velocity
+          // instead of overwriting it, this kick lingers for a few
+          // frames and feels like a real shove.
+          player.vx -= Math.cos(player.turretAngle) * 110;
+          player.vy -= Math.sin(player.turretAngle) * 110;
           Sfx.shoot();
         }
 
@@ -491,22 +546,34 @@ export default function Diep() {
           const tdx = tx - t.x;
           const tdy = ty - t.y;
           const td = Math.hypot(tdx, tdy);
-          if (td > 6) {
-            t.vx = (tdx / td) * BOT_SPEED;
-            t.vy = (tdy / td) * BOT_SPEED;
-          } else {
-            t.vx = 0;
-            t.vy = 0;
+          // Lerp toward target velocity (same model as the player)
+          const desiredVx = td > 6 ? (tdx / td) * BOT_SPEED : 0;
+          const desiredVy = td > 6 ? (tdy / td) * BOT_SPEED : 0;
+          const botAccel = 1 - Math.exp(-dt * 5);
+          t.vx += (desiredVx - t.vx) * botAccel;
+          t.vy += (desiredVy - t.vy) * botAccel;
+          // Body rotates toward velocity
+          const sp = Math.hypot(t.vx, t.vy);
+          if (sp > 25) {
+            const targetBody = Math.atan2(t.vy, t.vx);
+            const bdiff = shortestAngle(t.bodyAngle, targetBody);
+            const maxBodyTurn = 5 * dt;
+            t.bodyAngle += Math.max(-maxBodyTurn, Math.min(maxBodyTurn, bdiff));
           }
-          // Aim
-          if (aim) {
-            t.turretAngle = Math.atan2(aim.y - t.y, aim.x - t.x);
-          } else {
-            t.turretAngle = Math.atan2(t.vy, t.vx);
-          }
-          // Fire
+          // Turret aim — lerp at a slower rate than the player's so a
+          // good dodger can sidestep their tracking.
+          const targetTurret = aim
+            ? Math.atan2(aim.y - t.y, aim.x - t.x)
+            : Math.atan2(t.vy, t.vx);
+          const turretDiff = shortestAngle(t.turretAngle, targetTurret);
+          const maxBotTurret = 7 * dt;
+          t.turretAngle += Math.max(
+            -maxBotTurret,
+            Math.min(maxBotTurret, turretDiff),
+          );
+          // Fire (only when turret is roughly on target)
           t.fireCool -= dt;
-          if (aim && t.fireCool <= 0) {
+          if (aim && t.fireCool <= 0 && Math.abs(turretDiff) < 0.35) {
             fireBullet(st, t, BOT_BULLET_DAMAGE, 0);
             t.fireCool = BOT_FIRE_COOLDOWN;
           }
@@ -602,7 +669,7 @@ export default function Diep() {
               consumed = true;
               if (t.isPlayer) {
                 st.playerSafeFor = 0;
-                setHp(Math.max(0, Math.round(t.hp)));
+                st.playerHitFlash = 1;
                 Sfx.hit();
               }
               if (t.hp <= 0 && t.alive) {
@@ -643,7 +710,7 @@ export default function Diep() {
               t.y += Math.sin(ang) * 1.2;
               if (t.isPlayer) {
                 st.playerSafeFor = 0;
-                setHp(Math.max(0, Math.round(t.hp)));
+                st.playerHitFlash = 0.6;
               }
               if (p.hp <= 0) {
                 if (t.isPlayer) {
@@ -700,8 +767,14 @@ export default function Diep() {
         st.cameraX += (player.x - st.cameraX) * k2;
         st.cameraY += (player.y - st.cameraY) * k2;
 
-        // HUD HP pull
-        if (Math.round(player.hp) !== hp) setHp(Math.max(0, Math.round(player.hp)));
+        // HUD HP pull — only push to React state when the rounded
+        // value changes, otherwise we'd schedule a render every
+        // frame that regen ticks fractional HP up.
+        const hpRounded = Math.max(0, Math.round(player.hp));
+        if (hpRounded !== hpRef.current) {
+          hpRef.current = hpRounded;
+          setHp(hpRounded);
+        }
 
         // --- Game over ---
         if (!player.alive && !overRef.current) {
@@ -779,11 +852,19 @@ export default function Diep() {
         drawPolygon(ctx, p);
       }
 
-      // Bullets
+      // Bullets — short motion trail behind the head reads as smooth
+      // travel even when fps dips. Cap trail at ~1 frame at 60Hz.
       for (const b of st.bullets) {
         if (b.x < minX || b.x > maxX || b.y < minY || b.y > maxY) continue;
-        ctx.fillStyle = `hsl(${b.hue}, 80%, 60%)`;
-        ctx.strokeStyle = `hsl(${b.hue}, 90%, 30%)`;
+        ctx.strokeStyle = `hsla(${b.hue}, 85%, 65%, 0.45)`;
+        ctx.lineWidth = BULLET_R * 1.7;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(b.x - b.vx * 0.04, b.y - b.vy * 0.04);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.fillStyle = `hsl(${b.hue}, 85%, 62%)`;
+        ctx.strokeStyle = `hsl(${b.hue}, 90%, 28%)`;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(b.x, b.y, BULLET_R, 0, Math.PI * 2);
@@ -796,7 +877,7 @@ export default function Diep() {
         if (!t.alive) continue;
         if (t.x + TANK_R < minX || t.x - TANK_R > maxX) continue;
         if (t.y + TANK_R < minY || t.y - TANK_R > maxY) continue;
-        drawTank(ctx, t);
+        drawTank(ctx, t, t.isPlayer ? st.playerHitFlash : 0);
       }
 
       ctx.restore();
@@ -961,9 +1042,8 @@ function drawPolygon(ctx: CanvasRenderingContext2D, p: Polygon) {
   }
 }
 
-function drawTank(ctx: CanvasRenderingContext2D, t: Tank) {
-  // Turret first — bottom edge sits on the body so the body covers
-  // the base.
+function drawTank(ctx: CanvasRenderingContext2D, t: Tank, hitFlash: number) {
+  // Turret — drawn first so the body sits on top of the base.
   ctx.save();
   ctx.translate(t.x, t.y);
   ctx.rotate(t.turretAngle);
@@ -974,32 +1054,65 @@ function drawTank(ctx: CanvasRenderingContext2D, t: Tank) {
   ctx.strokeRect(0, -TURRET_W / 2, TURRET_L, TURRET_W);
   ctx.restore();
 
-  // Body
+  // Body — rotated by bodyAngle so the tank visibly turns with
+  // movement. The radial gradient + an inset front arrow + side
+  // tread bars make the rotation read clearly even on a small
+  // round chassis.
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.rotate(t.bodyAngle);
   const grad = ctx.createRadialGradient(
-    t.x - TANK_R * 0.3,
-    t.y - TANK_R * 0.3,
+    -TANK_R * 0.3,
+    -TANK_R * 0.3,
     TANK_R * 0.1,
-    t.x,
-    t.y,
+    0,
+    0,
     TANK_R,
   );
   grad.addColorStop(0, `hsl(${t.hue}, 80%, 70%)`);
   grad.addColorStop(1, `hsl(${t.hue}, 75%, 38%)`);
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(t.x, t.y, TANK_R, 0, Math.PI * 2);
+  ctx.arc(0, 0, TANK_R, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = t.isPlayer
     ? "rgba(255,255,255,0.85)"
     : `hsl(${t.hue}, 90%, 28%)`;
   ctx.lineWidth = t.isPlayer ? 4 : 3;
   ctx.stroke();
+  // Side tread bars (perpendicular to body axis) — these obviously
+  // rotate with the body so the turn is unmistakable.
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(-TANK_R * 0.55, -TANK_R - 2, TANK_R * 1.1, 6);
+  ctx.fillRect(-TANK_R * 0.55, TANK_R - 4, TANK_R * 1.1, 6);
+  // Front arrow indicator — sharper rotation cue
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.moveTo(TANK_R * 0.7, 0);
+  ctx.lineTo(TANK_R * 0.2, -TANK_R * 0.35);
+  ctx.lineTo(TANK_R * 0.2, TANK_R * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Hit-flash — quick red bloom around the body when the player
+  // takes damage, so the hit reads regardless of HP-bar polling.
+  if (hitFlash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, hitFlash);
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, TANK_R + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // HP bar (always for player, only when wounded for bots)
   if (t.isPlayer || t.hp < t.maxHp) {
     const w = TANK_R * 1.8;
     const x = t.x - w / 2;
-    const y = t.y + TANK_R + 8;
+    const y = t.y + TANK_R + 10;
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.fillRect(x, y, w, 5);
     const ratio = Math.max(0, t.hp / t.maxHp);
