@@ -5,15 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Two-phase unlock with email OTP.
  *
- *   { action: "start" }            → triggers Supabase reauthenticate(),
- *                                    which mails a 6-digit code to the
- *                                    user's verified email.
- *   { action: "verify", token }    → server-side verifyOtp(); on success
+ *   { action: "start" }            → signInWithOtp(shouldCreateUser:false)
+ *                                    mails a 6-digit code to the admin's
+ *                                    verified email address.
+ *   { action: "verify", token }    → verifyOtp(type:"email"); on success
  *                                    sets the admin cookie.
  *
  * Both phases require the user to already be signed in as the admin
  * email. The OTP step ensures the unlocker currently has access to
  * that mailbox — a stolen session alone won't grant admin.
+ *
+ * Note: we deliberately use signInWithOtp + verifyOtp(type:"email")
+ * rather than auth.reauthenticate() + verifyOtp(type:"reauthentication"),
+ * because the latter is inconsistently supported across supabase-js
+ * versions and was returning "Token has expired or is invalid" on a
+ * fresh code in production.
  */
 export async function POST(request: Request) {
   if (!isAdminConfigured) {
@@ -51,7 +57,12 @@ export async function POST(request: Request) {
   const action = body?.action;
 
   if (action === "start") {
-    const { error } = await supabase.auth.reauthenticate();
+    // shouldCreateUser:false — never sign up a new account from this
+    // endpoint; the admin email must already exist in auth.users.
+    const { error } = await supabase.auth.signInWithOtp({
+      email: user.email!,
+      options: { shouldCreateUser: false },
+    });
     if (error) {
       console.error("[admin/unlock start]", error);
       return NextResponse.json(
@@ -73,7 +84,7 @@ export async function POST(request: Request) {
     const { error } = await supabase.auth.verifyOtp({
       email: user.email!,
       token,
-      type: "reauthentication",
+      type: "email",
     });
     if (error) {
       console.error("[admin/unlock verify]", error);
@@ -81,6 +92,15 @@ export async function POST(request: Request) {
         { error: error.message ?? "Code didn't match" },
         { status: 400 },
       );
+    }
+    // Re-fetch the user after verifyOtp — it issues a fresh session.
+    // We must re-confirm the email match before granting the cookie,
+    // in case anything weird happened between phases.
+    const {
+      data: { user: refreshed },
+    } = await supabase.auth.getUser();
+    if (!isAdminEmail(refreshed?.email)) {
+      return NextResponse.json({ error: "Not authorised" }, { status: 403 });
     }
     await setAdminCookie(true);
     return NextResponse.json({ ok: true, redirectTo: "/admin" });
