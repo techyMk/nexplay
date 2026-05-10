@@ -153,6 +153,58 @@ type Treasure = {
   phase: number;
   alive: boolean;
 };
+type CatcherKind = "slime" | "sentinel" | "wraith";
+type Catcher = {
+  kind: CatcherKind;
+  /** Cell-space position (centre of the body, in cells, with sub-cell precision). */
+  cx: number;
+  cy: number;
+  homeX: number;
+  homeY: number;
+  patrolToX: number;
+  patrolToY: number;
+  /** Which patrol endpoint we're walking toward right now. */
+  patrolTarget: "home" | "to";
+  state: "patrol" | "chase";
+  speed: number;
+  detectRange: number;
+  /** Cached path of cell waypoints toward the current goal. */
+  path: Array<{ c: number; r: number }>;
+  pathCool: number;
+  walkPhase: number;
+  bobPhase: number;
+  /** Used to play a one-shot "spotted" sound on patrol→chase. */
+  alerted: boolean;
+};
+
+const CATCHER_DEFS: Record<
+  CatcherKind,
+  { speed: number; detectRange: number; label: string }
+> = {
+  slime: { speed: 2.6, detectRange: 5, label: "cave slime" },
+  sentinel: { speed: 3.4, detectRange: 6, label: "stone sentinel" },
+  wraith: { speed: 3.0, detectRange: 5, label: "frost wraith" },
+};
+
+type CatcherSpawn = {
+  kind: CatcherKind;
+  homeX: number;
+  homeY: number;
+  patrolToX: number;
+  patrolToY: number;
+};
+
+/** One catcher per level for now — keeps the pacing readable. The
+ *  positions are picked so each catcher's patrol crosses the natural
+ *  treasure run, forcing the player to time their grabs. */
+const LEVEL_CATCHERS: CatcherSpawn[][] = [
+  // L1 Cavern — slime drifts back and forth across row 7
+  [{ kind: "slime", homeX: 3, homeY: 7, patrolToX: 16, patrolToY: 7 }],
+  // L2 Spike Pit Ruins — sentinel diagonally between two corner halves
+  [{ kind: "sentinel", homeX: 6, homeY: 5, patrolToX: 13, patrolToY: 9 }],
+  // L3 Frozen Vault — wraith glides corner-to-corner
+  [{ kind: "wraith", homeX: 5, homeY: 7, patrolToX: 16, patrolToY: 11 }],
+];
 type Particle = {
   x: number;
   y: number;
@@ -202,10 +254,94 @@ function loadLevel(idx: number) {
       }
     }
   }
+  const catchers: Catcher[] = (LEVEL_CATCHERS[idx] ?? []).map((sp) => {
+    const def = CATCHER_DEFS[sp.kind];
+    return {
+      kind: sp.kind,
+      cx: sp.homeX + 0.5,
+      cy: sp.homeY + 0.5,
+      homeX: sp.homeX,
+      homeY: sp.homeY,
+      patrolToX: sp.patrolToX,
+      patrolToY: sp.patrolToY,
+      patrolTarget: "to",
+      state: "patrol",
+      speed: def.speed,
+      detectRange: def.detectRange,
+      path: [],
+      pathCool: 0,
+      walkPhase: 0,
+      bobPhase: Math.random() * Math.PI * 2,
+      alerted: false,
+    };
+  });
   if (process.env.NODE_ENV === "development") {
-    validateLevel(idx, grid, treasures);
+    validateLevel(idx, grid, treasures, catchers);
   }
-  return { grid, treasures, theme: level.theme };
+  return { grid, treasures, theme: level.theme, catchers };
+}
+
+/** BFS a path from (fromC,fromR) to (toC,toR) on the level grid,
+ *  treating any non-wall cell as walkable. Returns the *cell
+ *  waypoints* from the next step up to the goal (excluding the
+ *  starting cell). Empty array means unreachable or already there. */
+function bfsPath(
+  grid: number[][],
+  fromC: number,
+  fromR: number,
+  toC: number,
+  toR: number,
+): Array<{ c: number; r: number }> {
+  if (fromC === toC && fromR === toR) return [];
+  if (
+    toR < 0 ||
+    toR >= ROWS ||
+    toC < 0 ||
+    toC >= COLS ||
+    grid[toR][toC] === 1
+  ) {
+    return [];
+  }
+  const visited: boolean[][] = Array.from({ length: ROWS }, () =>
+    new Array(COLS).fill(false),
+  );
+  const parent: Array<Array<[number, number] | null>> = Array.from(
+    { length: ROWS },
+    () => new Array(COLS).fill(null),
+  );
+  const q: Array<[number, number]> = [[fromC, fromR]];
+  visited[fromR][fromC] = true;
+  let found = false;
+  while (q.length) {
+    const [c, r] = q.shift()!;
+    if (c === toC && r === toR) {
+      found = true;
+      break;
+    }
+    for (const [dc, dr] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const nc = c + dc;
+      const nr = r + dr;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if (grid[nr][nc] === 1) continue;
+      if (visited[nr][nc]) continue;
+      visited[nr][nc] = true;
+      parent[nr][nc] = [c, r];
+      q.push([nc, nr]);
+    }
+  }
+  if (!found) return [];
+  const path: Array<{ c: number; r: number }> = [];
+  let cur: [number, number] | null = [toC, toR];
+  while (cur && (cur[0] !== fromC || cur[1] !== fromR)) {
+    path.unshift({ c: cur[0], r: cur[1] });
+    cur = parent[cur[1]][cur[0]];
+  }
+  return path;
 }
 
 /** Dev-time guard: BFS from the spawn cell (1,1) and assert that the
@@ -217,6 +353,7 @@ function validateLevel(
   idx: number,
   grid: number[][],
   treasures: Treasure[],
+  catchers: Catcher[],
 ) {
   const visited = new Set<string>();
   const q: Array<[number, number]> = [[1, 1]];
@@ -258,6 +395,17 @@ function validateLevel(
       );
     }
   }
+  for (const c of catchers) {
+    if (
+      grid[c.homeY]?.[c.homeX] === 1 ||
+      grid[c.patrolToY]?.[c.patrolToX] === 1
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[treasure-hunt] level ${idx + 1}: catcher patrol endpoint is on a wall`,
+      );
+    }
+  }
 }
 
 type Phase = "ready" | "playing" | "level-clear" | "won" | "dead";
@@ -269,6 +417,7 @@ function makeFreshState() {
     grid: loaded.grid,
     theme: loaded.theme,
     treasures: loaded.treasures,
+    catchers: loaded.catchers,
     px: 1.5,
     py: 1.5,
     vx: 0,
@@ -351,6 +500,7 @@ export default function TreasureHunt() {
     st.grid = loaded.grid;
     st.theme = loaded.theme;
     st.treasures = loaded.treasures;
+    st.catchers = loaded.catchers;
     st.px = 1.5;
     st.py = 1.5;
     st.vx = 0;
@@ -564,6 +714,16 @@ export default function TreasureHunt() {
           }
         }
 
+        // Catchers — patrol / chase / collide
+        for (const cat of st.catchers) {
+          updateCatcher(cat, st, dt);
+          const dxc = cat.cx - st.px;
+          const dyc = cat.cy - st.py;
+          if (dxc * dxc + dyc * dyc < 0.55 * 0.55) {
+            damagePlayer();
+          }
+        }
+
         // Exit
         const standingOn = st.grid[Math.floor(st.py)]?.[Math.floor(st.px)];
         if (standingOn === 3) {
@@ -645,6 +805,20 @@ export default function TreasureHunt() {
           (t.cy + 0.5) * CELL,
           t.kind,
           t.phase,
+        );
+      }
+
+      // Catchers — drawn under the player so the player stays
+      // readable even mid-collision
+      for (const cat of st.catchers) {
+        drawCatcher(
+          ctx,
+          cat.cx * CELL,
+          cat.cy * CELL,
+          cat.kind,
+          cat.walkPhase,
+          cat.bobPhase,
+          cat.state === "chase",
         );
       }
 
@@ -955,6 +1129,271 @@ function drawExit(
 
 /** Top-down explorer sprite — head, hat, jacket body, animated legs,
  *  and a torch glow positioned in the facing direction. */
+function updateCatcher(
+  cat: Catcher,
+  st: { grid: number[][]; px: number; py: number },
+  dt: number,
+) {
+  const dxToPlayer = cat.cx - st.px;
+  const dyToPlayer = cat.cy - st.py;
+  const distToPlayer = Math.hypot(dxToPlayer, dyToPlayer);
+
+  // State machine — patrol / chase with hysteresis so the catcher
+  // doesn't flicker between states at the edge of detection range.
+  const wasChasing = cat.state === "chase";
+  if (cat.state === "patrol" && distToPlayer < cat.detectRange) {
+    cat.state = "chase";
+  } else if (
+    cat.state === "chase" &&
+    distToPlayer > cat.detectRange + 2.5
+  ) {
+    cat.state = "patrol";
+    // Resume patrol from whichever endpoint is nearer
+    const dHome = Math.hypot(cat.cx - cat.homeX, cat.cy - cat.homeY);
+    const dTo = Math.hypot(cat.cx - cat.patrolToX, cat.cy - cat.patrolToY);
+    cat.patrolTarget = dHome < dTo ? "to" : "home";
+    cat.pathCool = 0;
+  }
+  if (!wasChasing && cat.state === "chase" && !cat.alerted) {
+    cat.alerted = true;
+    Sfx.error();
+  } else if (cat.state === "patrol") {
+    cat.alerted = false;
+  }
+
+  // Recompute path periodically (BFS is cheap enough that we can
+  // re-plan a few times per second; doing it every frame would
+  // waste cycles for negligible feel improvement).
+  cat.pathCool -= dt;
+  if (cat.pathCool <= 0) {
+    cat.pathCool = 0.3;
+    let goalC: number;
+    let goalR: number;
+    if (cat.state === "chase") {
+      goalC = Math.max(0, Math.min(COLS - 1, Math.floor(st.px)));
+      goalR = Math.max(0, Math.min(ROWS - 1, Math.floor(st.py)));
+    } else {
+      const target =
+        cat.patrolTarget === "home"
+          ? { c: cat.homeX, r: cat.homeY }
+          : { c: cat.patrolToX, r: cat.patrolToY };
+      goalC = target.c;
+      goalR = target.r;
+    }
+    cat.path = bfsPath(
+      st.grid,
+      Math.floor(cat.cx),
+      Math.floor(cat.cy),
+      goalC,
+      goalR,
+    );
+  }
+
+  // Walk along the cached path
+  if (cat.path.length > 0) {
+    const next = cat.path[0];
+    const targetX = next.c + 0.5;
+    const targetY = next.r + 0.5;
+    const dxn = targetX - cat.cx;
+    const dyn = targetY - cat.cy;
+    const dist = Math.hypot(dxn, dyn);
+    if (dist < 0.05) {
+      cat.path.shift();
+    } else {
+      const step = Math.min(cat.speed * dt, dist);
+      cat.cx += (dxn / dist) * step;
+      cat.cy += (dyn / dist) * step;
+      if (step >= dist - 0.001) cat.path.shift();
+    }
+  } else if (cat.state === "patrol") {
+    // Reached the current patrol endpoint — flip to the other one
+    cat.patrolTarget = cat.patrolTarget === "to" ? "home" : "to";
+    cat.pathCool = 0;
+  }
+
+  cat.walkPhase = (cat.walkPhase + dt * 5) % 1;
+  cat.bobPhase = (cat.bobPhase + dt * 3) % (Math.PI * 2);
+}
+
+function drawCatcher(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  kind: CatcherKind,
+  walkPhase: number,
+  bobPhase: number,
+  alerted: boolean,
+) {
+  // "Spotted" indicator — a small red exclamation mark above the
+  // catcher whenever it's actively chasing the player. Helpful at a
+  // glance, especially when there's only one catcher per level.
+  if (alerted) {
+    ctx.save();
+    ctx.translate(x, y - 18);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    roundRect(ctx, -4, -7, 8, 12, 2);
+    ctx.fill();
+    ctx.fillStyle = "#ef4444";
+    ctx.fillRect(-1, -5, 2, 6);
+    ctx.fillRect(-1, 2, 2, 2);
+    ctx.restore();
+  }
+  switch (kind) {
+    case "slime":
+      drawSlime(ctx, x, y, bobPhase);
+      return;
+    case "sentinel":
+      drawSentinel(ctx, x, y, walkPhase);
+      return;
+    case "wraith":
+      drawWraith(ctx, x, y, bobPhase);
+      return;
+  }
+}
+
+function drawSlime(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  bobPhase: number,
+) {
+  const wob = 1 + 0.12 * Math.sin(bobPhase);
+  ctx.save();
+  ctx.translate(x, y);
+  // Aura
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 16);
+  g.addColorStop(0, "rgba(34,197,94,0.45)");
+  g.addColorStop(1, "rgba(34,197,94,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.fill();
+  // Squashy body
+  ctx.fillStyle = "#16a34a";
+  ctx.beginPath();
+  ctx.ellipse(0, 1, 9 * wob, 8 / wob, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Highlight
+  ctx.fillStyle = "rgba(220,255,210,0.45)";
+  ctx.beginPath();
+  ctx.ellipse(-2.5, -2, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Eyes
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(-3, 0, 2, 0, Math.PI * 2);
+  ctx.arc(3, 0, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#0a0a0a";
+  ctx.beginPath();
+  ctx.arc(-3, 0, 1, 0, Math.PI * 2);
+  ctx.arc(3, 0, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawSentinel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  walkPhase: number,
+) {
+  const stride = Math.sin(walkPhase * Math.PI * 2) * 2;
+  ctx.save();
+  ctx.translate(x, y);
+  // Aura (red — danger)
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 18);
+  g.addColorStop(0, "rgba(239,68,68,0.5)");
+  g.addColorStop(1, "rgba(239,68,68,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.fill();
+  // Legs (alternating stride)
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(-3.5, 4 + stride, 3, 5);
+  ctx.fillRect(0.5, 4 - stride, 3, 5);
+  // Stone-armoured body
+  ctx.fillStyle = "#475569";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 7, 6.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Belt
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(-6, 3, 12, 1.5);
+  // Helmet
+  ctx.fillStyle = "#334155";
+  ctx.beginPath();
+  ctx.arc(0, -4, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // Visor — glowing red eye slit
+  ctx.fillStyle = "#ef4444";
+  ctx.fillRect(-3, -5, 6, 1.6);
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.fillRect(-2.5, -4.7, 5, 0.4);
+  ctx.restore();
+}
+
+function drawWraith(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  bobPhase: number,
+) {
+  const float = Math.sin(bobPhase) * 1.6;
+  ctx.save();
+  ctx.translate(x, y + float);
+  // Aura
+  const g = ctx.createRadialGradient(0, 0, 3, 0, 0, 20);
+  g.addColorStop(0, "rgba(34,211,238,0.55)");
+  g.addColorStop(1, "rgba(34,211,238,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 20, 0, Math.PI * 2);
+  ctx.fill();
+  // Body — translucent blue blob with a tail of mist
+  ctx.fillStyle = "rgba(125, 211, 252, 0.78)";
+  ctx.beginPath();
+  ctx.moveTo(-7, -5);
+  ctx.bezierCurveTo(-9, -2, -9, 4, -6, 6);
+  ctx.bezierCurveTo(-3, 8, 3, 8, 6, 6);
+  ctx.bezierCurveTo(9, 4, 9, -2, 7, -5);
+  ctx.bezierCurveTo(4, -9, -4, -9, -7, -5);
+  ctx.fill();
+  // Crystal spikes around the body
+  ctx.fillStyle = "#bae6fd";
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(2, -5);
+  ctx.lineTo(-2, -5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-8, -1);
+  ctx.lineTo(-4, 1);
+  ctx.lineTo(-9, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(8, -1);
+  ctx.lineTo(4, 1);
+  ctx.lineTo(9, 2);
+  ctx.closePath();
+  ctx.fill();
+  // Glowing cyan eyes
+  ctx.fillStyle = "#67e8f9";
+  ctx.beginPath();
+  ctx.arc(-3, -1, 1.6, 0, Math.PI * 2);
+  ctx.arc(3, -1, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(-3, -1.4, 0.6, 0, Math.PI * 2);
+  ctx.arc(3, -1.4, 0.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawPlayer(
   ctx: CanvasRenderingContext2D,
   x: number,
