@@ -45,15 +45,102 @@ const EVENT_WARNING_SECONDS = 1.4;
 
 type EventKind = "normal" | "rush" | "tunnel" | "slick";
 
+type VehicleKind = "sedan" | "truck" | "sports" | "bus" | "motorbike";
+
 type Obstacle = {
+  kind: VehicleKind;
   x: number;
   y: number;
   w: number;
   h: number;
   hue: number;
-  vx: number; // lateral drift (rush hour gives some traffic a wobble)
+  /** Lateral drift (rush hour gives some traffic a wobble). */
+  vx: number;
+  /** Forward speed in px/s (same direction as the player). Slower
+   *  vehicles drift down toward the player from above; faster ones
+   *  spawn behind and overtake from below. */
+  forwardSpeed: number;
   passed: boolean; // already crossed the player's y line — used for near-miss scoring
 };
+
+/** Per-kind sizes, spawn weights, and forward-speed ranges. The player
+ *  starts at SPEED_BASE (200 px/s); a vehicle with forwardSpeed below
+ *  that reads as "in front, going slower"; above it reads as
+ *  "overtaking from behind." */
+const VEHICLE_DEFS: Record<
+  VehicleKind,
+  {
+    w: number;
+    h: number;
+    weight: number;
+    speedMin: number;
+    speedMax: number;
+    canWobble: boolean;
+    hueChoices: number[];
+  }
+> = {
+  sedan: {
+    w: 46,
+    h: 74,
+    weight: 50,
+    speedMin: 60,
+    speedMax: 130,
+    canWobble: true,
+    hueChoices: [0, 35, 200, 280, 130, 320],
+  },
+  truck: {
+    w: 54,
+    h: 124,
+    weight: 18,
+    speedMin: 35,
+    speedMax: 70,
+    canWobble: false,
+    hueChoices: [25, 35, 220], // earthy + cargo-blue
+  },
+  sports: {
+    w: 42,
+    h: 70,
+    weight: 14,
+    speedMin: 130,
+    speedMax: 230,
+    canWobble: true,
+    hueChoices: [0, 50, 280, 200], // bright reds, yellows, purples
+  },
+  bus: {
+    w: 60,
+    h: 150,
+    weight: 10,
+    speedMin: 30,
+    speedMax: 55,
+    canWobble: false,
+    hueChoices: [50, 30, 200], // school yellow, transit orange/blue
+  },
+  motorbike: {
+    w: 22,
+    h: 48,
+    weight: 8,
+    speedMin: 110,
+    speedMax: 200,
+    canWobble: true,
+    hueChoices: [0, 200, 320, 130],
+  },
+};
+
+function pickVehicleKind(): VehicleKind {
+  const total = Object.values(VEHICLE_DEFS).reduce(
+    (acc, v) => acc + v.weight,
+    0,
+  );
+  let r = Math.random() * total;
+  for (const [k, v] of Object.entries(VEHICLE_DEFS) as [
+    VehicleKind,
+    (typeof VEHICLE_DEFS)[VehicleKind],
+  ][]) {
+    r -= v.weight;
+    if (r <= 0) return k;
+  }
+  return "sedan";
+}
 type Coin = { x: number; y: number; phase: number };
 type Particle = {
   x: number;
@@ -345,15 +432,28 @@ export default function DriftKing() {
         st.spawnTimer -= dt;
         if (st.spawnTimer <= 0) {
           st.spawnTimer = spawnInterval * (0.85 + Math.random() * 0.3);
-          const x = rng(roadL + 28, roadR - 28);
-          const wobble = st.event === "rush" && Math.random() < 0.4;
+          const kind = pickVehicleKind();
+          const def = VEHICLE_DEFS[kind];
+          const fSpeed = rng(def.speedMin, def.speedMax);
+          // Faster-than-player traffic spawns from behind (bottom of
+          // screen) so it can overtake into view; slower traffic
+          // spawns above so the player runs them down.
+          const fromBehind = fSpeed > st.speed;
+          const startY = fromBehind ? H + def.h / 2 + 10 : -def.h / 2 - 10;
+          const x = rng(roadL + def.w / 2 + 4, roadR - def.w / 2 - 4);
+          const wobble =
+            def.canWobble && st.event === "rush" && Math.random() < 0.4;
+          const hue =
+            def.hueChoices[Math.floor(Math.random() * def.hueChoices.length)];
           st.obstacles.push({
+            kind,
             x,
-            y: -80,
-            w: 46,
-            h: 74,
-            hue: [0, 35, 200, 280, 130][Math.floor(Math.random() * 5)],
-            vx: wobble ? rng(-60, 60) : 0,
+            y: startY,
+            w: def.w,
+            h: def.h,
+            hue,
+            vx: wobble ? rng(-50, 50) : 0,
+            forwardSpeed: fSpeed,
             passed: false,
           });
         }
@@ -369,32 +469,18 @@ export default function DriftKing() {
           });
         }
 
-        // ----- Move world (relative to player) -----
-        const scroll = st.speed * dt;
-        for (const o of st.obstacles) {
-          o.y += scroll;
-          o.x += o.vx * dt;
-          // Bounce gently off the lane walls so wobblers don't escape
-          if (o.x < roadL + o.w / 2) {
-            o.x = roadL + o.w / 2;
-            o.vx = Math.abs(o.vx);
-          }
-          if (o.x > roadR - o.w / 2) {
-            o.x = roadR - o.w / 2;
-            o.vx = -Math.abs(o.vx);
-          }
-        }
+        // ----- Move world (player-relative) -----
+        // Coins, skids, etc. ride on the player's reference frame.
+        const playerScroll = st.speed * dt;
         for (const c of st.coins) {
-          c.y += scroll;
+          c.y += playerScroll;
           c.phase += dt * 6;
         }
         for (const s of st.skids) {
-          s.y += scroll;
+          s.y += playerScroll;
           s.life -= dt;
         }
-        st.skids = st.skids.filter(
-          (s) => s.life > 0 && s.y < H + 20,
-        );
+        st.skids = st.skids.filter((s) => s.life > 0 && s.y < H + 20);
 
         // ----- Coin pickup -----
         for (let i = st.coins.length - 1; i >= 0; i--) {
@@ -414,40 +500,65 @@ export default function DriftKing() {
           }
         }
 
-        // ----- Obstacle: collision + near-miss scoring -----
+        // ----- Move obstacles + collision + near-miss -----
+        // Each obstacle has its own forward speed; we apply it as a
+        // *relative* scroll, so slower vehicles drift down toward the
+        // player and faster ones move up the screen and overtake.
         let crashed = false;
         for (const o of st.obstacles) {
+          const prevY = o.y;
+          const relScroll = (st.speed - o.forwardSpeed) * dt;
+          o.y += relScroll;
+          o.x += o.vx * dt;
+          // Bounce wobblers off the live lane walls
+          if (o.x < roadL + o.w / 2) {
+            o.x = roadL + o.w / 2;
+            o.vx = Math.abs(o.vx);
+          }
+          if (o.x > roadR - o.w / 2) {
+            o.x = roadR - o.w / 2;
+            o.vx = -Math.abs(o.vx);
+          }
           const dx = Math.abs(o.x - st.carX);
           const dy = Math.abs(o.y - st.carY);
           if (dx < o.w / 2 + carHalf - 4 && dy < o.h / 2 + CAR_H / 2 - 4) {
             crashed = true;
-            break;
+            continue;
           }
-          // Near-miss: obstacle just crossed the player's y line and was
-          // close laterally
-          if (!o.passed && o.y > st.carY) {
-            o.passed = true;
-            const lateral = dx - (o.w / 2 + carHalf);
-            if (lateral > 0 && lateral < NEAR_MISS_LATERAL_PX) {
-              st.combo += 1;
-              st.comboTimer = COMBO_DECAY_SECONDS;
-              st.nearMisses += 1;
-              const reward =
-                NEAR_MISS_BASE + NEAR_MISS_PER_COMBO * (st.combo - 1);
-              st.scoreFloat += reward;
-              st.floaters.push({
-                x: st.carX,
-                y: st.carY - 30,
-                life: 0.85,
-                text: `+${reward}  ×${st.combo}`,
-                hue: 280,
-              });
-              st.flashTimer = Math.max(st.flashTimer, 0.18);
-              Sfx.bounce();
+          // Near-miss: detect a y-axis crossing in either direction so
+          // overtakers passing under the player count too.
+          if (!o.passed) {
+            const crossing =
+              (prevY < st.carY && o.y >= st.carY) ||
+              (prevY > st.carY && o.y <= st.carY);
+            if (crossing) {
+              o.passed = true;
+              const lateral = dx - (o.w / 2 + carHalf);
+              if (lateral > 0 && lateral < NEAR_MISS_LATERAL_PX) {
+                st.combo += 1;
+                st.comboTimer = COMBO_DECAY_SECONDS;
+                st.nearMisses += 1;
+                const reward =
+                  NEAR_MISS_BASE + NEAR_MISS_PER_COMBO * (st.combo - 1);
+                st.scoreFloat += reward;
+                st.floaters.push({
+                  x: st.carX,
+                  y: st.carY - 30,
+                  life: 0.85,
+                  text: `+${reward}  ×${st.combo}`,
+                  hue: 280,
+                });
+                st.flashTimer = Math.max(st.flashTimer, 0.18);
+                Sfx.bounce();
+              }
             }
           }
         }
-        st.obstacles = st.obstacles.filter((o) => o.y < H + 100);
+        // Off-screen on either end (overtakers exit the top, slowpokes
+        // exit the bottom)
+        st.obstacles = st.obstacles.filter(
+          (o) => o.y < H + 200 && o.y > -250,
+        );
         st.coins = st.coins.filter((c) => c.y < H + 30);
 
         // ----- Combo decay -----
@@ -662,13 +773,14 @@ export default function DriftKing() {
         ctx.restore();
       }
 
-      // Obstacle cars
+      // Traffic — dispatched by vehicle kind so trucks, buses, sports
+      // cars, and motorbikes all read distinctly on the road.
       for (const o of st.obstacles) {
-        drawCar(ctx, o.x, o.y, o.w, o.h, o.hue, false);
+        drawVehicle(ctx, o.kind, o.x, o.y, o.w, o.h, o.hue, false);
       }
 
-      // Player car
-      drawCar(ctx, st.carX, st.carY, CAR_W, CAR_H, 270, true);
+      // Player — always a sedan silhouette so the player reads instantly
+      drawVehicle(ctx, "sedan", st.carX, st.carY, CAR_W, CAR_H, 270, true);
 
       // Particles
       for (const p of st.particles) {
@@ -884,7 +996,37 @@ export default function DriftKing() {
   );
 }
 
-function drawCar(
+function drawVehicle(
+  ctx: CanvasRenderingContext2D,
+  kind: VehicleKind,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+  isPlayer: boolean,
+) {
+  switch (kind) {
+    case "truck":
+      drawTruck(ctx, x, y, w, h, hue);
+      return;
+    case "bus":
+      drawBus(ctx, x, y, w, h, hue);
+      return;
+    case "sports":
+      drawSportsCar(ctx, x, y, w, h, hue);
+      return;
+    case "motorbike":
+      drawMotorbike(ctx, x, y, w, h, hue);
+      return;
+    case "sedan":
+    default:
+      drawSedan(ctx, x, y, w, h, hue, isPlayer);
+      return;
+  }
+}
+
+function drawSedan(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -903,21 +1045,19 @@ function drawCar(
   ctx.fillStyle = grad;
   roundRect(ctx, -w / 2, -h / 2, w, h, 8);
   ctx.fill();
-  // Cabin (darker mid-section)
+  // Cabin
   ctx.fillStyle = `hsl(${hue}, 60%, 22%)`;
   roundRect(ctx, -w / 2 + 5, -h / 2 + 16, w - 10, h - 32, 4);
   ctx.fill();
-  // Front windshield (top)
+  // Windshield + rear glass
   ctx.fillStyle = "rgba(120,200,255,0.55)";
   ctx.fillRect(-w / 2 + 7, -h / 2 + 18, w - 14, 8);
-  // Rear window (bottom)
   ctx.fillStyle = "rgba(120,200,255,0.35)";
   ctx.fillRect(-w / 2 + 7, h / 2 - 22, w - 14, 6);
-  // Headlights at the front (top edge)
+  // Headlights / taillights
   ctx.fillStyle = "#fde68a";
   ctx.fillRect(-w / 2 + 4, -h / 2 + 1, 7, 4);
   ctx.fillRect(w / 2 - 11, -h / 2 + 1, 7, 4);
-  // Taillights at the back
   ctx.fillStyle = isPlayer ? "#ef4444" : "#dc2626";
   ctx.fillRect(-w / 2 + 4, h / 2 - 5, 7, 4);
   ctx.fillRect(w / 2 - 11, h / 2 - 5, 7, 4);
@@ -927,13 +1067,229 @@ function drawCar(
   ctx.fillRect(w / 2 - 1, -h / 2 + 8, 5, 14);
   ctx.fillRect(-w / 2 - 4, h / 2 - 22, 5, 14);
   ctx.fillRect(w / 2 - 1, h / 2 - 22, 5, 14);
-  // Outline accent — only the player's car gets the crisp white edge
   if (isPlayer) {
     ctx.strokeStyle = "rgba(255,255,255,0.65)";
     ctx.lineWidth = 1.5;
     roundRect(ctx, -w / 2, -h / 2, w, h, 8);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawTruck(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Cab (front ~30% of length)
+  const cabH = Math.round(h * 0.32);
+  const cabTop = -h / 2;
+  const cabGrad = ctx.createLinearGradient(0, cabTop, 0, cabTop + cabH);
+  cabGrad.addColorStop(0, `hsl(${hue}, 75%, 60%)`);
+  cabGrad.addColorStop(1, `hsl(${hue}, 75%, 35%)`);
+  ctx.fillStyle = cabGrad;
+  roundRect(ctx, -w / 2 + 2, cabTop, w - 4, cabH, 6);
+  ctx.fill();
+  // Cab windshield
+  ctx.fillStyle = "rgba(120,200,255,0.55)";
+  ctx.fillRect(-w / 2 + 7, cabTop + 6, w - 14, 12);
+  // Headlights
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-w / 2 + 4, cabTop + 1, 8, 4);
+  ctx.fillRect(w / 2 - 12, cabTop + 1, 8, 4);
+  // Trailer (cargo box) — separate slab with horizontal panel lines
+  const trailerTop = cabTop + cabH + 2;
+  const trailerH = h - cabH - 4;
+  ctx.fillStyle = "#7a6b56";
+  ctx.fillRect(-w / 2, trailerTop, w, trailerH);
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.lineWidth = 1;
+  for (let yy = trailerTop + 14; yy < trailerTop + trailerH; yy += 18) {
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, yy);
+    ctx.lineTo(w / 2, yy);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-w / 2, trailerTop, w, trailerH);
+  // Taillights
+  ctx.fillStyle = "#dc2626";
+  ctx.fillRect(-w / 2 + 4, h / 2 - 5, 8, 4);
+  ctx.fillRect(w / 2 - 12, h / 2 - 5, 8, 4);
+  // Wheels — pair at the cab + 2 pairs along the trailer
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(-w / 2 - 4, cabTop + 12, 5, 14);
+  ctx.fillRect(w / 2 - 1, cabTop + 12, 5, 14);
+  for (let i = 0; i < 2; i++) {
+    const yy = trailerTop + 12 + i * (trailerH / 2);
+    ctx.fillRect(-w / 2 - 4, yy, 5, 14);
+    ctx.fillRect(w / 2 - 1, yy, 5, 14);
+  }
+  ctx.restore();
+}
+
+function drawBus(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  const grad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  grad.addColorStop(0, `hsl(${hue}, 80%, 50%)`);
+  grad.addColorStop(0.5, `hsl(${hue}, 80%, 60%)`);
+  grad.addColorStop(1, `hsl(${hue}, 80%, 50%)`);
+  ctx.fillStyle = grad;
+  roundRect(ctx, -w / 2, -h / 2, w, h, 6);
+  ctx.fill();
+  // Top windshield
+  ctx.fillStyle = "rgba(120,200,255,0.55)";
+  ctx.fillRect(-w / 2 + 8, -h / 2 + 8, w - 16, 12);
+  // Side window strip running the length
+  ctx.fillStyle = "rgba(120,200,255,0.35)";
+  ctx.fillRect(-w / 2 + 6, -h / 2 + 26, w - 12, h - 56);
+  // Window dividers — every ~22 px
+  ctx.strokeStyle = `hsl(${hue}, 60%, 25%)`;
+  ctx.lineWidth = 2;
+  for (let yy = -h / 2 + 48; yy < h / 2 - 30; yy += 22) {
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 6, yy);
+    ctx.lineTo(w / 2 - 6, yy);
+    ctx.stroke();
+  }
+  // Rear emergency door
+  ctx.fillStyle = `hsl(${hue}, 60%, 25%)`;
+  ctx.fillRect(-w / 4, h / 2 - 22, w / 2, 14);
+  // Headlights / taillights
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-w / 2 + 4, -h / 2 + 1, 8, 4);
+  ctx.fillRect(w / 2 - 12, -h / 2 + 1, 8, 4);
+  ctx.fillStyle = "#dc2626";
+  ctx.fillRect(-w / 2 + 4, h / 2 - 5, 8, 4);
+  ctx.fillRect(w / 2 - 12, h / 2 - 5, 8, 4);
+  // Wheels — front pair, rear pair (buses ride high)
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(-w / 2 - 4, -h / 2 + 18, 5, 16);
+  ctx.fillRect(w / 2 - 1, -h / 2 + 18, 5, 16);
+  ctx.fillRect(-w / 2 - 4, h / 2 - 34, 5, 16);
+  ctx.fillRect(w / 2 - 1, h / 2 - 34, 5, 16);
+  ctx.restore();
+}
+
+function drawSportsCar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Sleeker body — same shape as a sedan but with a racing stripe
+  const grad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+  grad.addColorStop(0, `hsl(${hue}, 90%, 60%)`);
+  grad.addColorStop(1, `hsl(${hue}, 85%, 30%)`);
+  ctx.fillStyle = grad;
+  roundRect(ctx, -w / 2, -h / 2, w, h, 10);
+  ctx.fill();
+  // Lower cabin (sportier, smaller window area)
+  ctx.fillStyle = `hsl(${hue}, 70%, 18%)`;
+  roundRect(ctx, -w / 2 + 6, -h / 2 + 20, w - 12, h - 40, 4);
+  ctx.fill();
+  // Windshield
+  ctx.fillStyle = "rgba(120,200,255,0.6)";
+  ctx.fillRect(-w / 2 + 8, -h / 2 + 22, w - 16, 8);
+  // Twin racing stripes down the centre
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillRect(-5, -h / 2 + 4, 2, h - 8);
+  ctx.fillRect(3, -h / 2 + 4, 2, h - 8);
+  // Rear spoiler
+  ctx.fillStyle = `hsl(${hue}, 70%, 20%)`;
+  ctx.fillRect(-w / 2 + 3, h / 2 - 8, w - 6, 4);
+  ctx.fillStyle = `hsl(${hue}, 70%, 30%)`;
+  ctx.fillRect(-w / 2 + 5, h / 2 - 4, w - 10, 3);
+  // Pointed headlights
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.moveTo(-w / 2 + 4, -h / 2 + 1);
+  ctx.lineTo(-w / 2 + 12, -h / 2 + 1);
+  ctx.lineTo(-w / 2 + 10, -h / 2 + 5);
+  ctx.lineTo(-w / 2 + 4, -h / 2 + 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 4, -h / 2 + 1);
+  ctx.lineTo(w / 2 - 12, -h / 2 + 1);
+  ctx.lineTo(w / 2 - 10, -h / 2 + 5);
+  ctx.lineTo(w / 2 - 4, -h / 2 + 5);
+  ctx.closePath();
+  ctx.fill();
+  // Taillights
+  ctx.fillStyle = "#ef4444";
+  ctx.fillRect(-w / 2 + 4, h / 2 - 12, w - 8, 3);
+  // Wheels (low-profile)
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(-w / 2 - 3, -h / 2 + 10, 4, 12);
+  ctx.fillRect(w / 2 - 1, -h / 2 + 10, 4, 12);
+  ctx.fillRect(-w / 2 - 3, h / 2 - 22, 4, 12);
+  ctx.fillRect(w / 2 - 1, h / 2 - 22, 4, 12);
+  ctx.restore();
+}
+
+function drawMotorbike(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Front wheel (top)
+  ctx.fillStyle = "#0a0a0a";
+  ctx.beginPath();
+  ctx.arc(0, -h / 2 + 8, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#3a3a3a";
+  ctx.beginPath();
+  ctx.arc(0, -h / 2 + 8, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Rear wheel (bottom)
+  ctx.fillStyle = "#0a0a0a";
+  ctx.beginPath();
+  ctx.arc(0, h / 2 - 8, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#3a3a3a";
+  ctx.beginPath();
+  ctx.arc(0, h / 2 - 8, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Body (between wheels)
+  ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
+  roundRect(ctx, -w / 2 + 2, -h / 2 + 14, w - 4, h - 28, 5);
+  ctx.fill();
+  // Rider silhouette (helmet + body)
+  ctx.fillStyle = "#1c1f2c";
+  ctx.beginPath();
+  ctx.arc(0, -2, 5, 0, Math.PI * 2);
+  ctx.fill(); // helmet
+  ctx.fillRect(-5, 1, 10, 12); // torso
+  // Headlight
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-3, -h / 2 + 1, 6, 3);
+  // Taillight
+  ctx.fillStyle = "#ef4444";
+  ctx.fillRect(-3, h / 2 - 4, 6, 3);
   ctx.restore();
 }
 
