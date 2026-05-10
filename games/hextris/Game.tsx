@@ -17,12 +17,18 @@ const HEX_SIDE = (HEX_APOTHEM * 2) / Math.sqrt(3);
 const BLOCK_H = 14;
 /** Difficulty ramp parameters. fallSpeed and spawnInterval move
  *  continuously from "dead slow" at t=0 to "dead fast" near
- *  RAMP_DURATION, so a single run flows smoothly from chill into
- *  frantic without level-based step changes. */
+ *  RAMP_DURATION. We use an ease-IN curve (t²) so the early game
+ *  stays gentle for a meaningful stretch before things snowball —
+ *  with ease-out the curve would change fastest at the start, which
+ *  felt crowded immediately.
+ *
+ *  Starting values are tuned so blocks-in-air ≈ 1.7 at t=0 (one
+ *  block at a time, time to plan), climbing to ≈ 2.5 at peak
+ *  difficulty (frantic). */
 const RAMP_DURATION = 150;
-const FALL_SPEED_MIN = 28;
+const FALL_SPEED_MIN = 45;
 const FALL_SPEED_MAX = 195;
-const SPAWN_INTERVAL_MAX = 1.7;
+const SPAWN_INTERVAL_MAX = 2.8;
 const SPAWN_INTERVAL_MIN = 0.45;
 /** Stack length (in blocks) at which any face overflowing ends the
  *  game. Drawn as a dashed danger ring. */
@@ -204,12 +210,12 @@ export default function Hextris() {
         if (st.shake > 0) st.shake = Math.max(0, st.shake - dt * 5);
 
         // Smooth difficulty ramp tied to elapsed time. Eases from
-        // 0 → 1 over RAMP_DURATION using ease-out-quad so the first
-        // few seconds feel *dead slow* and players settle into the
-        // hex before the rain picks up. After the ramp, the curve
-        // saturates at "dead fast" rather than snapping to it.
+        // 0 → 1 over RAMP_DURATION using ease-IN-quad (t²) so the
+        // first ~30 seconds barely move off the floor — giving the
+        // player real headroom to settle in — and the curve only
+        // bites in the second half of the run.
         const t = Math.min(1, st.elapsed / RAMP_DURATION);
-        const ease = 1 - (1 - t) * (1 - t);
+        const ease = t * t;
         const fallSpeed =
           FALL_SPEED_MIN + (FALL_SPEED_MAX - FALL_SPEED_MIN) * ease;
         const baseSpawnInterval =
