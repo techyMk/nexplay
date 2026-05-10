@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { GAMES } from "@/lib/catalog";
 import { syncAchievements } from "@/lib/achievements-server";
 import { ACHIEVEMENTS } from "@/lib/achievements";
+import { isAdminEmail, isAdminUnlocked } from "@/lib/admin";
+import { AdminUnlockCard } from "@/components/AdminUnlockCard";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
@@ -58,11 +60,18 @@ export default async function ProfilePage() {
   const unlockedList = ACHIEVEMENTS.filter((a) => unlockedSet.has(a.id));
   const recentlyUnlocked = unlockedList.slice(0, 6);
 
+  // Admin unlock state — card only renders for the admin email; the
+  // "alreadyUnlocked" flag drives whether to show the unlock form or
+  // the open/lock buttons.
+  const isAdmin = isAdminEmail(user.email);
+  const adminUnlocked = isAdmin ? await isAdminUnlocked(user.email) : false;
+
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 md:py-12">
       <div className="mb-4">
         <BackButton fallback="/" />
       </div>
+      {isAdmin && <AdminUnlockCard alreadyUnlocked={adminUnlocked} />}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 mb-8">
         <ProfileEditor
           initial={{

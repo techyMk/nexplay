@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { ThemeScript } from "@/components/ThemeScript";
 import { ToastProvider } from "@/components/ToastProvider";
 import { getUser } from "@/lib/supabase/server";
+import { isAdminEmail, isAdminUnlocked } from "@/lib/admin";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,10 @@ export default async function RootLayout({
 }>) {
   const user = await getUser();
   const isAuthenticated = Boolean(user);
+  // Admin link in the sidebar only renders when both checks pass —
+  // a non-admin user can't even see the entry point.
+  const adminVisible =
+    isAdminEmail(user?.email) && (await isAdminUnlocked(user?.email));
 
   return (
     <html
@@ -52,7 +57,7 @@ export default async function RootLayout({
         <ConfirmProvider>
           <Header />
           <div className="flex-1 flex">
-            <Sidebar isAuthenticated={isAuthenticated} />
+            <Sidebar isAuthenticated={isAuthenticated} adminVisible={adminVisible} />
             <main className="flex-1 min-w-0">{children}</main>
           </div>
           <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">

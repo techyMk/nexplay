@@ -80,7 +80,13 @@ function useFriendsUnread(authed: boolean): number {
   return count;
 }
 
-export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+export function Sidebar({
+  isAuthenticated = false,
+  adminVisible = false,
+}: {
+  isAuthenticated?: boolean;
+  adminVisible?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const friendsUnread = useFriendsUnread(isAuthenticated);
@@ -173,6 +179,9 @@ export function Sidebar({ isAuthenticated = false }: { isAuthenticated?: boolean
                 <NavRow href="/profile" emoji="👤" label="Profile" active={isActive("/profile")} />
                 <NavRow href="/feedback" emoji="💬" label="Feedback" active={isActive("/feedback")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
+                {adminVisible && (
+                  <NavRow href="/admin" emoji="🛡️" label="Admin" active={isActive("/admin")} />
+                )}
                 <LogoutRow />
               </>
             ) : (
