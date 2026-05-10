@@ -70,7 +70,7 @@ function emptyState(): State {
   };
 }
 
-export default function Hextrix() {
+export default function Hextris() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
@@ -79,7 +79,7 @@ export default function Hextrix() {
   const [over, setOver] = useState(false);
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
-  const submitStatus = useSubmitScoreOnGameOver("hextrix", score, over);
+  const submitStatus = useSubmitScoreOnGameOver("hextris", score, over);
 
   const startedRef = useRef(false);
   startedRef.current = started;
@@ -93,7 +93,7 @@ export default function Hextrix() {
   const stateRef = useRef<State>(emptyState());
 
   useEffect(() => {
-    setBest(Number(localStorage.getItem("nexplay:hextrix-best") || 0));
+    setBest(Number(localStorage.getItem("nexplay:hextris-best") || 0));
   }, []);
 
   const reset = useCallback(() => {
@@ -265,7 +265,7 @@ export default function Hextrix() {
                 setBest((b) => {
                   const nb = Math.max(b, finalScore);
                   localStorage.setItem(
-                    "nexplay:hextrix-best",
+                    "nexplay:hextris-best",
                     String(nb),
                   );
                   return nb;
@@ -440,7 +440,7 @@ export default function Hextrix() {
           {!started && !over && (
             <GameOverlay
               icon="⬢"
-              title="Hextrix"
+              title="Hextris"
               subtitle={
                 <>
                   Coloured blocks slide in from six lanes. Spin the hex to
@@ -484,7 +484,7 @@ export default function Hextrix() {
               subtitle={`Score ${score} · Level ${level}`}
               primary={{ label: "Play again", onClick: start }}
             >
-              <ScoreStatus gameSlug="hextrix" status={submitStatus} />
+              <ScoreStatus gameSlug="hextris" status={submitStatus} />
             </GameOverlay>
           )}
         </div>
