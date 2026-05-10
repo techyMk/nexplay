@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 // World dimensions (game space). Camera follows the player.
 const WORLD = 2400;
@@ -430,6 +432,8 @@ export default function Slither() {
               if (s.isPlayer) {
                 const pts = f.premium ? 25 : Math.round(f.r * 2 + 1);
                 setScore((sc) => sc + pts);
+                if (f.premium) Sfx.bigPickup();
+                else Sfx.pickup();
               }
             }
           }
@@ -496,6 +500,7 @@ export default function Slither() {
         // --- Player death → game over ---
         if (!player.alive && !overRef.current) {
           setOver(true);
+          Sfx.gameOver();
           setScore((finalScore) => {
             setBest((b) => {
               const nb = Math.max(b, finalScore);
@@ -778,6 +783,7 @@ export default function Slither() {
         <Stat label="Length" value={length} flash={lengthFlash} />
         <Stat label="Rank" value={`#${rank}`} />
         <Stat label="Best" value={best} />
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 480;
 const H = 640;
@@ -71,6 +73,7 @@ export default function Flappy() {
       return;
     }
     stateRef.current.vy = FLAP;
+    Sfx.jump();
   }, [phase, paused]);
 
   useEffect(() => {
@@ -119,7 +122,10 @@ export default function Flappy() {
 
         // collisions
         if (st.y + BIRD_R > H || st.y - BIRD_R < 0) {
-          setPhase("over");
+          if (phase === "play") {
+            setPhase("over");
+            Sfx.gameOver();
+          }
         }
         for (const p of st.pipes) {
           if (
@@ -127,10 +133,14 @@ export default function Flappy() {
             BIRD_X - BIRD_R < p.x + PIPE_W &&
             (st.y - BIRD_R < p.gapY || st.y + BIRD_R > p.gapY + GAP)
           ) {
-            setPhase("over");
+            if (phase === "play") {
+              setPhase("over");
+              Sfx.gameOver();
+            }
           }
           if (!p.passed && p.x + PIPE_W < BIRD_X) {
             p.passed = true;
+            Sfx.pickup();
             setScore((s) => {
               const n = s + 1;
               setBest((b) => {
@@ -205,6 +215,7 @@ export default function Flappy() {
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a2a] to-[#1a3344] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs">
         <span>Best: <b>{best}</b></span>
+        <SoundToggle />
         {phase === "play" && (
           <button
             onClick={togglePause}

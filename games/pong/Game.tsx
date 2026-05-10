@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useKeyboard } from "../useGameLoop";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 800;
 const H = 480;
@@ -313,10 +315,12 @@ export default function Pong() {
           if (st.by < BALL / 2) {
             st.by = BALL / 2;
             st.bvy *= -1;
+            Sfx.bounce();
           }
           if (st.by > H - BALL / 2) {
             st.by = H - BALL / 2;
             st.bvy *= -1;
+            Sfx.bounce();
           }
 
           // left paddle
@@ -333,6 +337,7 @@ export default function Pong() {
             st.bvx = Math.max(-680, Math.min(680, st.bvx));
             st.bvy = Math.max(-560, Math.min(560, st.bvy));
             st.bx = 20 + PAD_W + BALL / 2;
+            Sfx.bounce();
           }
           // right paddle
           if (
@@ -348,6 +353,7 @@ export default function Pong() {
             st.bvx = Math.max(-680, Math.min(680, st.bvx));
             st.bvy = Math.max(-560, Math.min(560, st.bvy));
             st.bx = W - 20 - PAD_W - BALL / 2;
+            Sfx.bounce();
           }
 
           // scoring
@@ -355,12 +361,16 @@ export default function Pong() {
             const scorer: Side = st.bx < -20 ? "right" : "left";
             setPointFlash(scorer);
             setTimeout(() => setPointFlash(null), 350);
+            Sfx.match();
             setScore((s) => {
               const next = {
                 ...s,
                 [scorer]: s[scorer] + 1,
               } as { left: number; right: number };
-              if (next[scorer] >= TARGET) setWinner(scorer);
+              if (next[scorer] >= TARGET) {
+                setWinner(scorer);
+                Sfx.win();
+              }
               return next;
             });
             const towardLoser: Side = st.bx < -20 ? "left" : "right";
@@ -509,6 +519,7 @@ export default function Pong() {
             </>
           )}
         </div>
+        <SoundToggle />
       </div>
 
       {/* Court */}

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
@@ -127,7 +129,12 @@ export default function Game2048() {
       const next = addRandom(nb);
       setBoard(next);
       setScore((s) => s + gained);
-      if (gameOver(next)) setOver(true);
+      if (gained > 0) Sfx.match();
+      else Sfx.move();
+      if (gameOver(next)) {
+        setOver(true);
+        Sfx.gameOver();
+      }
     },
     [board, over, paused, started],
   );
@@ -208,6 +215,7 @@ export default function Game2048() {
           <div className="text-[10px] uppercase opacity-60">Best</div>
           <div className="font-black">{best}</div>
         </div>
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}

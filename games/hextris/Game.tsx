@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const VIEW_W = 600;
 const VIEW_H = 600;
@@ -135,6 +137,7 @@ export default function Hextris() {
     const s = stateRef.current;
     s.hexRotTarget += dir * ROT_STEP;
     s.hexRotSteps = ((s.hexRotSteps + dir) % 6 + 6) % 6;
+    Sfx.rotate();
   }, []);
 
   useEffect(() => {
@@ -245,6 +248,7 @@ export default function Hextris() {
           if (f.radial <= stackTop) {
             st.stacks[face].push(f.color);
             st.falling.splice(i, 1);
+            Sfx.thud();
             // Run match cascade — each pass clears all simultaneous
             // matches, then the outer blocks compact down and we look
             // again. Cascade multiplier rewards chained clears.
@@ -252,6 +256,8 @@ export default function Hextris() {
             while (true) {
               const cleared = runMatches(st);
               if (cleared.length === 0) break;
+              if (cascade === 1) Sfx.match();
+              else Sfx.bigMatch();
               award(cleared.length * 10 * lvl * cascade);
               for (const c of cleared) {
                 const angle = c.f * ROT_STEP + st.hexRotVisual;
@@ -288,6 +294,7 @@ export default function Hextris() {
             }
             if (overflow && !overRef.current) {
               setOver(true);
+              Sfx.gameOver();
               setScore((finalScore) => {
                 setBest((b) => {
                   const nb = Math.max(b, finalScore);
@@ -447,6 +454,7 @@ export default function Hextris() {
         <Stat label="Score" value={score} accent />
         <Stat label="Level" value={level} />
         <Stat label="Best" value={best} />
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}
