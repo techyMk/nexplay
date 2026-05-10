@@ -10,14 +10,11 @@ const VIEW_H = 600;
 /** Perpendicular distance from hex centre to each face. Stacks
  *  start growing outward from this radius. */
 const HEX_APOTHEM = 64;
-/** Hex side length — sets the maximum block extent along the face. */
+/** Hex side length — also the width of a block along its face. */
 const HEX_SIDE = (HEX_APOTHEM * 2) / Math.sqrt(3);
-/** Visual width of a block along its face. Narrower than HEX_SIDE so
- *  blocks read as discrete tiles with clear gaps between adjacent
- *  faces, instead of melting into one continuous ring. */
-const BLOCK_W = HEX_SIDE * 0.6;
-/** Radial depth of one stacked block. */
-const BLOCK_H = 22;
+/** Radial depth of one stacked block. Slim so stacks read as a
+ *  shallow ring against the hex rather than chunky bricks. */
+const BLOCK_H = 14;
 /** Difficulty ramp parameters. fallSpeed and spawnInterval move
  *  continuously from "dead slow" at t=0 to "dead fast" near
  *  RAMP_DURATION, so a single run flows smoothly from chill into
@@ -560,9 +557,9 @@ function drawBlock(
 ) {
   const m = 1.4; // small inset so blocks read as discrete tiles
   const x = innerR + m;
-  const y = -BLOCK_W / 2 + m;
+  const y = -HEX_SIDE / 2 + m;
   const w = BLOCK_H - m * 2;
-  const h = BLOCK_W - m * 2;
+  const h = HEX_SIDE - m * 2;
   // Body gradient — bright on the inside (centre-facing) edge,
   // darker on the outside, so depth reads.
   const grad = ctx.createLinearGradient(x, 0, x + w, 0);
