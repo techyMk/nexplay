@@ -539,20 +539,38 @@ function TopPlayers({
   }
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
-      {rows.map((r, i) => (
-        <div key={r.id} className="flex items-center gap-3 p-3">
-          <span className="w-7 text-center font-black text-[var(--muted)]">
-            {i + 1}
-          </span>
-          <span className="w-9 h-9 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm">
-            {r.avatar}
-          </span>
-          <span className="flex-1 truncate font-bold">{r.name}</span>
-          <span className="text-sm text-[var(--muted)]">
-            <b className="text-[var(--foreground)]">{r.plays}</b> recent plays
-          </span>
-        </div>
-      ))}
+      {rows.map((r, i) => {
+        // Same shape-detection as Recent signups: a stored value can
+        // be a preset slug, a custom upload URL, or a legacy emoji.
+        const src = avatarSrc(r.avatar);
+        const initial = (r.name?.trim()?.[0] ?? "?").toUpperCase();
+        return (
+          <div key={r.id} className="flex items-center gap-3 p-3">
+            <span className="w-7 text-center font-black text-[var(--muted)]">
+              {i + 1}
+            </span>
+            <span className="w-9 h-9 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm font-bold text-[var(--muted)] overflow-hidden shrink-0">
+              {src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={src}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : r.avatar ? (
+                r.avatar
+              ) : (
+                initial
+              )}
+            </span>
+            <span className="flex-1 truncate font-bold">{r.name}</span>
+            <span className="text-sm text-[var(--muted)] shrink-0">
+              <b className="text-[var(--foreground)]">{r.plays}</b> recent plays
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
