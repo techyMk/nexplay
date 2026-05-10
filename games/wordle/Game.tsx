@@ -291,6 +291,32 @@ export default function Wordle() {
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [score, setScore] = useState(0);
 
+  /** Tile size in pixels, recomputed on container resize. The board
+   *  area is whatever vertical space remains after the HUD and
+   *  keyboard have claimed theirs; we then pick the largest tile that
+   *  fits in both dimensions while keeping squares. */
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [tilePx, setTilePx] = useState(48);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const compute = () => {
+      const rect = el.getBoundingClientRect();
+      // Inner padding is p-2 (8px each side), so subtract 16 from each axis.
+      const availW = rect.width - 16;
+      const availH = rect.height - 16;
+      // 5 cols × 6 rows with 6px (gap-1.5) gaps between.
+      const wPerTile = (availW - 4 * 6) / WORD_LEN;
+      const hPerTile = (availH - 5 * 6) / MAX_GUESSES;
+      const size = Math.max(20, Math.min(72, wPerTile, hPerTile));
+      setTilePx(size);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Track the last-saved daily day so an open tab can roll over at
   // midnight without a reload. Also lets the lose flow record the
   // "lost" status without re-saving.
@@ -521,13 +547,13 @@ export default function Wordle() {
     stats.played === 0 ? 0 : Math.round((stats.won / stats.played) * 100);
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-[var(--background)] text-[var(--foreground)] p-2 sm:p-3 select-none">
-      {/* HUD */}
-      <div className="shrink-0 flex items-center justify-center gap-2 mb-3 text-xs sm:text-sm flex-wrap">
-        <div className="inline-flex rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-0.5 text-[11px]">
+    <div className="absolute inset-0 flex flex-col bg-[var(--background)] text-[var(--foreground)] select-none overflow-hidden">
+      {/* HUD — fixed height strip at the top */}
+      <div className="shrink-0 h-11 px-3 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        <div className="inline-flex rounded-md bg-[var(--surface-2)] border border-[var(--border)] p-0.5 text-[11px]">
           <button
             onClick={() => startFresh("daily")}
-            className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+            className={`px-2.5 py-1 rounded-sm font-bold transition-all ${
               mode === "daily"
                 ? "bg-[var(--accent)] text-white shadow-sm"
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -537,131 +563,121 @@ export default function Wordle() {
           </button>
           <button
             onClick={() => startFresh("free")}
-            className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+            className={`px-2.5 py-1 rounded-sm font-bold transition-all ${
               mode === "free"
                 ? "bg-[var(--accent)] text-white shadow-sm"
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
             }`}
           >
-            Free play
+            Free
           </button>
         </div>
-        {mode === "daily" && (
-          <span className="px-3 py-1 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] inline-flex items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider opacity-60">
-              Day
-            </span>
-            <b>{dailyIndex()}</b>
-          </span>
-        )}
-        {mode === "free" && status !== "playing" && (
+        <div className="flex-1 text-center text-xs sm:text-sm font-black tracking-wider uppercase">
+          {mode === "daily" ? `Wordy · Day ${dailyIndex()}` : "Wordy · Free play"}
+        </div>
+        <div className="inline-flex items-center gap-1">
+          {mode === "free" && status !== "playing" && (
+            <button
+              onClick={newRandom}
+              className="px-2 py-1 rounded-md bg-[var(--accent)]/20 border border-[var(--accent)]/40 hover:bg-[var(--accent)]/30 text-[11px] font-bold transition-colors"
+            >
+              ↻ New
+            </button>
+          )}
           <button
-            onClick={newRandom}
-            className="px-3 py-1 rounded-lg bg-[var(--accent)]/20 border border-[var(--accent)]/40 hover:bg-[var(--accent)]/30 text-sm font-bold transition-colors"
+            onClick={() => setShowStats(true)}
+            className="w-8 h-8 rounded-md bg-[var(--surface-2)] border border-[var(--border)] hover:border-[var(--accent)] inline-flex items-center justify-center text-sm transition-colors"
+            aria-label="Statistics"
+            title="Statistics"
           >
-            ↻ New word
+            📊
           </button>
-        )}
-        <button
-          onClick={() => setShowStats(true)}
-          className="px-3 py-1 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] hover:border-[var(--accent)] inline-flex items-center gap-1.5 transition-colors"
-          aria-label="Statistics"
-        >
-          📊 <b>{stats.won}</b>/{stats.played}
-        </button>
-        <SoundToggle />
+          <SoundToggle />
+        </div>
       </div>
 
-      {/* Toast */}
-      <div className="shrink-0 h-6 mb-1 text-center">
-        {toast && (
-          <span className="inline-block px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-400/50 text-sm font-bold text-rose-200">
-            {toast}
-          </span>
-        )}
-      </div>
+      {/* Toast — positioned absolutely so it doesn't take layout space */}
+      {toast && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-lg bg-rose-500/95 text-white text-xs font-bold shadow-lg pointer-events-none">
+          {toast}
+        </div>
+      )}
 
-      {/* Board */}
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3">
+      {/* Board — flex-1 region that auto-sizes the tile grid to fit */}
+      <div
+        ref={boardRef}
+        className="flex-1 min-h-0 w-full flex items-center justify-center p-2"
+      >
         <div
-          className="grid gap-1"
-          style={{ gridTemplateRows: `repeat(${MAX_GUESSES}, minmax(0,1fr))` }}
+          className="grid gap-1.5"
+          style={{
+            // Tile size is measured by ResizeObserver so each cell is
+            // a perfect square no matter how aspect-video the host
+            // frame is. Letting the grid stay at its intrinsic size
+            // also avoids fighting the flex parent over height.
+            gridTemplateColumns: `repeat(${WORD_LEN}, ${tilePx}px)`,
+            gridTemplateRows: `repeat(${MAX_GUESSES}, ${tilePx}px)`,
+          }}
         >
           {Array.from({ length: MAX_GUESSES }, (_, row) => {
             const isShaking = shakeRow === row;
             const isRevealing = revealingRow === row;
             const isWonRow =
               status === "won" && row === guesses.length - 1 && !isRevealing;
-            return (
-              <div
-                key={row}
-                className={`flex gap-1 ${isShaking ? "animate-wordle-shake" : ""}`}
-              >
-                {Array.from({ length: WORD_LEN }, (_, col) => {
-                  let letter = "";
-                  let state: LetterState = "empty";
-                  let revealedColour = false;
-                  if (row < guesses.length) {
-                    letter = guesses[row][col];
-                    const ev = evaluateGuess(guesses[row], target);
-                    state = ev[col];
-                    revealedColour = !isRevealing || col * 300 < 0; // colour shown after the flip starts; simplified by baseline-painting in CSS
-                    revealedColour = true;
-                  } else if (row === guesses.length) {
-                    letter = current[col] || "";
-                    state = letter ? "filled" : "empty";
-                  }
-                  return (
-                    <Tile
-                      key={col}
-                      letter={letter}
-                      state={state}
-                      flipping={isRevealing}
-                      flipDelay={col * 0.3}
-                      bouncing={isWonRow}
-                      bounceDelay={col * 0.1}
-                      revealedColour={revealedColour}
-                    />
-                  );
-                })}
-              </div>
-            );
+            return Array.from({ length: WORD_LEN }, (_, col) => {
+              let letter = "";
+              let state: LetterState = "empty";
+              if (row < guesses.length) {
+                letter = guesses[row][col];
+                const ev = evaluateGuess(guesses[row], target);
+                state = ev[col];
+              } else if (row === guesses.length) {
+                letter = current[col] || "";
+                state = letter ? "filled" : "empty";
+              }
+              return (
+                <Tile
+                  key={`${row}-${col}`}
+                  letter={letter}
+                  state={state}
+                  size={tilePx}
+                  flipping={isRevealing}
+                  flipDelay={col * 0.3}
+                  shaking={isShaking}
+                  bouncing={isWonRow}
+                  bounceDelay={col * 0.1}
+                />
+              );
+            });
           })}
-        </div>
-
-        {/* On-screen keyboard */}
-        <div className="w-full max-w-md flex flex-col gap-1.5 px-1">
-          {KEYBOARD_ROWS.map((row, i) => (
-            <div key={i} className="flex gap-1 justify-center">
-              {i === 2 && (
-                <KeyButton wide onClick={() => handleKey("ENTER")}>
-                  Enter
-                </KeyButton>
-              )}
-              {row.split("").map((key) => (
-                <KeyButton
-                  key={key}
-                  onClick={() => handleKey(key)}
-                  state={letterStates[key]}
-                >
-                  {key}
-                </KeyButton>
-              ))}
-              {i === 2 && (
-                <KeyButton wide onClick={() => handleKey("BACKSPACE")}>
-                  ⌫
-                </KeyButton>
-              )}
-            </div>
-          ))}
         </div>
       </div>
 
-      <div className="shrink-0 mt-2 text-[11px] text-[var(--muted)] text-center">
-        Type a guess · <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono">Enter</kbd>{" "}
-        submits ·{" "}
-        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono">⌫</kbd>{" "}
-        deletes
+      {/* On-screen keyboard — fixed at bottom, shrink-0 */}
+      <div className="shrink-0 px-1 pb-2 pt-1 flex flex-col gap-1.5 items-center">
+        {KEYBOARD_ROWS.map((row, i) => (
+          <div key={i} className="flex gap-1 justify-center w-full max-w-[520px]">
+            {i === 2 && (
+              <KeyButton wide onClick={() => handleKey("ENTER")}>
+                Enter
+              </KeyButton>
+            )}
+            {row.split("").map((key) => (
+              <KeyButton
+                key={key}
+                onClick={() => handleKey(key)}
+                state={letterStates[key]}
+              >
+                {key}
+              </KeyButton>
+            ))}
+            {i === 2 && (
+              <KeyButton wide onClick={() => handleKey("BACKSPACE")}>
+                ⌫
+              </KeyButton>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Stats overlay */}
@@ -755,25 +771,27 @@ export default function Wordle() {
 function Tile({
   letter,
   state,
+  size,
   flipping,
   flipDelay,
+  shaking,
   bouncing,
   bounceDelay,
-  revealedColour,
 }: {
   letter: string;
   state: LetterState;
+  size: number;
   flipping: boolean;
   flipDelay: number;
+  shaking: boolean;
   bouncing: boolean;
   bounceDelay: number;
-  revealedColour: boolean;
 }) {
   const isPlayed = state === "correct" || state === "present" || state === "absent";
   let bg = "bg-transparent";
   let border = "border-2 border-[var(--border)]";
   let text = "text-[var(--foreground)]";
-  if (isPlayed && revealedColour) {
+  if (isPlayed) {
     border = "border-0";
     text = "text-white";
     if (state === "correct") bg = "bg-emerald-600";
@@ -785,14 +803,15 @@ function Tile({
   }
   return (
     <div
-      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-md flex items-center justify-center font-black text-2xl sm:text-3xl uppercase ${bg} ${border} ${text} transition-colors ${flipping ? "animate-wordle-flip" : ""} ${bouncing ? "animate-wordle-bounce" : ""}`}
-      style={
-        flipping
-          ? { animationDelay: `${flipDelay}s` }
+      className={`w-full h-full rounded-md flex items-center justify-center font-black uppercase leading-none ${bg} ${border} ${text} transition-colors ${flipping ? "animate-wordle-flip" : ""} ${shaking ? "animate-wordle-shake" : ""} ${bouncing ? "animate-wordle-bounce" : ""}`}
+      style={{
+        fontSize: `${Math.round(size * 0.55)}px`,
+        animationDelay: flipping
+          ? `${flipDelay}s`
           : bouncing
-            ? { animationDelay: `${bounceDelay}s` }
-            : undefined
-      }
+            ? `${bounceDelay}s`
+            : undefined,
+      }}
     >
       {letter}
     </div>
@@ -818,7 +837,12 @@ function KeyButton({
   return (
     <button
       onClick={onClick}
-      className={`h-11 sm:h-12 ${wide ? "px-3 text-[11px] sm:text-xs" : "flex-1 min-w-0 max-w-[40px] text-sm sm:text-base"} rounded font-bold transition-colors ${cls} active:scale-95`}
+      // Keys flex to share row width. Enter / Backspace get ~1.5x so the
+      // letter row stays aligned with the rows above it.
+      style={{ flex: wide ? "1.5 1 0" : "1 1 0" }}
+      className={`min-w-0 h-9 sm:h-11 rounded font-bold transition-colors ${
+        wide ? "text-[10px] sm:text-xs px-1" : "text-sm sm:text-base"
+      } ${cls} active:scale-95`}
     >
       {children}
     </button>
