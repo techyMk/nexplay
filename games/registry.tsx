@@ -126,4 +126,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  "geoguessr-clone": dynamic(() => import("./geoguessr-clone/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
