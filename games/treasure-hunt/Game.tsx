@@ -31,6 +31,16 @@ type LevelTheme = {
   floor: string;
   /** Accent colour for the floor speckle, exit halo, etc. */
   accent: string;
+  /** Outer wrapper background gradient — what shows in the page
+   *  surround behind the canvas. */
+  bgFrom: string;
+  bgTo: string;
+  /** Canvas-internal backdrop gradient (top → bottom). */
+  canvasFrom: string;
+  canvasTo: string;
+  /** Decoration kind drawn on a sparse subset of wall cells so each
+   *  map has its own readable atmosphere. */
+  decoration: "torches" | "chains" | "crystals";
   /** When true, *every* walkable tile in this level is treated as
    *  slippery ice for movement friction — including spike tiles, so
    *  spike traps placed on this level become "ice spikes" you slide
@@ -54,6 +64,11 @@ const LEVELS: LevelDef[] = [
       wall: "#2a1f12",
       floor: "#15110a",
       accent: "#facc15",
+      bgFrom: "#3a2810",
+      bgTo: "#0b0d12",
+      canvasFrom: "#1a1208",
+      canvasTo: "#040301",
+      decoration: "torches",
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -88,6 +103,11 @@ const LEVELS: LevelDef[] = [
       wall: "#2e2e3a",
       floor: "#181822",
       accent: "#ef4444",
+      bgFrom: "#1f1f2e",
+      bgTo: "#0a0a14",
+      canvasFrom: "#181828",
+      canvasTo: "#080810",
+      decoration: "chains",
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -122,6 +142,11 @@ const LEVELS: LevelDef[] = [
       wall: "#1f3a55",
       floor: "#0d2a3a",
       accent: "#22d3ee",
+      bgFrom: "#0e2540",
+      bgTo: "#02080f",
+      canvasFrom: "#0d2a3a",
+      canvasTo: "#040c14",
+      decoration: "crystals",
       allFloorIcy: true,
     },
     grid: [
@@ -155,7 +180,27 @@ type Treasure = {
   kind: TreasureKind;
   phase: number;
   alive: boolean;
+  /** How many *more* times this treasure will respawn at a random
+   *  walkable cell after being collected. 0 = single-use. */
+  respawnsLeft: number;
 };
+/** A respawn waiting in the queue for a delay to elapse before it
+ *  pops back somewhere else on the map. */
+type PendingRespawn = {
+  delay: number;
+  kind: TreasureKind;
+  respawnsLeft: number;
+};
+
+/** Per-level respawn budget. The first entry is the count of
+ *  *additional* spawns each treasure gets after the initial pickup,
+ *  so the totals come out as:
+ *    L1 (Cavern):       1 → each treasure appears twice
+ *    L2 (Spike Pit):    1 → each treasure appears twice
+ *    L3 (Frozen Vault): 2 → each treasure appears three times
+ *  Ramping it up on the hardest level rewards the player for
+ *  surviving longer. */
+const LEVEL_RESPAWNS: number[] = [1, 1, 2];
 type CatcherKind = "slime" | "sentinel" | "wraith";
 type Catcher = {
   kind: CatcherKind;
@@ -256,6 +301,7 @@ function loadLevel(idx: number) {
   const level = LEVELS[idx];
   const grid = level.grid.map((row) => [...row]);
   const treasures: Treasure[] = [];
+  const respawnsPer = LEVEL_RESPAWNS[idx] ?? 1;
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (grid[r][c] === 2) {
@@ -266,6 +312,7 @@ function loadLevel(idx: number) {
           kind: pickTreasureKind(),
           phase: Math.random() * Math.PI * 2,
           alive: true,
+          respawnsLeft: respawnsPer,
         });
       }
     }
@@ -298,6 +345,47 @@ function loadLevel(idx: number) {
     validateLevel(idx, grid, treasures, catchers);
   }
   return { grid, treasures, theme: level.theme, catchers };
+}
+
+/** Pick a random cell that's safe to spawn a treasure on: must be
+ *  walkable, not currently the player's tile or an immediate
+ *  neighbour (so respawns don't auto-collect), not the exit, not on
+ *  top of an existing alive treasure, and not under a catcher. */
+function pickRespawnCell(
+  grid: number[][],
+  px: number,
+  py: number,
+  treasures: Treasure[],
+  catchers: Catcher[],
+): { c: number; r: number } | null {
+  const playerCol = Math.floor(px);
+  const playerRow = Math.floor(py);
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const c = 1 + Math.floor(Math.random() * (COLS - 2));
+    const r = 1 + Math.floor(Math.random() * (ROWS - 2));
+    const v = grid[r]?.[c];
+    if (v === undefined || v === 1 || v === 3) continue;
+    if (Math.abs(c - playerCol) <= 1 && Math.abs(r - playerRow) <= 1) {
+      continue;
+    }
+    let conflict = false;
+    for (const t of treasures) {
+      if (t.alive && t.cx === c && t.cy === r) {
+        conflict = true;
+        break;
+      }
+    }
+    if (conflict) continue;
+    for (const cat of catchers) {
+      if (Math.floor(cat.cx) === c && Math.floor(cat.cy) === r) {
+        conflict = true;
+        break;
+      }
+    }
+    if (conflict) continue;
+    return { c, r };
+  }
+  return null;
 }
 
 /** BFS a path from (fromC,fromR) to (toC,toR) on the level grid,
@@ -434,6 +522,7 @@ function makeFreshState() {
     theme: loaded.theme,
     treasures: loaded.treasures,
     catchers: loaded.catchers,
+    pendingRespawns: [] as PendingRespawn[],
     px: 1.5,
     py: 1.5,
     vx: 0,
@@ -494,7 +583,11 @@ export default function TreasureHunt() {
     setPaused(false);
     setLevelLoot({
       got: 0,
-      total: stateRef.current.treasures.length,
+      // Initial treasures + each one's respawn budget = total
+      // possible pickups for this level.
+      total:
+        stateRef.current.treasures.length *
+        (1 + (LEVEL_RESPAWNS[0] ?? 1)),
     });
   }, []);
 
@@ -517,6 +610,9 @@ export default function TreasureHunt() {
     st.theme = loaded.theme;
     st.treasures = loaded.treasures;
     st.catchers = loaded.catchers;
+    st.pendingRespawns = [];
+    st.particles = [];
+    st.floaters = [];
     st.px = 1.5;
     st.py = 1.5;
     st.vx = 0;
@@ -527,7 +623,10 @@ export default function TreasureHunt() {
     st.invulnFor = 0;
     st.hitFlash = 0;
     setLevelIdx(next);
-    setLevelLoot({ got: 0, total: loaded.treasures.length });
+    setLevelLoot({
+      got: 0,
+      total: loaded.treasures.length * (1 + (LEVEL_RESPAWNS[next] ?? 1)),
+    });
     setPhase("playing");
   }, []);
 
@@ -624,6 +723,16 @@ export default function TreasureHunt() {
           if (t.kind === "coin") Sfx.pickup();
           else if (t.kind === "gem") Sfx.gem();
           else Sfx.chest();
+          // If this treasure still has respawns left, queue another
+          // copy of the same kind to pop somewhere random after a
+          // short variable delay.
+          if (t.respawnsLeft > 0) {
+            st.pendingRespawns.push({
+              delay: 1.5 + Math.random() * 1.6,
+              kind: t.kind,
+              respawnsLeft: t.respawnsLeft - 1,
+            });
+          }
         }
       }
     };
@@ -742,6 +851,56 @@ export default function TreasureHunt() {
           }
         }
 
+        // Treasure respawns — process the queue. When a delay
+        // elapses, pick a random walkable cell that isn't on top of
+        // the player, an existing treasure, the exit, or a catcher,
+        // and pop a new treasure of the same kind there.
+        for (let i = st.pendingRespawns.length - 1; i >= 0; i--) {
+          const p = st.pendingRespawns[i];
+          p.delay -= dt;
+          if (p.delay > 0) continue;
+          const spot = pickRespawnCell(
+            st.grid,
+            st.px,
+            st.py,
+            st.treasures,
+            st.catchers,
+          );
+          st.pendingRespawns.splice(i, 1);
+          if (spot) {
+            st.treasures.push({
+              cx: spot.c,
+              cy: spot.r,
+              kind: p.kind,
+              phase: Math.random() * Math.PI * 2,
+              alive: true,
+              respawnsLeft: p.respawnsLeft,
+            });
+            // Sparkle burst at the new spot so the player notices
+            const sx = (spot.c + 0.5) * CELL;
+            const sy = (spot.r + 0.5) * CELL;
+            const hue =
+              p.kind === "coin"
+                ? 50
+                : p.kind === "gem"
+                  ? 270
+                  : 30;
+            for (let j = 0; j < 10; j++) {
+              const a = Math.random() * Math.PI * 2;
+              st.particles.push({
+                x: sx,
+                y: sy,
+                vx: Math.cos(a) * 80,
+                vy: Math.sin(a) * 80,
+                life: 0.6,
+                max: 0.6,
+                hue,
+                r: 1.5 + Math.random() * 1.5,
+              });
+            }
+          }
+        }
+
         // Exit
         const standingOn = st.grid[Math.floor(st.py)]?.[Math.floor(st.px)];
         if (standingOn === 3) {
@@ -781,10 +940,11 @@ export default function TreasureHunt() {
       // ============================================================
       // ----- DRAW -------------------------------------------------
       // ============================================================
-      // Themed backdrop
+      // Themed canvas backdrop — top-to-bottom gradient that matches
+      // the level's atmosphere (warm cave, cold ruins, frozen vault).
       const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, st.theme.floor);
-      bg.addColorStop(1, "#000");
+      bg.addColorStop(0, st.theme.canvasFrom);
+      bg.addColorStop(1, st.theme.canvasTo);
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
@@ -803,6 +963,27 @@ export default function TreasureHunt() {
             drawFloor(ctx, x, y, c, r, st.theme, v === 5);
           }
           if (v === 4) drawSpike(ctx, x, y, spikeActiveDraw, spikeProgress);
+        }
+      }
+
+      // Theme decorations on a sparse subset of wall cells —
+      // torches in the Cavern, hanging chains in the Ruins, ice
+      // crystals in the Vault.
+      let wallSeq = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (st.grid[r][c] !== 1) continue;
+          wallSeq++;
+          if (wallSeq % 5 !== 0) continue;
+          const x = c * CELL;
+          const y = r * CELL;
+          if (st.theme.decoration === "torches") {
+            drawTorch(ctx, x, y, now);
+          } else if (st.theme.decoration === "chains") {
+            drawChains(ctx, x, y);
+          } else if (st.theme.decoration === "crystals") {
+            drawCrystal(ctx, x, y, now);
+          }
         }
       }
 
@@ -896,7 +1077,13 @@ export default function TreasureHunt() {
   const themeName = LEVELS[levelIdx]?.theme.name ?? "";
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a1208] to-[#0b0d12] p-2 sm:p-3">
+    <div
+      className="absolute inset-0 flex flex-col p-2 sm:p-3 transition-colors"
+      style={{
+        background: `linear-gradient(135deg, ${LEVELS[levelIdx]?.theme.bgFrom ?? "#1a1208"}, ${LEVELS[levelIdx]?.theme.bgTo ?? "#0b0d12"})`,
+        color: "white",
+      }}
+    >
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <Stat label="Score" value={score} accent />
         <Stat
@@ -1111,6 +1298,113 @@ function drawSpike(
       const tx = x + 8 + i * 8;
       ctx.fillRect(tx, y + CELL - 6, 4, 2);
     }
+  }
+}
+
+/** A flickering wall torch — used by the Cavern level. The flame's
+ *  scale wobbles based on `now` and the wall position so torches
+ *  around the map don't all flicker in sync. */
+function drawTorch(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  now: number,
+) {
+  const cx = x + CELL / 2;
+  const cy = y + CELL / 2 - 2;
+  const flicker = 0.78 + 0.22 * Math.sin(now * 0.018 + x * 0.13 + y * 0.07);
+  // Glow pool spilling onto adjacent cells
+  const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 26);
+  g.addColorStop(0, `rgba(255, 200, 80, ${0.5 * flicker})`);
+  g.addColorStop(1, "rgba(255, 200, 80, 0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+  ctx.fill();
+  // Iron sconce
+  ctx.fillStyle = "#1f1208";
+  ctx.fillRect(cx - 3, cy + 4, 6, 6);
+  ctx.fillStyle = "#3a2810";
+  ctx.fillRect(cx - 4, cy + 9, 8, 2);
+  // Flame layers
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - 1, 4 * flicker, 7 * flicker, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f97316";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 3 * flicker, 5 * flicker, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fef3c7";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 1, 1.4 * flicker, 2.5 * flicker, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** A short hanging chain — used by the Spike Pit Ruins. Hangs over
+ *  the centre of the wall cell so it reads as a dungeon dressing. */
+function drawChains(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  const cx = x + CELL / 2;
+  // Mounting bracket
+  ctx.fillStyle = "#1a1a22";
+  ctx.fillRect(cx - 4, y + 3, 8, 2);
+  // Chain links
+  ctx.strokeStyle = "#5a5a6a";
+  ctx.lineWidth = 1.6;
+  for (let i = 0; i < 5; i++) {
+    const ly = y + 6 + i * 4;
+    ctx.beginPath();
+    ctx.ellipse(cx, ly, 2, 1.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Iron cuff at the bottom
+  ctx.fillStyle = "#3a3a48";
+  ctx.fillRect(cx - 3, y + 26, 6, 3);
+}
+
+/** Cluster of pale-blue ice crystals — used by the Frozen Vault.
+ *  The cluster has a subtle slow shimmer to match the cold theme. */
+function drawCrystal(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  now: number,
+) {
+  const cx = x + CELL / 2;
+  const cy = y + CELL / 2 + 2;
+  const shimmer = 0.7 + 0.3 * Math.sin(now * 0.005 + x * 0.07);
+  // Aura
+  const g = ctx.createRadialGradient(cx, cy, 3, cx, cy, 20);
+  g.addColorStop(0, `rgba(125, 211, 252, ${0.45 * shimmer})`);
+  g.addColorStop(1, "rgba(125, 211, 252, 0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+  ctx.fill();
+  // Three stacked crystal shards of varying heights
+  const shards: Array<[number, number, number]> = [
+    [-5, 0, 8],
+    [0, -3, 11],
+    [5, 1, 7],
+  ];
+  for (const [dx, dy, h] of shards) {
+    ctx.fillStyle = "#bae6fd";
+    ctx.beginPath();
+    ctx.moveTo(cx + dx, cy + dy - h);
+    ctx.lineTo(cx + dx + 3, cy + dy);
+    ctx.lineTo(cx + dx, cy + dy + 1);
+    ctx.lineTo(cx + dx - 3, cy + dy);
+    ctx.closePath();
+    ctx.fill();
+    // Inner highlight for refraction
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath();
+    ctx.moveTo(cx + dx, cy + dy - h + 1);
+    ctx.lineTo(cx + dx + 1, cy + dy - 1);
+    ctx.lineTo(cx + dx, cy + dy);
+    ctx.lineTo(cx + dx - 1, cy + dy - 1);
+    ctx.closePath();
+    ctx.fill();
   }
 }
 
