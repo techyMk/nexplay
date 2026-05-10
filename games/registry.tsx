@@ -102,4 +102,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  "chrome-dino": dynamic(() => import("./chrome-dino/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
