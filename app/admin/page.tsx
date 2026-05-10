@@ -152,6 +152,23 @@ export default async function AdminPage({
     avatar: topProfilesById.get(id)?.avatar_emoji ?? "liam",
   }));
 
+  // Look up emails for the recent-signup rows. listUsers is paginated
+  // by Supabase (default 50/page) and we only display the latest 20
+  // signups, so one page is plenty. Service-role only — safe here.
+  const { data: authPage } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 50,
+  });
+  const emailById = new Map<string, string>(
+    (authPage?.users ?? []).map((u) => [u.id, u.email ?? ""] as const),
+  );
+  const recentSignupsEnriched: RecentSignup[] = (recentSignups ?? []).map(
+    (s) => ({
+      ...s,
+      email: emailById.get(s.id) ?? null,
+    }),
+  );
+
   // Per-game aggregates
   const playsBySlug = new Map<string, number>();
   for (const r of (scoresByGame ?? []) as { game_slug: string }[]) {
@@ -219,7 +236,7 @@ export default async function AdminPage({
               feedbackTotal: feedbackTotal ?? 0,
               feedbackNew: feedbackNew ?? 0,
             }}
-            recentSignups={(recentSignups ?? []) as RecentSignup[]}
+            recentSignups={recentSignupsEnriched}
           />
         }
         feedback={
@@ -251,6 +268,7 @@ type RecentSignup = {
   display_name: string | null;
   avatar_emoji: string | null;
   created_at: string;
+  email?: string | null;
 };
 
 type FeedbackRow = {
@@ -295,24 +313,52 @@ function Overview({
           </div>
         ) : (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
-            {recentSignups.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 p-3">
-                <span className="w-9 h-9 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm">
-                  {s.avatar_emoji ?? "👤"}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold truncate">
-                    {s.display_name || "Player"}
+            {recentSignups.map((s) => {
+              const a = s.avatar_emoji?.trim();
+              const isUrl =
+                !!a && (/^https?:\/\//i.test(a) || a.startsWith("/"));
+              // For users without an emoji/url avatar, fall back to
+              // the first letter of their display_name or email — much
+              // friendlier than a generic 👤 in a list of admins.
+              const fallbackInitial =
+                (s.display_name?.trim()?.[0] ?? s.email?.trim()?.[0] ?? "?")
+                  .toUpperCase();
+              return (
+                <div key={s.id} className="flex items-center gap-3 p-3">
+                  <span className="w-9 h-9 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm font-bold text-[var(--muted)] overflow-hidden shrink-0">
+                    {isUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={a}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : a ? (
+                      a
+                    ) : (
+                      fallbackInitial
+                    )}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold truncate">
+                      {s.display_name || "Unnamed player"}
+                    </div>
+                    <div className="text-xs text-[var(--muted)] truncate">
+                      {s.email || (
+                        <span className="font-mono">{s.id.slice(0, 8)}…</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-[var(--muted)] font-mono truncate">
-                    {s.id}
+                  <div className="text-xs text-[var(--muted)] shrink-0 text-right">
+                    {new Date(s.created_at).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </div>
                 </div>
-                <div className="text-xs text-[var(--muted)] shrink-0">
-                  {new Date(s.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
