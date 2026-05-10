@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const COLS = 16;
 const ROWS = 16;
@@ -74,7 +76,10 @@ export default function Minesweeper() {
   useEffect(() => {
     if (over || won) return;
     const remaining = board.flat().filter((c) => !c.revealed && !c.mine).length;
-    if (remaining === 0) setWon(true);
+    if (remaining === 0) {
+      setWon(true);
+      Sfx.win();
+    }
   }, [board, over, won]);
 
   const click = (r: number, c: number) => {
@@ -93,10 +98,12 @@ export default function Minesweeper() {
       b.forEach((row) => row.forEach((cell) => { if (cell.mine) cell.revealed = true; }));
       setBoard(b);
       setOver(true);
+      Sfx.gameOver();
       return;
     }
     reveal(b, r, c);
     setBoard(b);
+    Sfx.click();
   };
 
   const flag = (e: React.MouseEvent, r: number, c: number) => {
@@ -107,6 +114,7 @@ export default function Minesweeper() {
       if (!next[r][c].revealed) next[r][c].flagged = !next[r][c].flagged;
       return next;
     });
+    Sfx.place();
   };
 
   const reset = () => {
@@ -130,6 +138,7 @@ export default function Minesweeper() {
         <button onClick={reset} className="px-3 py-1 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform">
           {over ? "💀" : won ? "🏆" : "😎"} Reset
         </button>
+        <SoundToggle />
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
       <div

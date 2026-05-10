@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type Piece = { color: "r" | "b"; king: boolean } | null;
 type Board = Piece[][];
@@ -55,6 +57,9 @@ export default function Checkers() {
   const [sel, setSel] = useState<[number, number] | null>(null);
 
   const winner = !hasAnyMove(board, turn) ? (turn === "r" ? "b" : "r") : null;
+  useEffect(() => {
+    if (winner) Sfx.win();
+  }, [winner]);
 
   const moves = sel ? legalMoves(board, sel[0], sel[1]) : [];
 
@@ -68,7 +73,12 @@ export default function Checkers() {
         const [sr, sc] = sel;
         const piece = next[sr][sc]!;
         next[sr][sc] = null;
-        if (found.capture) next[found.capture[0]][found.capture[1]] = null;
+        if (found.capture) {
+          next[found.capture[0]][found.capture[1]] = null;
+          Sfx.hit();
+        } else {
+          Sfx.place();
+        }
         if ((piece.color === "b" && r === 0) || (piece.color === "r" && r === 7))
           piece.king = true;
         next[r][c] = piece;
@@ -96,6 +106,7 @@ export default function Checkers() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a0a] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
+        <SoundToggle />
         <span className={turn === "b" && !winner ? "font-bold" : "opacity-50"}>
           ⚫ Black {turn === "b" && !winner ? "(your turn)" : ""}
         </span>

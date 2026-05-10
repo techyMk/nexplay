@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 900;
 const H = 380;
@@ -99,6 +101,7 @@ export default function NeonRunner() {
     if (st.onGround && !st.sliding) {
       st.vy = JUMP;
       st.onGround = false;
+      Sfx.jump();
       // Dust particles
       for (let i = 0; i < 8; i++) {
         st.particles.push({
@@ -321,6 +324,7 @@ export default function NeonRunner() {
               });
             }
             setPhase("over");
+            Sfx.gameOver();
             setScore((s) => {
               setBest((b) => {
                 const nb = Math.max(b, s);
@@ -589,6 +593,7 @@ export default function NeonRunner() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a3e] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2">
+        <SoundToggle />
         <span className="opacity-80">
           <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd>/<kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↑</kbd> jump · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">↓</kbd> slide · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
         </span>

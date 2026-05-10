@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const HOLES = 9;
 const ROUND_SECONDS = 30;
@@ -79,6 +81,7 @@ export default function WhackAMole() {
   useEffect(() => {
     if (time === 0 && phase === "play") {
       setPhase("over");
+      Sfx.gameOver();
       setBest((b) => {
         const nb = Math.max(b, score);
         localStorage.setItem("nexplay:whack-best", String(nb));
@@ -94,6 +97,9 @@ export default function WhackAMole() {
       if (next[i].up && !next[i].bonk) {
         next[i] = { up: true, bonk: true, deadline: performance.now() + 200 };
         setScore((s) => s + 10);
+        Sfx.hit();
+      } else {
+        Sfx.click();
       }
       return next;
     });
@@ -105,6 +111,7 @@ export default function WhackAMole() {
         <span className="px-3 py-1 rounded-lg bg-white/10">🎯 {score}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">🏆 {best}</span>
+        <SoundToggle />
         {(phase === "play" || phase === "paused") && (
           <PauseToggle paused={phase === "paused"} onClick={togglePause} />
         )}

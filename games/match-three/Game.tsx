@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const SIZE = 8;
 const MOVES = 25;
@@ -76,6 +78,9 @@ export default function MatchThree() {
   const [started, setStarted] = useState(false);
   const overRef = useRef(false);
   const over = moves <= 0 && !busy;
+  useEffect(() => {
+    if (over) Sfx.gameOver();
+  }, [over]);
   const submitStatus = useSubmitScoreOnGameOver("match-three", score, over);
 
   const cascade = useCallback((b0: Board): Promise<Board> => {
@@ -89,6 +94,8 @@ export default function MatchThree() {
           return;
         }
         combo++;
+        if (combo === 1) Sfx.match();
+        else Sfx.bigMatch();
         const cleared = b.map((row) => [...row]);
         for (const [r, c] of matches) cleared[r][c] = -1;
         const earned = matches.length * 10 * combo;
@@ -113,6 +120,7 @@ export default function MatchThree() {
     setBoard(next);
     if (findMatches(next).length === 0) {
       // illegal; swap back
+      Sfx.error();
       setTimeout(() => {
         setBoard((b2) => {
           const r = b2.map((row) => [...row]);
@@ -160,6 +168,7 @@ export default function MatchThree() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0a2a] to-[#0b0d12] p-2 sm:p-3 select-none">
       <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
+        <SoundToggle />
         <span className="px-3 py-1 rounded-lg bg-white/10">💎 {score}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">🔄 {moves}</span>
       </div>

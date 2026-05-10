@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const ROWS = 6;
 const COLS = 7;
@@ -211,9 +213,12 @@ export default function ConnectFour() {
         const next = drop(board, c, 2);
         if (next) {
           setBoard(next);
+          Sfx.thud();
           const w = checkWin(next, 2);
-          if (w) setWinLine(w);
-          else setTurn(1);
+          if (w) {
+            setWinLine(w);
+            Sfx.gameOver();
+          } else setTurn(1);
         }
       }, 500);
       return () => clearTimeout(t);
@@ -225,9 +230,12 @@ export default function ConnectFour() {
     const next = drop(board, col, 1);
     if (!next) return;
     setBoard(next);
+    Sfx.thud();
     const w = checkWin(next, 1);
-    if (w) setWinLine(w);
-    else setTurn(2);
+    if (w) {
+      setWinLine(w);
+      Sfx.win();
+    } else setTurn(2);
   };
 
   const reset = () => {
@@ -242,6 +250,7 @@ export default function ConnectFour() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#3a0e0e] to-[#1a1325] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-4 mb-2 text-white text-xs sm:text-sm">
+        <SoundToggle />
         <span className={turn === 1 && !over ? "font-bold" : "opacity-60"}>
           🔴 You
         </span>

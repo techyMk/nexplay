@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type Difficulty = "easy" | "medium" | "hard";
 type CategoryKey = "animals" | "food" | "travel" | "sports" | "nature" | "mixed";
@@ -104,12 +106,16 @@ export default function MemoryMatch() {
     [cards],
   );
   const allMatched = started && matchedPairs === totalPairs && totalPairs > 0;
+  useEffect(() => {
+    if (allMatched) Sfx.win();
+  }, [allMatched]);
 
   const flip = (id: number) => {
     if (busy || !started) return;
     const card = cards.find((c) => c.id === id);
     if (!card || card.flipped || card.matched) return;
     setCards((cs) => cs.map((c) => (c.id === id ? { ...c, flipped: true } : c)));
+    Sfx.click();
     if (first === null) {
       setFirst(id);
     } else if (second === null) {
@@ -124,6 +130,7 @@ export default function MemoryMatch() {
       const a = cards.find((c) => c.id === first);
       const b = cards.find((c) => c.id === second);
       if (a && b && a.emoji === b.emoji) {
+        Sfx.match();
         setTimeout(() => {
           setCards((cs) =>
             cs.map((c) =>
@@ -136,6 +143,7 @@ export default function MemoryMatch() {
         }, 350);
       } else {
         setTimeout(() => {
+          Sfx.error();
           setCards((cs) =>
             cs.map((c) =>
               c.id === first || c.id === second ? { ...c, flipped: false } : c,
@@ -176,6 +184,7 @@ export default function MemoryMatch() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1f2a] to-[#0b1a35] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
+        <SoundToggle />
         <span className="px-3 py-1 rounded-lg bg-white/10">
           Moves: <b>{moves}</b>
         </span>

@@ -5,6 +5,8 @@ import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const COLS = 20;
 const ROWS = 14;
@@ -108,9 +110,11 @@ export default function TreasureHunt() {
       if (cell === 2) {
         st.grid[Math.floor(st.py)][Math.floor(st.px)] = 0;
         setCoins((c) => c + 1);
+        Sfx.pickup();
       }
       if (cell === 3) {
         setWon(true);
+        Sfx.win();
       }
     };
 
@@ -195,6 +199,7 @@ export default function TreasureHunt() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a1208] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
+        <SoundToggle />
         <span className="px-3 py-1 rounded-lg bg-white/10">💰 {coins}/{total}</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         {started && !won && (

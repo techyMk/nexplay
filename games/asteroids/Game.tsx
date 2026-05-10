@@ -5,6 +5,8 @@ import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 800;
 const H = 540;
@@ -267,6 +269,7 @@ export default function Asteroids() {
             life: 1.2,
           });
           st.fireCool = fireDelay;
+          Sfx.shoot();
         }
 
         for (const b of st.bullets) {
@@ -292,6 +295,7 @@ export default function Asteroids() {
               hit = true;
               removeBullets.add(b);
               registerHitPoints(pointsFor(a.r), a.x, a.y);
+              Sfx.hit();
               const child = splitFor(a.r);
               if (child !== null) {
                 for (let i = 0; i < 2; i++) {
@@ -444,6 +448,7 @@ export default function Asteroids() {
           }
           if (died) {
             setOver(true);
+            Sfx.gameOver();
             const finalScore = scoreRef.current + scoredThisFrame;
             setBest((b) => {
               const nb = Math.max(b, finalScore);
@@ -658,6 +663,7 @@ export default function Asteroids() {
           <span className="text-pink-300">R</span> rapid{" "}
           <span className="text-cyan-300">S</span> shield
         </span>
+        <SoundToggle />
         {!over && (
           <button
             onClick={togglePause}
