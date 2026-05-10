@@ -56,7 +56,20 @@ function reveal(b: CellState[][], r: number, c: number) {
   }
 }
 
-const NUM_COLOR = ["", "#06b6d4", "#16a34a", "#ef4444", "#7c5cff", "#f97316", "#3b82f6", "#a855f7", "#facc15"];
+// Classic Minesweeper number colours, modernised slightly for the
+// dark theme but keeping the at-a-glance "1 = blue, 2 = green, 3 =
+// red" reading.
+const NUM_COLOR = [
+  "",
+  "#60a5fa",
+  "#4ade80",
+  "#f87171",
+  "#a78bfa",
+  "#fb923c",
+  "#22d3ee",
+  "#f472b6",
+  "#facc15",
+];
 
 export default function Minesweeper() {
   const [board, setBoard] = useState<CellState[][]>(() => makeBoard());
@@ -130,48 +143,98 @@ export default function Minesweeper() {
     setStarted(true);
   };
 
+  // Reset-button face — animates with game state, classic
+  // Minesweeper cue.
+  const faceEmoji = won ? "😎" : over ? "💀" : "🙂";
+
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a2a] to-[#0b0d12] p-2 sm:p-3 select-none">
-      <div className="shrink-0 flex items-center justify-center gap-3 mb-2 text-white text-xs sm:text-sm">
-        <span className="px-3 py-1 rounded-lg bg-white/10">💣 {MINES - flags}</span>
-        <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
-        <button onClick={reset} className="px-3 py-1 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform">
-          {over ? "💀" : won ? "🏆" : "😎"} Reset
+      <div className="shrink-0 flex items-center justify-center gap-2 sm:gap-3 mb-3 text-white">
+        {/* Mines remaining — red retro LCD pill */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0e1422] border border-red-500/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+          <span aria-hidden>💣</span>
+          <span className="font-mono text-base text-red-300 tabular-nums tracking-wider">
+            {String(Math.max(-99, MINES - flags)).padStart(2, "0")}
+          </span>
+        </div>
+        {/* Reset button — Win-classic smiley face */}
+        <button
+          onClick={reset}
+          aria-label="Reset"
+          title="Reset"
+          className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 border-2 border-amber-600/50 shadow-[inset_2px_2px_0_rgba(255,255,255,0.45),inset_-2px_-2px_0_rgba(0,0,0,0.25),0_2px_4px_rgba(0,0,0,0.4)] flex items-center justify-center text-2xl hover:from-amber-200 hover:to-amber-400 active:scale-95 transition-transform"
+        >
+          {faceEmoji}
         </button>
+        {/* Timer — amber retro LCD pill */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0e1422] border border-amber-500/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+          <span aria-hidden>⏱️</span>
+          <span className="font-mono text-base text-amber-300 tabular-nums tracking-wider">
+            {String(Math.min(999, time)).padStart(3, "0")}
+          </span>
+        </div>
         <SoundToggle />
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-      <div
-        className="grid gap-px bg-black/40 p-px rounded-lg h-full max-w-full"
-        style={{
-          gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-          gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-          aspectRatio: "1",
-        }}
-      >
-        {board.map((row, r) => row.map((cell, c) => (
-          <button
-            key={`${r}-${c}`}
-            onClick={() => click(r, c)}
-            onContextMenu={(e) => flag(e, r, c)}
-            className={`flex items-center justify-center text-xs sm:text-sm font-black transition-colors ${
-              cell.revealed
-                ? cell.mine
-                  ? "bg-red-600"
-                  : "bg-[var(--surface-2)]"
-                : "bg-[var(--surface)] hover:bg-[var(--surface-2)]"
-            }`}
-            style={{ color: cell.revealed && !cell.mine ? NUM_COLOR[cell.adj] : "white" }}
-          >
-            {cell.flagged && !cell.revealed && "🚩"}
-            {cell.revealed && cell.mine && "💣"}
-            {cell.revealed && !cell.mine && cell.adj > 0 && cell.adj}
-          </button>
-        )))}
+        <div
+          className="grid gap-[2px] p-2 rounded-2xl bg-gradient-to-br from-[#0e1422] to-[#070a14] border border-white/10 shadow-[0_0_24px_rgba(0,0,0,0.45)] h-full max-w-full"
+          style={{
+            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+            aspectRatio: "1",
+          }}
+        >
+          {board.map((row, r) =>
+            row.map((cell, c) => {
+              const isUnrevealed = !cell.revealed;
+              const isRevealedMine = cell.revealed && cell.mine;
+              const isRevealedSafe = cell.revealed && !cell.mine;
+              return (
+                <button
+                  key={`${r}-${c}`}
+                  onClick={() => click(r, c)}
+                  onContextMenu={(e) => flag(e, r, c)}
+                  className={`relative flex items-center justify-center text-base sm:text-lg font-black transition-all duration-150 rounded-[3px] ${
+                    isRevealedMine
+                      ? "bg-gradient-to-br from-red-500 to-red-700 shadow-[inset_0_0_8px_rgba(0,0,0,0.55)]"
+                      : isRevealedSafe
+                        ? "bg-[#1a2030] shadow-[inset_2px_2px_3px_rgba(0,0,0,0.55),inset_-1px_-1px_0_rgba(255,255,255,0.04)]"
+                        : "bg-gradient-to-br from-[#3d4863] via-[#2c344a] to-[#1f2638] shadow-[inset_2px_2px_0_rgba(255,255,255,0.18),inset_-2px_-2px_0_rgba(0,0,0,0.5)] hover:from-[#4a5573] hover:via-[#384058] hover:to-[#252b3e] active:scale-[0.94]"
+                  }`}
+                  style={{
+                    color: isRevealedSafe
+                      ? NUM_COLOR[cell.adj]
+                      : "white",
+                    textShadow: isRevealedSafe
+                      ? "0 1px 2px rgba(0,0,0,0.7)"
+                      : undefined,
+                  }}
+                >
+                  {cell.flagged && isUnrevealed && (
+                    <span
+                      className="text-base sm:text-lg drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+                      aria-hidden
+                    >
+                      🚩
+                    </span>
+                  )}
+                  {isRevealedMine && (
+                    <span
+                      className="text-base sm:text-xl drop-shadow-[0_0_4px_rgba(0,0,0,0.7)]"
+                      aria-hidden
+                    >
+                      💣
+                    </span>
+                  )}
+                  {isRevealedSafe && cell.adj > 0 && cell.adj}
+                </button>
+              );
+            }),
+          )}
+        </div>
       </div>
-      </div>
-      <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">
-        Left-click to reveal • Right-click to flag
+      <div className="shrink-0 mt-2 text-[11px] text-white/55 text-center">
+        Left-click to reveal · Right-click to flag · Smiley to reset
       </div>
       {!started && !over && !won && (
         <GameOverlay
