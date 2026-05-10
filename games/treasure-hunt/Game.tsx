@@ -31,8 +31,11 @@ type LevelTheme = {
   floor: string;
   /** Accent colour for the floor speckle, exit halo, etc. */
   accent: string;
-  /** Tells the renderer which hazard layer to draw + collide. */
-  hazard: "none" | "spike" | "ice";
+  /** When true, *every* walkable tile in this level is treated as
+   *  slippery ice for movement friction — including spike tiles, so
+   *  spike traps placed on this level become "ice spikes" you slide
+   *  into. Used by Frozen Vault to combine both hazards. */
+  allFloorIcy?: boolean;
 };
 
 type LevelDef = { theme: LevelTheme; grid: number[][] };
@@ -51,7 +54,6 @@ const LEVELS: LevelDef[] = [
       wall: "#2a1f12",
       floor: "#15110a",
       accent: "#facc15",
-      hazard: "none",
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -86,7 +88,6 @@ const LEVELS: LevelDef[] = [
       wall: "#2e2e3a",
       floor: "#181822",
       accent: "#ef4444",
-      hazard: "spike",
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -106,34 +107,36 @@ const LEVELS: LevelDef[] = [
     ],
   },
   // -------------------------------------------------------------
-  // Level 3 — Frozen Vault. Identical wall skeleton; every floor
-  // tile is ice. Player velocity lerps toward target slowly so the
-  // explorer skates around. Wide-open corridors give room to slow
-  // down, the wall pillars give edges to bank against.
+  // Level 3 — Frozen Vault. The hardest map. Same wall skeleton,
+  // *every* walkable tile is icy (allFloorIcy), AND the floor is
+  // dotted with spike traps that share the cycle with Level 2.
+  // Sliding into a spike costs a heart. Two wraiths roam opposite
+  // halves of the map, so you can't just outrun the threat — you
+  // have to brake into walls or thread past on cooldown.
   // -------------------------------------------------------------
   {
     theme: {
       name: "Frozen Vault",
       blurb:
-        "Same map, but the floor is solid ice. Plan momentum into every turn.",
+        "Ice plus spike traps plus two wraiths. Brake into the walls — you can't stop on a dime.",
       wall: "#1f3a55",
       floor: "#0d2a3a",
       accent: "#22d3ee",
-      hazard: "ice",
+      allFloorIcy: true,
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
-      [1, 5, 5, 5, 5, 5, 5, 5, 5, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 4, 5, 5, 5, 2, 5, 5, 5, 5, 4, 5, 5, 5, 5, 1],
       [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
-      [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
-      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 5, 5, 5, 4, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 4, 5, 5, 5, 5, 4, 5, 5, 5, 4, 5, 5, 5, 5, 4, 5, 5, 1],
       [1, 5, 2, 5, 5, 5, 5, 5, 1, 1, 1, 5, 5, 5, 5, 5, 5, 2, 5, 1],
-      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5, 5, 5, 1],
       [1, 5, 5, 5, 5, 2, 5, 5, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1],
-      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 4, 5, 5, 5, 5, 4, 5, 5, 5, 4, 5, 5, 5, 5, 4, 5, 5, 1],
       [1, 5, 5, 5, 1, 1, 5, 5, 5, 2, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
-      [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 4, 5, 5, 5, 5, 5, 4, 5, 1, 1, 5, 5, 5, 1],
       [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1],
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ],
@@ -159,18 +162,26 @@ type Catcher = {
   /** Cell-space position (centre of the body, in cells, with sub-cell precision). */
   cx: number;
   cy: number;
+  /** Anchor cell — wander targets are chosen within wanderRadius of
+   *  this point so the catcher stays roughly in its area instead of
+   *  drifting across the whole map. */
   homeX: number;
   homeY: number;
-  patrolToX: number;
-  patrolToY: number;
-  /** Which patrol endpoint we're walking toward right now. */
-  patrolTarget: "home" | "to";
+  wanderRadius: number;
+  /** Currently-targeted wander cell during patrol mode. Updated
+   *  whenever the previous target is reached or the catcher loses
+   *  sight of the player. */
+  wanderTargetX: number;
+  wanderTargetY: number;
   state: "patrol" | "chase";
   speed: number;
   detectRange: number;
   /** Cached path of cell waypoints toward the current goal. */
   path: Array<{ c: number; r: number }>;
   pathCool: number;
+  /** When > 0, the catcher stops in place — gives the wandering a
+   *  natural "look around" beat instead of pacing nonstop. */
+  pauseFor: number;
   walkPhase: number;
   bobPhase: number;
   /** Used to play a one-shot "spotted" sound on patrol→chase. */
@@ -190,20 +201,25 @@ type CatcherSpawn = {
   kind: CatcherKind;
   homeX: number;
   homeY: number;
-  patrolToX: number;
-  patrolToY: number;
+  /** Max distance from home when picking a random wander target.
+   *  Bigger = catcher roams a larger area. Defaults to 4. */
+  wanderRadius?: number;
 };
 
-/** One catcher per level for now — keeps the pacing readable. The
- *  positions are picked so each catcher's patrol crosses the natural
- *  treasure run, forcing the player to time their grabs. */
+/** Catchers wander randomly within their patrol radius until the
+ *  player gets close, then BFS-chase. Level 3 has two wraiths so
+ *  there's always a threat somewhere on the map. */
 const LEVEL_CATCHERS: CatcherSpawn[][] = [
-  // L1 Cavern — slime drifts back and forth across row 7
-  [{ kind: "slime", homeX: 3, homeY: 7, patrolToX: 16, patrolToY: 7 }],
-  // L2 Spike Pit Ruins — sentinel diagonally between two corner halves
-  [{ kind: "sentinel", homeX: 6, homeY: 5, patrolToX: 13, patrolToY: 9 }],
-  // L3 Frozen Vault — wraith glides corner-to-corner
-  [{ kind: "wraith", homeX: 5, homeY: 7, patrolToX: 16, patrolToY: 11 }],
+  // L1 Cavern — slime ambles around the middle of the map
+  [{ kind: "slime", homeX: 9, homeY: 7, wanderRadius: 5 }],
+  // L2 Spike Pit Ruins — single sentinel covering most of the maze
+  [{ kind: "sentinel", homeX: 10, homeY: 7, wanderRadius: 6 }],
+  // L3 Frozen Vault — TWO wraiths in opposite halves so you can
+  // never just go around them on the ice.
+  [
+    { kind: "wraith", homeX: 6, homeY: 6, wanderRadius: 5 },
+    { kind: "wraith", homeX: 14, homeY: 9, wanderRadius: 5 },
+  ],
 ];
 type Particle = {
   x: number;
@@ -262,14 +278,17 @@ function loadLevel(idx: number) {
       cy: sp.homeY + 0.5,
       homeX: sp.homeX,
       homeY: sp.homeY,
-      patrolToX: sp.patrolToX,
-      patrolToY: sp.patrolToY,
-      patrolTarget: "to",
+      wanderRadius: sp.wanderRadius ?? 4,
+      // Seed wanderTarget at home so the first frame's empty path
+      // immediately triggers a fresh random pick.
+      wanderTargetX: sp.homeX,
+      wanderTargetY: sp.homeY,
       state: "patrol",
       speed: def.speed,
       detectRange: def.detectRange,
       path: [],
       pathCool: 0,
+      pauseFor: 0,
       walkPhase: 0,
       bobPhase: Math.random() * Math.PI * 2,
       alerted: false,
@@ -396,13 +415,10 @@ function validateLevel(
     }
   }
   for (const c of catchers) {
-    if (
-      grid[c.homeY]?.[c.homeX] === 1 ||
-      grid[c.patrolToY]?.[c.patrolToX] === 1
-    ) {
+    if (grid[c.homeY]?.[c.homeX] === 1) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[treasure-hunt] level ${idx + 1}: catcher patrol endpoint is on a wall`,
+        `[treasure-hunt] level ${idx + 1}: catcher home (${c.homeX},${c.homeY}) is on a wall`,
       );
     }
   }
@@ -688,10 +704,14 @@ export default function TreasureHunt() {
 
         // Friction model — ice gives a very long lerp (slippery);
         // every other floor tile snaps the velocity to the target
-        // almost instantly so steering feels precise.
+        // almost instantly. theme.allFloorIcy makes *every* walkable
+        // cell slippery (used by Frozen Vault so spike tiles there
+        // are also slippery).
         const cellAtFeet =
           st.grid[Math.floor(st.py)]?.[Math.floor(st.px)] ?? 0;
-        const onIce = cellAtFeet === 5;
+        const onIce =
+          cellAtFeet === 5 ||
+          (st.theme.allFloorIcy === true && cellAtFeet !== 1);
         const accel = onIce ? 1.5 : 28;
         const lerpK = 1 - Math.exp(-dt * accel);
         st.vx += (targetVx - st.vx) * lerpK;
@@ -702,16 +722,14 @@ export default function TreasureHunt() {
         if (!tryMoveAxis(0, st.vy * dt)) st.vy = 0;
         checkPickups();
 
-        // Hazard: spike trap (active for SPIKE_ACTIVE_RATIO of cycle)
-        if (st.theme.hazard === "spike") {
+        // Hazard: spike trap (active for SPIKE_ACTIVE_RATIO of cycle).
+        // Cell-driven, not theme-driven, so any level can place
+        // spike tiles — the Frozen Vault uses both ice friction and
+        // spike traps simultaneously.
+        if (cellAtFeet === 4) {
           const phaseInCycle =
             (st.levelElapsed % SPIKE_PERIOD) / SPIKE_PERIOD;
-          const spikeActive = phaseInCycle < SPIKE_ACTIVE_RATIO;
-          if (spikeActive) {
-            const cell =
-              st.grid[Math.floor(st.py)]?.[Math.floor(st.px)] ?? 0;
-            if (cell === 4) damagePlayer();
-          }
+          if (phaseInCycle < SPIKE_ACTIVE_RATIO) damagePlayer();
         }
 
         // Catchers — patrol / chase / collide
@@ -1129,6 +1147,27 @@ function drawExit(
 
 /** Top-down explorer sprite — head, hat, jacket body, animated legs,
  *  and a torch glow positioned in the facing direction. */
+/** Pick a random walkable cell within the catcher's wander radius
+ *  to be its next idle destination. Try a handful of angles; if
+ *  every candidate hits a wall, fall back to the home cell. */
+function pickWanderTarget(cat: Catcher, grid: number[][]) {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 1 + Math.random() * cat.wanderRadius;
+    const tc = Math.floor(cat.homeX + Math.cos(angle) * radius);
+    const tr = Math.floor(cat.homeY + Math.sin(angle) * radius);
+    if (tc < 1 || tc >= COLS - 1) continue;
+    if (tr < 1 || tr >= ROWS - 1) continue;
+    if (grid[tr]?.[tc] === 1) continue;
+    if (Math.floor(cat.cx) === tc && Math.floor(cat.cy) === tr) continue;
+    cat.wanderTargetX = tc;
+    cat.wanderTargetY = tr;
+    return;
+  }
+  cat.wanderTargetX = cat.homeX;
+  cat.wanderTargetY = cat.homeY;
+}
+
 function updateCatcher(
   cat: Catcher,
   st: { grid: number[][]; px: number; py: number },
@@ -1143,22 +1182,35 @@ function updateCatcher(
   const wasChasing = cat.state === "chase";
   if (cat.state === "patrol" && distToPlayer < cat.detectRange) {
     cat.state = "chase";
+    // Wake up + drop any pending pause / cached path so the chase
+    // starts immediately.
+    cat.pauseFor = 0;
+    cat.path = [];
+    cat.pathCool = 0;
   } else if (
     cat.state === "chase" &&
     distToPlayer > cat.detectRange + 2.5
   ) {
     cat.state = "patrol";
-    // Resume patrol from whichever endpoint is nearer
-    const dHome = Math.hypot(cat.cx - cat.homeX, cat.cy - cat.homeY);
-    const dTo = Math.hypot(cat.cx - cat.patrolToX, cat.cy - cat.patrolToY);
-    cat.patrolTarget = dHome < dTo ? "to" : "home";
+    cat.path = [];
     cat.pathCool = 0;
+    // Pick a fresh wander target so the catcher stops mid-chase
+    // path and starts moving organically again.
+    pickWanderTarget(cat, st.grid);
   }
   if (!wasChasing && cat.state === "chase" && !cat.alerted) {
     cat.alerted = true;
     Sfx.error();
   } else if (cat.state === "patrol") {
     cat.alerted = false;
+  }
+
+  // Pause beat — only honoured during patrol; if the player stumbles
+  // into detection range we drop pauseFor in the transition above.
+  if (cat.pauseFor > 0) {
+    cat.pauseFor = Math.max(0, cat.pauseFor - dt);
+    cat.bobPhase = (cat.bobPhase + dt * 3) % (Math.PI * 2);
+    return;
   }
 
   // Recompute path periodically (BFS is cheap enough that we can
@@ -1173,12 +1225,8 @@ function updateCatcher(
       goalC = Math.max(0, Math.min(COLS - 1, Math.floor(st.px)));
       goalR = Math.max(0, Math.min(ROWS - 1, Math.floor(st.py)));
     } else {
-      const target =
-        cat.patrolTarget === "home"
-          ? { c: cat.homeX, r: cat.homeY }
-          : { c: cat.patrolToX, r: cat.patrolToY };
-      goalC = target.c;
-      goalR = target.r;
+      goalC = cat.wanderTargetX;
+      goalR = cat.wanderTargetY;
     }
     cat.path = bfsPath(
       st.grid,
@@ -1206,9 +1254,14 @@ function updateCatcher(
       if (step >= dist - 0.001) cat.path.shift();
     }
   } else if (cat.state === "patrol") {
-    // Reached the current patrol endpoint — flip to the other one
-    cat.patrolTarget = cat.patrolTarget === "to" ? "home" : "to";
+    // Reached the current wander target — pick a fresh random
+    // destination, and one in three times take a brief beat so the
+    // catcher doesn't pace nonstop in a straight line.
+    pickWanderTarget(cat, st.grid);
     cat.pathCool = 0;
+    if (Math.random() < 0.35) {
+      cat.pauseFor = 0.4 + Math.random() * 1.2;
+    }
   }
 
   cat.walkPhase = (cat.walkPhase + dt * 5) % 1;
