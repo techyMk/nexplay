@@ -14,26 +14,132 @@ const CELL = 32;
 const W = COLS * CELL;
 const H = ROWS * CELL;
 
-// 1 = wall, 0 = floor, 2 = treasure-cell, 3 = exit. Treasures are
-// extracted out of the grid into a separate array on reset so each
-// one can carry its own kind / animation state, while the grid keeps
-// just walls + floor + the exit tile.
-const LEVEL: number[][] = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 1],
-  [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1],
-  [1, 0, 1, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-  [1, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 0, 0, 0, 1, 0, 1, 2, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+// Cell values
+//   0 = floor       1 = wall      2 = treasure (extracted into array)
+//   3 = exit        4 = spike     5 = ice
+//
+// Treasures are pulled out of the grid on level load so each one
+// can carry its own kind / animation state, and the grid keeps just
+// the static tiles.
+type LevelTheme = {
+  /** Display name shown in the HUD and the level-intro overlay. */
+  name: string;
+  /** Short blurb shown at the top of the level. */
+  blurb: string;
+  /** Wall fill / floor fill colour pair. */
+  wall: string;
+  floor: string;
+  /** Accent colour for the floor speckle, exit halo, etc. */
+  accent: string;
+  /** Tells the renderer which hazard layer to draw + collide. */
+  hazard: "none" | "spike" | "ice";
+};
+
+type LevelDef = { theme: LevelTheme; grid: number[][] };
+
+const LEVELS: LevelDef[] = [
+  // -------------------------------------------------------------
+  // Level 1 — The Cavern. Just walls + treasure, no hazards. Acts
+  // as the tutorial layout: get used to the cave aesthetic and the
+  // explorer sprite before anything tries to hurt you.
+  // -------------------------------------------------------------
+  {
+    theme: {
+      name: "The Cavern",
+      blurb: "Find five glints in the rock and head for the green exit.",
+      wall: "#2a1f12",
+      floor: "#15110a",
+      accent: "#facc15",
+      hazard: "none",
+    },
+    grid: [
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 1],
+      [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1],
+      [1, 0, 1, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+      [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1],
+      [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+      [1, 0, 1, 0, 0, 0, 1, 0, 1, 2, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+      [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+      [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    ],
+  },
+  // -------------------------------------------------------------
+  // Level 2 — Spike Pit Ruins. Floor tiles marked `4` cycle between
+  // hidden (safe) and extended (dangerous). Stepping on an extended
+  // spike costs a life. Theme: cold stone ruins, red accent.
+  // -------------------------------------------------------------
+  {
+    theme: {
+      name: "Spike Pit Ruins",
+      blurb:
+        "Spikes pop up and retract on a rhythm — wait for them to drop, then run.",
+      wall: "#2e2e3a",
+      floor: "#181822",
+      accent: "#ef4444",
+      hazard: "spike",
+    },
+    grid: [
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 4, 0, 0, 4, 0, 2, 0, 4, 0, 0, 4, 0, 0, 0, 2, 1],
+      [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+      [1, 0, 4, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 1],
+      [1, 0, 1, 1, 1, 1, 1, 4, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 1, 4, 1, 1, 1, 0, 1, 1, 4, 1, 1, 1, 1, 1, 1, 0, 1],
+      [1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 2, 0, 0, 1],
+      [1, 0, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 0, 1],
+      [1, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    ],
+  },
+  // -------------------------------------------------------------
+  // Level 3 — Frozen Vault. Every floor tile is ice (`5`). Player
+  // steering becomes a *target* velocity that the body lerps toward
+  // very slowly, so you skate around the maze and have to plan
+  // momentum for every turn. Theme: deep blue stone, cyan accent.
+  // -------------------------------------------------------------
+  {
+    theme: {
+      name: "Frozen Vault",
+      blurb:
+        "The floor is solid ice. Plan your turns — you don't stop on a dime.",
+      wall: "#1f3a55",
+      floor: "#0d2a3a",
+      accent: "#22d3ee",
+      hazard: "ice",
+    },
+    grid: [
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 5, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 1, 5, 5, 5, 2, 5, 5, 1],
+      [1, 5, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1],
+      [1, 5, 1, 2, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 5, 1],
+      [1, 5, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 5, 1, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 2, 5, 5, 5, 5, 1, 5, 1, 5, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 2, 5, 1, 5, 5, 5, 5, 5, 5, 1, 5, 1, 1, 1, 5, 1],
+      [1, 5, 1, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1, 5, 5, 5, 1, 5, 1],
+      [1, 5, 1, 5, 5, 5, 1, 5, 1, 2, 5, 1, 5, 1, 1, 1, 5, 1, 5, 1],
+      [1, 5, 1, 5, 1, 1, 1, 5, 1, 1, 5, 1, 5, 5, 5, 5, 5, 1, 5, 1],
+      [1, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 5, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    ],
+  },
 ];
+
+const STARTING_LIVES = 3;
+const SPIKE_PERIOD = 2;
+const SPIKE_ACTIVE_RATIO = 0.45; // active for 45% of the cycle
+const INVULN_SECONDS = 1.0;
 
 type TreasureKind = "coin" | "gem" | "chest";
 type Treasure = {
@@ -74,13 +180,14 @@ function pickTreasureKind(): TreasureKind {
   return "chest";
 }
 
-function makeFreshState() {
-  const grid: number[][] = LEVEL.map((row) => [...row]);
+function loadLevel(idx: number) {
+  const level = LEVELS[idx];
+  const grid = level.grid.map((row) => [...row]);
   const treasures: Treasure[] = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (grid[r][c] === 2) {
-        grid[r][c] = 0; // treasures live in the array, not the grid
+        grid[r][c] = 0;
         treasures.push({
           cx: c,
           cy: r,
@@ -91,21 +198,36 @@ function makeFreshState() {
       }
     }
   }
+  return { grid, treasures, theme: level.theme };
+}
+
+type Phase = "ready" | "playing" | "level-clear" | "won" | "dead";
+
+function makeFreshState() {
+  const loaded = loadLevel(0);
   return {
-    grid,
-    treasures,
+    levelIdx: 0,
+    grid: loaded.grid,
+    theme: loaded.theme,
+    treasures: loaded.treasures,
     px: 1.5,
     py: 1.5,
+    vx: 0,
+    vy: 0,
     facingX: 0,
-    facingY: 1, // start facing down
+    facingY: 1,
     walkPhase: 0,
     moving: false,
     stepCool: 0,
     elapsed: 0,
+    levelElapsed: 0,
     particles: [] as Particle[],
     floaters: [] as Floater[],
     pickupFlash: 0,
     pickupHue: 50,
+    lives: STARTING_LIVES,
+    invulnFor: 0,
+    hitFlash: 0,
   };
 }
 
@@ -113,50 +235,75 @@ export default function TreasureHunt() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keys = useKeyboard();
   const [collected, setCollected] = useState(0);
-  const [total] = useState(LEVEL.flat().filter((v) => v === 2).length);
+  const [levelIdx, setLevelIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [time, setTime] = useState(0);
-  const [won, setWon] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [lives, setLives] = useState(STARTING_LIVES);
+  const [phase, setPhase] = useState<Phase>("ready");
   const [paused, setPaused] = useState(false);
-  const finalScore = won ? score + Math.max(0, 800 - time * 5) : 0;
+  /** Treasures collected on the current level (for the level-clear
+   *  overlay). The cumulative count goes up each level. */
+  const [levelLoot, setLevelLoot] = useState({ got: 0, total: 0 });
+
+  const finalScore = phase === "won" ? score + Math.max(0, 1500 - time * 4) : 0;
   const submitStatus = useSubmitScoreOnGameOver(
     "treasure-hunt",
     finalScore,
-    won,
+    phase === "won",
   );
-  const startedRef = useRef(false);
-  startedRef.current = started;
+
+  const phaseRef = useRef<Phase>("ready");
+  phaseRef.current = phase;
   const pausedRef = useRef(false);
   pausedRef.current = paused;
-  const wonRef = useRef(false);
-  wonRef.current = won;
 
   const stateRef = useRef(makeFreshState());
 
-  const reset = useCallback(() => {
-    stateRef.current = makeFreshState();
-    setCollected(0);
-    setScore(0);
-    setTime(0);
-    setWon(false);
-    setStarted(false);
-    setPaused(false);
-  }, []);
-
   const start = useCallback(() => {
     stateRef.current = makeFreshState();
+    setLevelIdx(0);
     setCollected(0);
     setScore(0);
     setTime(0);
-    setWon(false);
-    setStarted(true);
+    setLives(STARTING_LIVES);
+    setPhase("playing");
     setPaused(false);
+    setLevelLoot({
+      got: 0,
+      total: stateRef.current.treasures.length,
+    });
   }, []);
 
   const togglePause = useCallback(() => {
-    if (wonRef.current || !startedRef.current) return;
+    if (phaseRef.current !== "playing") return;
     setPaused((p) => !p);
+  }, []);
+
+  const advanceLevel = useCallback(() => {
+    const st = stateRef.current;
+    const next = st.levelIdx + 1;
+    if (next >= LEVELS.length) {
+      setPhase("won");
+      Sfx.win();
+      return;
+    }
+    const loaded = loadLevel(next);
+    st.levelIdx = next;
+    st.grid = loaded.grid;
+    st.theme = loaded.theme;
+    st.treasures = loaded.treasures;
+    st.px = 1.5;
+    st.py = 1.5;
+    st.vx = 0;
+    st.vy = 0;
+    st.facingX = 0;
+    st.facingY = 1;
+    st.levelElapsed = 0;
+    st.invulnFor = 0;
+    st.hitFlash = 0;
+    setLevelIdx(next);
+    setLevelLoot({ got: 0, total: loaded.treasures.length });
+    setPhase("playing");
   }, []);
 
   useEffect(() => {
@@ -164,11 +311,20 @@ export default function TreasureHunt() {
       if (e.key === "p" || e.key === "P" || e.key === "Escape") {
         e.preventDefault();
         togglePause();
+        return;
+      }
+      // Quick-advance from level-clear overlay with Space/Enter
+      if (
+        phaseRef.current === "level-clear" &&
+        (e.key === " " || e.key === "Enter")
+      ) {
+        e.preventDefault();
+        advanceLevel();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePause]);
+  }, [togglePause, advanceLevel]);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -199,6 +355,19 @@ export default function TreasureHunt() {
       }
     };
 
+    const tryMoveAxis = (dx: number, dy: number) => {
+      const st = stateRef.current;
+      if (dx === 0 && dy === 0) return true;
+      const nx = st.px + dx;
+      const ny = st.py + dy;
+      const cx = Math.floor(nx);
+      const cy = Math.floor(ny);
+      if (st.grid[cy]?.[cx] === 1) return false;
+      st.px = nx;
+      st.py = ny;
+      return true;
+    };
+
     const checkPickups = () => {
       const st = stateRef.current;
       for (const t of st.treasures) {
@@ -212,6 +381,7 @@ export default function TreasureHunt() {
           const value = TREASURE_VALUES[t.kind];
           setScore((s) => s + value);
           setCollected((c) => c + 1);
+          setLevelLoot((l) => ({ ...l, got: l.got + 1 }));
           const px = tcx * CELL;
           const py = tcy * CELL;
           const hue =
@@ -233,24 +403,35 @@ export default function TreasureHunt() {
       }
     };
 
-    const tryMove = (dx: number, dy: number) => {
+    const damagePlayer = () => {
       const st = stateRef.current;
-      if (dx === 0 && dy === 0) return;
-      const nx = st.px + dx;
-      const ny = st.py + dy;
-      // Wall test on the *new* position's grid cell
-      const cx = Math.floor(nx);
-      const cy = Math.floor(ny);
-      if (st.grid[cy]?.[cx] === 1) return;
-      st.px = nx;
-      st.py = ny;
-      checkPickups();
-      // Exit
-      const cell = st.grid[Math.floor(st.py)]?.[Math.floor(st.px)];
-      if (cell === 3 && !wonRef.current) {
-        setWon(true);
-        Sfx.win();
+      if (st.invulnFor > 0) return;
+      st.invulnFor = INVULN_SECONDS;
+      st.hitFlash = 0.5;
+      // Knock the player back a touch — half a cell along the
+      // negative of their current velocity, clamped to staying
+      // inside a floor tile.
+      const sp = Math.hypot(st.vx, st.vy);
+      if (sp > 0.1) {
+        const bx = st.px - (st.vx / sp) * 0.45;
+        const by = st.py - (st.vy / sp) * 0.45;
+        if (st.grid[Math.floor(by)]?.[Math.floor(bx)] !== 1) {
+          st.px = bx;
+          st.py = by;
+        }
       }
+      st.vx = 0;
+      st.vy = 0;
+      setLives((l) => {
+        const next = l - 1;
+        if (next <= 0) {
+          setPhase("dead");
+          Sfx.gameOver();
+        } else {
+          Sfx.error();
+        }
+        return Math.max(0, next);
+      });
     };
 
     const tick = (now: number) => {
@@ -259,11 +440,15 @@ export default function TreasureHunt() {
       const st = stateRef.current;
       const k = keys.current;
       const live =
-        startedRef.current && !pausedRef.current && !wonRef.current;
+        phaseRef.current === "playing" && !pausedRef.current;
 
-      // Always-tick decays so flashes / floaters don't get stuck
+      // Always-tick decays — flashes, particles, treasure phases
       if (st.pickupFlash > 0)
         st.pickupFlash = Math.max(0, st.pickupFlash - dt * 3);
+      if (st.hitFlash > 0)
+        st.hitFlash = Math.max(0, st.hitFlash - dt * 2.5);
+      if (st.invulnFor > 0)
+        st.invulnFor = Math.max(0, st.invulnFor - dt);
       for (const t of st.treasures) t.phase += dt * 4;
       for (let i = st.particles.length - 1; i >= 0; i--) {
         const p = st.particles[i];
@@ -278,115 +463,117 @@ export default function TreasureHunt() {
 
       if (live) {
         st.elapsed += dt;
+        st.levelElapsed += dt;
         setTime(Math.floor(st.elapsed));
 
-        const speed = 5; // cells per second
-        let dx = 0;
-        let dy = 0;
-        if (k.has("ArrowLeft") || k.has("a")) dx -= 1;
-        if (k.has("ArrowRight") || k.has("d")) dx += 1;
-        if (k.has("ArrowUp") || k.has("w")) dy -= 1;
-        if (k.has("ArrowDown") || k.has("s")) dy += 1;
-        const moving = dx !== 0 || dy !== 0;
+        const speed = 5; // cells/sec target speed
+        let inX = 0;
+        let inY = 0;
+        if (k.has("ArrowLeft") || k.has("a")) inX -= 1;
+        if (k.has("ArrowRight") || k.has("d")) inX += 1;
+        if (k.has("ArrowUp") || k.has("w")) inY -= 1;
+        if (k.has("ArrowDown") || k.has("s")) inY += 1;
+        const inLen = Math.hypot(inX, inY);
+        const targetVx = inLen ? (inX / inLen) * speed : 0;
+        const targetVy = inLen ? (inY / inLen) * speed : 0;
+
+        // Friction model — ice gives a very long lerp (slippery);
+        // every other floor tile snaps the velocity to the target
+        // almost instantly so steering feels precise.
+        const cellAtFeet =
+          st.grid[Math.floor(st.py)]?.[Math.floor(st.px)] ?? 0;
+        const onIce = cellAtFeet === 5;
+        const accel = onIce ? 1.5 : 28;
+        const lerpK = 1 - Math.exp(-dt * accel);
+        st.vx += (targetVx - st.vx) * lerpK;
+        st.vy += (targetVy - st.vy) * lerpK;
+
+        // Apply velocity per axis so we slide along walls
+        if (!tryMoveAxis(st.vx * dt, 0)) st.vx = 0;
+        if (!tryMoveAxis(0, st.vy * dt)) st.vy = 0;
+        checkPickups();
+
+        // Hazard: spike trap (active for SPIKE_ACTIVE_RATIO of cycle)
+        if (st.theme.hazard === "spike") {
+          const phaseInCycle =
+            (st.levelElapsed % SPIKE_PERIOD) / SPIKE_PERIOD;
+          const spikeActive = phaseInCycle < SPIKE_ACTIVE_RATIO;
+          if (spikeActive) {
+            const cell =
+              st.grid[Math.floor(st.py)]?.[Math.floor(st.px)] ?? 0;
+            if (cell === 4) damagePlayer();
+          }
+        }
+
+        // Exit
+        const standingOn = st.grid[Math.floor(st.py)]?.[Math.floor(st.px)];
+        if (standingOn === 3) {
+          if (st.levelIdx + 1 >= LEVELS.length) {
+            setPhase("won");
+            Sfx.win();
+          } else {
+            setPhase("level-clear");
+            Sfx.win();
+          }
+        }
+
+        // Movement / animation tracking
+        const moving =
+          Math.abs(st.vx) > 0.3 || Math.abs(st.vy) > 0.3;
         st.moving = moving;
         if (moving) {
-          const len = Math.hypot(dx, dy) || 1;
-          // Track facing for the sprite (and the torch)
-          st.facingX = dx / len;
-          st.facingY = dy / len;
-          // Move x and y separately so we can slide along walls
-          tryMove((dx / len) * speed * dt, 0);
-          tryMove(0, (dy / len) * speed * dt);
-          // Walking animation cycle + footstep ticks
+          const sp = Math.hypot(st.vx, st.vy) || 1;
+          st.facingX = st.vx / sp;
+          st.facingY = st.vy / sp;
           st.walkPhase = (st.walkPhase + dt * 7) % 1;
           st.stepCool -= dt;
           if (st.stepCool <= 0) {
-            st.stepCool = 0.32; // ~3 footsteps per second
-            Sfx.step();
+            st.stepCool = 0.32;
+            // Slightly different step note on ice for flavour
+            if (onIce) {
+              Sfx.click();
+            } else {
+              Sfx.step();
+            }
           }
         } else {
           st.stepCool = 0;
-          // Idle: legs slowly settle
-          st.walkPhase = 0;
         }
       }
 
       // ============================================================
       // ----- DRAW -------------------------------------------------
       // ============================================================
-      // Backdrop — cave gradient
+      // Themed backdrop
       const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "#1a1208");
-      bg.addColorStop(1, "#0b0d12");
+      bg.addColorStop(0, st.theme.floor);
+      bg.addColorStop(1, "#000");
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      // Floor + walls
+      // Floor + walls + hazards (pass 1: the static layer)
+      const spikeProgress =
+        (st.levelElapsed % SPIKE_PERIOD) / SPIKE_PERIOD;
+      const spikeActiveDraw = spikeProgress < SPIKE_ACTIVE_RATIO;
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const v = st.grid[r][c];
           const x = c * CELL;
           const y = r * CELL;
           if (v === 1) {
-            // Stone wall — darker base + top highlight + occasional
-            // mortar line so it doesn't read as one flat slab
-            ctx.fillStyle = "#2a1f12";
-            ctx.fillRect(x, y, CELL, CELL);
-            ctx.fillStyle = "rgba(255,255,255,0.05)";
-            ctx.fillRect(x, y, CELL, 4);
-            ctx.fillStyle = "rgba(0,0,0,0.35)";
-            ctx.fillRect(x, y + CELL - 3, CELL, 3);
-            // Stone block seams
-            if ((c + r) % 2 === 0) {
-              ctx.strokeStyle = "rgba(0,0,0,0.35)";
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              ctx.moveTo(x, y + CELL / 2);
-              ctx.lineTo(x + CELL, y + CELL / 2);
-              ctx.stroke();
-            }
+            drawWall(ctx, x, y, st.theme);
           } else {
-            // Floor — soft brown with subtle dot pattern
-            ctx.fillStyle = "#15110a";
-            ctx.fillRect(x, y, CELL, CELL);
-            if ((c * 7 + r * 13) % 5 === 0) {
-              ctx.fillStyle = "rgba(255,200,140,0.04)";
-              ctx.fillRect(x + 6, y + 8, 2, 2);
-            }
+            drawFloor(ctx, x, y, c, r, st.theme, v === 5);
           }
+          if (v === 4) drawSpike(ctx, x, y, spikeActiveDraw, spikeProgress);
         }
       }
 
-      // Exit — pulsing green portal
+      // Exit — pulsing portal (themed accent)
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (st.grid[r][c] !== 3) continue;
-          const x = c * CELL;
-          const y = r * CELL;
-          const cx = x + CELL / 2;
-          const cy = y + CELL / 2;
-          const pulse = 0.5 + 0.5 * Math.sin(now * 0.005);
-          const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 30);
-          glow.addColorStop(0, `rgba(34,197,94,${0.55 * pulse + 0.25})`);
-          glow.addColorStop(1, "rgba(34,197,94,0)");
-          ctx.fillStyle = glow;
-          ctx.beginPath();
-          ctx.arc(cx, cy, 30, 0, Math.PI * 2);
-          ctx.fill();
-          // Doorway
-          ctx.fillStyle = "#16a34a";
-          roundRect(ctx, x + 4, y + 3, CELL - 8, CELL - 6, 5);
-          ctx.fill();
-          ctx.fillStyle = "#22c55e";
-          roundRect(ctx, x + 7, y + 6, CELL - 14, CELL - 12, 4);
-          ctx.fill();
-          ctx.fillStyle = "white";
-          ctx.font = "bold 11px system-ui";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("EXIT", cx, cy + 1);
-          ctx.textAlign = "left";
-          ctx.textBaseline = "alphabetic";
+          drawExit(ctx, c * CELL, r * CELL, now);
         }
       }
 
@@ -402,16 +589,20 @@ export default function TreasureHunt() {
         );
       }
 
-      // Player — drawn last so they sit on top
-      drawPlayer(
-        ctx,
-        st.px * CELL,
-        st.py * CELL,
-        st.facingX,
-        st.facingY,
-        st.walkPhase,
-        st.moving,
-      );
+      // Player — flashes during invulnerability
+      const blink =
+        st.invulnFor > 0 && Math.floor(st.invulnFor * 12) % 2 === 0;
+      if (!blink) {
+        drawPlayer(
+          ctx,
+          st.px * CELL,
+          st.py * CELL,
+          st.facingX,
+          st.facingY,
+          st.walkPhase,
+          st.moving,
+        );
+      }
 
       // Particles
       for (const p of st.particles) {
@@ -432,9 +623,15 @@ export default function TreasureHunt() {
       }
       ctx.textAlign = "left";
 
-      // Pickup vignette flash
+      // Pickup flash (gold/purple/orange tint)
       if (st.pickupFlash > 0) {
         ctx.fillStyle = `hsla(${st.pickupHue}, 90%, 70%, ${st.pickupFlash * 0.25})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Damage flash (red, longer-lived)
+      if (st.hitFlash > 0) {
+        ctx.fillStyle = `rgba(239, 68, 68, ${st.hitFlash * 0.45})`;
         ctx.fillRect(0, 0, W, H);
       }
 
@@ -445,14 +642,34 @@ export default function TreasureHunt() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const themeName = LEVELS[levelIdx]?.theme.name ?? "";
+
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a1208] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <Stat label="Score" value={score} accent />
-        <Stat label="Loot" value={`${collected}/${total}`} icon="💎" />
+        <Stat
+          label="Lvl"
+          value={`${levelIdx + 1}/${LEVELS.length} · ${themeName}`}
+        />
+        <Stat label="Loot" value={`${collected}`} icon="💎" />
+        <span className="px-3 py-1 rounded-lg bg-rose-500/15 border border-rose-400/40 inline-flex items-center gap-1">
+          <span className="text-[10px] uppercase tracking-wider opacity-60 mr-1">
+            Lives
+          </span>
+          {Array.from({ length: STARTING_LIVES }, (_, i) => (
+            <span
+              key={i}
+              className={i < lives ? "" : "opacity-25"}
+              aria-hidden
+            >
+              ❤️
+            </span>
+          ))}
+        </span>
         <Stat label="Time" value={`${time}s`} icon="⏱️" />
         <SoundToggle />
-        {started && !won && (
+        {phase === "playing" && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}
       </div>
@@ -467,21 +684,21 @@ export default function TreasureHunt() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-amber-900/40 shadow-[0_0_24px_rgba(0,0,0,0.5)]"
           />
-          {!started && !won && (
+          {phase === "ready" && (
             <GameOverlay
               icon="🗺️"
               title="Treasure Hunt"
               subtitle={
                 <>
-                  Guide the explorer through the cave. Coins, gems, and
-                  chests all bank score; the green portal is the way
-                  out, and finishing faster pays a time bonus.
+                  Three caves, three hazards. Coins, gems, and chests bank
+                  score; the green portal is the way to the next level. You
+                  have <b>{STARTING_LIVES} lives</b>.
                 </>
               }
               primary={{ label: "▶ Begin", onClick: start }}
             />
           )}
-          {paused && started && !won && (
+          {paused && phase === "playing" && (
             <GameOverlay
               variant="blur"
               icon="⏸"
@@ -498,11 +715,28 @@ export default function TreasureHunt() {
               primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
             />
           )}
-          {won && (
+          {phase === "level-clear" && (
+            <GameOverlay
+              variant="blur"
+              icon="🏁"
+              title={`${LEVELS[levelIdx]?.theme.name ?? ""} cleared!`}
+              subtitle={
+                <>
+                  Loot picked up: <b>{levelLoot.got}/{levelLoot.total}</b> ·
+                  Score so far: <b>{score}</b>
+                  <br />
+                  Up next: <b>{LEVELS[levelIdx + 1]?.theme.name}</b> —{" "}
+                  {LEVELS[levelIdx + 1]?.theme.blurb}
+                </>
+              }
+              primary={{ label: "▶ Continue", onClick: advanceLevel }}
+            />
+          )}
+          {phase === "won" && (
             <GameOverlay
               icon="🏆"
-              title="Escaped the cave!"
-              subtitle={`${collected}/${total} treasures · ${time}s · time bonus +${Math.max(0, 800 - time * 5)}`}
+              title="Escaped the temple!"
+              subtitle={`${collected} treasures · ${time}s · time bonus +${Math.max(0, 1500 - time * 4)}`}
               primary={{ label: "Run again", onClick: start }}
             >
               <div className="text-3xl font-black text-amber-400">
@@ -510,6 +744,14 @@ export default function TreasureHunt() {
               </div>
               <ScoreStatus gameSlug="treasure-hunt" status={submitStatus} />
             </GameOverlay>
+          )}
+          {phase === "dead" && (
+            <GameOverlay
+              icon="💀"
+              title="You perished"
+              subtitle={`Made it to ${themeName} · ${collected} treasures · ${score} pts`}
+              primary={{ label: "Try again", onClick: start }}
+            />
           )}
         </div>
       </div>
@@ -525,10 +767,135 @@ export default function TreasureHunt() {
   );
 }
 
+// =================================================================
+// ----- TILE / ENTITY DRAWING -------------------------------------
+// =================================================================
+
+function drawWall(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  theme: LevelTheme,
+) {
+  ctx.fillStyle = theme.wall;
+  ctx.fillRect(x, y, CELL, CELL);
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  ctx.fillRect(x, y, CELL, 4);
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(x, y + CELL - 3, CELL, 3);
+}
+
+function drawFloor(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  col: number,
+  row: number,
+  theme: LevelTheme,
+  isIce: boolean,
+) {
+  if (isIce) {
+    // Light blue tinted floor with sparkle dots
+    const grad = ctx.createLinearGradient(x, y, x, y + CELL);
+    grad.addColorStop(0, "#2a5a85");
+    grad.addColorStop(1, "#163d5f");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.fillStyle = "rgba(180,225,255,0.25)";
+    if ((col * 7 + row * 11) % 5 === 0) {
+      ctx.fillRect(x + 6, y + 6, 2, 2);
+      ctx.fillRect(x + 18, y + 22, 2, 2);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, CELL - 1, CELL - 1);
+    return;
+  }
+  ctx.fillStyle = theme.floor;
+  ctx.fillRect(x, y, CELL, CELL);
+  if ((col * 7 + row * 13) % 5 === 0) {
+    ctx.fillStyle = `hsla(${theme.accent === "#22d3ee" ? 200 : 35}, 80%, 70%, 0.06)`;
+    ctx.fillRect(x + 6, y + 8, 2, 2);
+  }
+}
+
+function drawSpike(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  active: boolean,
+  cycleProgress: number,
+) {
+  // Always draw a faint pit so the player knows the tile is risky
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+  ctx.strokeStyle = "rgba(255, 80, 80, 0.45)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8);
+  if (active) {
+    // Spikes raised — three triangles pointing up, height pulses
+    // through the active phase so they read as freshly extended
+    const easing = Math.sin((cycleProgress / 0.45) * Math.PI);
+    const tipLift = 4 + easing * 4;
+    ctx.fillStyle = "#cbd5e1";
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const tx = x + 6 + i * 8;
+      ctx.beginPath();
+      ctx.moveTo(tx, y + CELL - 5);
+      ctx.lineTo(tx + 4, y + CELL - 5 - tipLift - 4);
+      ctx.lineTo(tx + 8, y + CELL - 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Bright red glint along the base when actively dangerous
+    ctx.fillStyle = `rgba(239,68,68,${0.6 + easing * 0.3})`;
+    ctx.fillRect(x + 4, y + CELL - 6, CELL - 8, 2);
+  } else {
+    // Tucked in — tiny dots indicating "spike sockets"
+    ctx.fillStyle = "rgba(80,80,80,0.6)";
+    for (let i = 0; i < 3; i++) {
+      const tx = x + 8 + i * 8;
+      ctx.fillRect(tx, y + CELL - 6, 4, 2);
+    }
+  }
+}
+
+function drawExit(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  now: number,
+) {
+  const cx = x + CELL / 2;
+  const cy = y + CELL / 2;
+  const pulse = 0.5 + 0.5 * Math.sin(now * 0.005);
+  const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 30);
+  glow.addColorStop(0, `rgba(34,197,94,${0.55 * pulse + 0.25})`);
+  glow.addColorStop(1, "rgba(34,197,94,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#16a34a";
+  roundRect(ctx, x + 4, y + 3, CELL - 8, CELL - 6, 5);
+  ctx.fill();
+  ctx.fillStyle = "#22c55e";
+  roundRect(ctx, x + 7, y + 6, CELL - 14, CELL - 12, 4);
+  ctx.fill();
+  ctx.fillStyle = "white";
+  ctx.font = "bold 11px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("EXIT", cx, cy + 1);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
 /** Top-down explorer sprite — head, hat, jacket body, animated legs,
- *  and a torch glow positioned in the facing direction so the
- *  player reads as someone walking through a cave rather than as a
- *  ball. */
+ *  and a torch glow positioned in the facing direction. */
 function drawPlayer(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -538,15 +905,12 @@ function drawPlayer(
   walkPhase: number,
   moving: boolean,
 ) {
-  // Stride offset for legs (sin wave during movement, 0 when idle)
   const stride = moving ? Math.sin(walkPhase * Math.PI * 2) * 2.2 : 0;
 
-  // Torch — small glow ahead of the player, in the direction of
-  // travel. Drawn before the body so the body sits inside the glow.
+  // Torch — small glow ahead of the player, in the direction of travel
   const tlen = 9;
   const tFx = (facingX || 0) * tlen;
   const tFy = (facingY || 0) * tlen;
-  // If standing still and never moved, default the torch to "down"
   const ftx = facingX === 0 && facingY === 0 ? 0 : tFx;
   const fty = facingX === 0 && facingY === 0 ? tlen : tFy;
   const tg = ctx.createRadialGradient(
@@ -564,14 +928,14 @@ function drawPlayer(
   ctx.arc(x + ftx, y + fty, 24, 0, Math.PI * 2);
   ctx.fill();
 
-  // Backpack (sits behind the body — drawn first)
+  // Backpack
   ctx.fillStyle = "#5a3a1a";
   roundRect(ctx, x - 5, y - 1, 10, 7, 1.5);
   ctx.fill();
   ctx.fillStyle = "#3a2810";
   ctx.fillRect(x - 5, y + 2, 10, 1.5);
 
-  // Legs (alternating during walk — visible below the body)
+  // Legs
   ctx.fillStyle = "#2a1f12";
   ctx.fillRect(x - 3.5, y + 5 + stride, 3, 5);
   ctx.fillRect(x + 0.5, y + 5 - stride, 3, 5);
@@ -585,26 +949,24 @@ function drawPlayer(
   ctx.fillStyle = "#5a3a1a";
   ctx.fillRect(x - 6, y + 3, 12, 1.5);
 
-  // Head (skin tone)
+  // Head
   ctx.fillStyle = "#e4b896";
   ctx.beginPath();
   ctx.arc(x, y - 4, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Hat (adventurer's hat — brim + crown)
+  // Hat
   ctx.fillStyle = "#3a2810";
-  // Brim — wide ellipse
   ctx.beginPath();
   ctx.ellipse(x, y - 5, 7, 2.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Crown — small dome on top
   ctx.beginPath();
   ctx.arc(x, y - 7, 3.5, Math.PI, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#6b4a25";
   ctx.fillRect(x - 3.5, y - 6, 7, 0.8);
 
-  // Torch flame (small bright dot at the torch position)
+  // Torch flame
   ctx.fillStyle = "#fde68a";
   ctx.beginPath();
   ctx.arc(x + ftx, y + fty, 2, 0, Math.PI * 2);
@@ -626,7 +988,6 @@ function drawTreasure(
   ctx.save();
   ctx.translate(x, y);
   if (kind === "coin") {
-    // Glow
     const g = ctx.createRadialGradient(0, 0, 3, 0, 0, 14);
     g.addColorStop(0, "rgba(252,211,77,0.7)");
     g.addColorStop(1, "rgba(252,211,77,0)");
@@ -634,7 +995,6 @@ function drawTreasure(
     ctx.beginPath();
     ctx.arc(0, 0, 14, 0, Math.PI * 2);
     ctx.fill();
-    // Edge-on coin (squashed when wob is high)
     ctx.scale(wob, 1);
     ctx.fillStyle = "#facc15";
     ctx.beginPath();
@@ -644,7 +1004,6 @@ function drawTreasure(
     ctx.beginPath();
     ctx.arc(-1.5, -2, 2, 0, Math.PI * 2);
     ctx.fill();
-    // $ glyph
     ctx.fillStyle = "rgba(120, 80, 0, 0.85)";
     ctx.font = "bold 8px system-ui";
     ctx.textAlign = "center";
@@ -653,7 +1012,6 @@ function drawTreasure(
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
   } else if (kind === "gem") {
-    // Pulsing aura
     const g = ctx.createRadialGradient(0, 0, 3, 0, 0, 18);
     g.addColorStop(0, "rgba(167,139,250,0.85)");
     g.addColorStop(1, "rgba(167,139,250,0)");
@@ -662,7 +1020,6 @@ function drawTreasure(
     ctx.arc(0, 0, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.rotate(phase * 0.4);
-    // Diamond facets
     ctx.fillStyle = "#a78bfa";
     ctx.beginPath();
     ctx.moveTo(0, -9);
@@ -688,11 +1045,8 @@ function drawTreasure(
     ctx.closePath();
     ctx.fill();
   } else {
-    // Chest — wooden box with iron straps and a gold lock; bobs
-    // gently
     const bob = Math.sin(phase) * 1;
     ctx.translate(0, bob);
-    // Glow
     const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 22);
     g.addColorStop(0, "rgba(245,158,11,0.55)");
     g.addColorStop(1, "rgba(245,158,11,0)");
@@ -700,25 +1054,20 @@ function drawTreasure(
     ctx.beginPath();
     ctx.arc(0, 0, 22, 0, Math.PI * 2);
     ctx.fill();
-    // Body
     ctx.fillStyle = "#7a4a1a";
     roundRect(ctx, -10, -3, 20, 12, 2);
     ctx.fill();
-    // Lid
     ctx.fillStyle = "#5a3410";
     roundRect(ctx, -10, -8, 20, 6, 2);
     ctx.fill();
-    // Iron straps
     ctx.fillStyle = "#3a3a3a";
     ctx.fillRect(-10, -2, 20, 1.5);
     ctx.fillRect(-9, -8, 1.5, 17);
     ctx.fillRect(7.5, -8, 1.5, 17);
-    // Gold lock
     ctx.fillStyle = "#facc15";
     ctx.fillRect(-2.5, -3, 5, 4);
     ctx.fillStyle = "#92400e";
     ctx.fillRect(-1, -1, 2, 2);
-    // Glint
     ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.fillRect(-9.5, -8, 5, 1);
   }
