@@ -110,4 +110,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  diep: dynamic(() => import("./diep/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
