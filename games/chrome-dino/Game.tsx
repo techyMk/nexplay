@@ -356,7 +356,7 @@ export default function ChromeDino() {
 
       const onGroundDraw = st.dinoY >= GROUND_Y - DINO_H_RUN - 0.5;
       const dinoColor = overRef.current ? "#ef4444" : fg;
-      drawDino(ctx, st, onGroundDraw, inputRef.current.duckHeld, dinoColor);
+      drawDino(ctx, st, onGroundDraw, inputRef.current.duckHeld, dinoColor, bg);
 
       // Score readout
       ctx.fillStyle = muted;
@@ -411,15 +411,15 @@ export default function ChromeDino() {
               subtitle={
                 <>
                   Jump cacti, duck pterodactyls.{" "}
-                  <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
                     Space
                   </kbd>{" "}
                   /{" "}
-                  <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
                     ↑
                   </kbd>{" "}
                   to jump,{" "}
-                  <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
                     ↓
                   </kbd>{" "}
                   to duck. Tap to play on mobile.
@@ -436,7 +436,7 @@ export default function ChromeDino() {
               subtitle={
                 <>
                   Press{" "}
-                  <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
                     P
                   </kbd>{" "}
                   to resume
@@ -458,19 +458,19 @@ export default function ChromeDino() {
         </div>
       </div>
       <div className="shrink-0 mt-2 text-[11px] text-[var(--muted)] text-center">
-        <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono font-semibold">
           Space
         </kbd>
-        /
-        <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+        {" / "}
+        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono font-semibold">
           ↑
         </kbd>{" "}
         jump ·{" "}
-        <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono font-semibold">
           ↓
         </kbd>{" "}
         duck · tap on mobile ·{" "}
-        <kbd className="px-1 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] font-mono">
+        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono font-semibold">
           P
         </kbd>{" "}
         pauses
@@ -491,72 +491,115 @@ function rectsOverlap(
   );
 }
 
-/** Draw the dino in either running, jumping, or ducking pose.
- *  Built from rectangles for that classic pixel silhouette. */
+/** Draw the dino in running, jumping, or ducking pose. Built from
+ *  rectangles for a pixel-art silhouette. The key shapes that make
+ *  it read as "dinosaur" rather than "blob": a head with a snout
+ *  protruding forward of the body, a small T-Rex arm tucked at the
+ *  belly, a tail stub at the back, and clearly alternating legs.
+ *  Holes (eye-white aside, mouth, leg gap) are painted with `bg`
+ *  rather than clearRect so the canvas stays opaque. */
 function drawDino(
   ctx: CanvasRenderingContext2D,
   st: State,
   onGround: boolean,
   duckHeld: boolean,
   color: string,
+  bg: string,
 ) {
-  ctx.fillStyle = color;
+  const dx = DINO_X;
   const ducking = duckHeld && onGround;
+
   if (ducking) {
-    const dx = DINO_X;
+    // ---- DUCKING POSE — body slung low, head reaching out ----
     const dy = GROUND_Y - DINO_H_DUCK;
-    // Body (long, low)
-    ctx.fillRect(dx, dy + 6, 50, 16);
-    // Head reaching forward
-    ctx.fillRect(dx + 38, dy - 2, 22, 14);
+    ctx.fillStyle = color;
+    // Tail stub
+    ctx.fillRect(dx + 0, dy + 10, 6, 6);
+    ctx.fillRect(dx + 4, dy + 14, 4, 4);
+    // Body (long horizontal)
+    ctx.fillRect(dx + 4, dy + 8, 36, 14);
+    // Head extending forward
+    ctx.fillRect(dx + 36, dy + 4, 16, 14);
+    // Snout protrusion (forward)
+    ctx.fillRect(dx + 50, dy + 8, 8, 6);
+    ctx.fillRect(dx + 56, dy + 10, 4, 4);
     // Eye
     ctx.fillStyle = "#fff";
-    ctx.fillRect(dx + 52, dy + 1, 4, 4);
+    ctx.fillRect(dx + 44, dy + 7, 4, 4);
     ctx.fillStyle = color;
-    ctx.fillRect(dx + 53, dy + 2, 2, 2);
+    ctx.fillRect(dx + 45, dy + 8, 2, 2);
+    // Mouth gap
+    ctx.fillStyle = bg;
+    ctx.fillRect(dx + 50, dy + 14, 6, 2);
+    ctx.fillStyle = color;
     // Legs alternating
     const phase = Math.floor(st.legPhase * 2);
     if (phase === 0) {
-      ctx.fillRect(dx + 8, dy + 22, 6, 6);
-      ctx.fillRect(dx + 22, dy + 22, 6, 6);
+      ctx.fillRect(dx + 10, dy + 22, 4, 6);
+      ctx.fillRect(dx + 26, dy + 22, 4, 6);
     } else {
-      ctx.fillRect(dx + 12, dy + 22, 6, 6);
-      ctx.fillRect(dx + 26, dy + 22, 6, 6);
+      ctx.fillRect(dx + 14, dy + 22, 4, 6);
+      ctx.fillRect(dx + 30, dy + 22, 4, 6);
+    }
+    return;
+  }
+
+  // ---- STANDING / RUNNING / JUMPING POSE ----
+  const dy = st.dinoY;
+  ctx.fillStyle = color;
+
+  // Tail (small stub at the back)
+  ctx.fillRect(dx + 0, dy + 16, 6, 4);
+  ctx.fillRect(dx + 2, dy + 20, 4, 2);
+
+  // Body — back, midsection, haunches
+  ctx.fillRect(dx + 4, dy + 14, 22, 6); // upper back
+  ctx.fillRect(dx + 6, dy + 20, 24, 12); // mid body
+  ctx.fillRect(dx + 10, dy + 32, 18, 6); // haunches
+
+  // Head — square block with brow line on top
+  ctx.fillRect(dx + 20, dy + 2, 20, 18);
+  ctx.fillRect(dx + 22, dy + 0, 14, 4); // brow
+
+  // Snout — the protrusion that reads as "dinosaur head"
+  ctx.fillRect(dx + 38, dy + 8, 6, 8);
+  ctx.fillRect(dx + 42, dy + 10, 2, 4);
+
+  // Eye + pupil
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(dx + 28, dy + 6, 4, 4);
+  ctx.fillStyle = color;
+  ctx.fillRect(dx + 30, dy + 7, 2, 2);
+
+  // Mouth (painted in bg so the canvas stays opaque)
+  ctx.fillStyle = bg;
+  ctx.fillRect(dx + 34, dy + 14, 6, 2);
+  ctx.fillStyle = color;
+
+  // Tiny T-Rex arm tucked under the chest
+  ctx.fillRect(dx + 22, dy + 22, 4, 4);
+  ctx.fillRect(dx + 20, dy + 24, 6, 2);
+
+  // Legs
+  if (onGround) {
+    const phase = Math.floor(st.legPhase * 2);
+    if (phase === 0) {
+      // Front leg planted, back leg lifted
+      ctx.fillRect(dx + 12, dy + 38, 6, 10);
+      ctx.fillRect(dx + 10, dy + 46, 10, 2);
+      ctx.fillRect(dx + 22, dy + 38, 6, 6);
+    } else {
+      // Front leg lifted, back leg planted
+      ctx.fillRect(dx + 12, dy + 38, 6, 6);
+      ctx.fillRect(dx + 22, dy + 38, 6, 10);
+      ctx.fillRect(dx + 20, dy + 46, 10, 2);
     }
   } else {
-    const dx = DINO_X;
-    const dy = st.dinoY;
-    // Tail
-    ctx.fillRect(dx, dy + 16, 12, 6);
-    // Body
-    ctx.fillRect(dx + 8, dy + 8, 24, 26);
-    // Head
-    ctx.fillRect(dx + 24, dy, 20, 18);
-    // Snout overhang
-    ctx.fillRect(dx + 40, dy + 12, 4, 4);
-    // Eye
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(dx + 36, dy + 4, 4, 4);
-    ctx.fillStyle = color;
-    ctx.fillRect(dx + 37, dy + 5, 2, 2);
-    // Mouth
-    ctx.fillRect(dx + 32, dy + 14, 8, 2);
-    // Arm (small)
-    ctx.fillRect(dx + 26, dy + 22, 6, 4);
-    // Legs
-    if (onGround) {
-      const phase = Math.floor(st.legPhase * 2);
-      if (phase === 0) {
-        ctx.fillRect(dx + 12, dy + 34, 6, 14);
-        ctx.fillRect(dx + 22, dy + 34, 6, 8);
-      } else {
-        ctx.fillRect(dx + 12, dy + 34, 6, 8);
-        ctx.fillRect(dx + 22, dy + 34, 6, 14);
-      }
-    } else {
-      ctx.fillRect(dx + 12, dy + 34, 6, 10);
-      ctx.fillRect(dx + 22, dy + 34, 6, 10);
-    }
+    // Airborne — both legs tucked, feet together
+    ctx.fillRect(dx + 12, dy + 38, 6, 8);
+    ctx.fillRect(dx + 10, dy + 44, 10, 2);
+    ctx.fillRect(dx + 22, dy + 38, 6, 8);
+    ctx.fillRect(dx + 20, dy + 44, 10, 2);
   }
 }
 
