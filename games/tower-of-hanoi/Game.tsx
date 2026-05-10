@@ -240,6 +240,32 @@ export default function TowerOfHanoi() {
     [disks],
   );
 
+  /** Native <select> options inherit OS-level styling and end up
+   *  unreadable on a dark theme (white-on-white in some browsers).
+   *  Custom dropdown closes on outside click and on Escape. */
+  const [diskMenuOpen, setDiskMenuOpen] = useState(false);
+  const diskMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!diskMenuOpen) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (!diskMenuRef.current) return;
+      if (!diskMenuRef.current.contains(e.target as Node)) {
+        setDiskMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDiskMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [diskMenuOpen]);
+
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a14] to-[#0b0d12] p-2 sm:p-3 select-none">
       {/* HUD */}
@@ -277,17 +303,61 @@ export default function TowerOfHanoi() {
           ↻ Reset
         </button>
         <SoundToggle />
-        <select
-          value={disks}
-          onChange={(e) => setDisks(parseInt(e.target.value, 10))}
-          className="px-2 py-1 rounded-lg bg-white/10 text-white text-xs"
-        >
-          {[3, 4, 5, 6, 7].map((n) => (
-            <option key={n} value={n}>
-              {n} disks
-            </option>
-          ))}
-        </select>
+        <div ref={diskMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setDiskMenuOpen((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={diskMenuOpen}
+            className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+          >
+            <span>{disks} disks</span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden
+              className={`w-3 h-3 transition-transform ${diskMenuOpen ? "rotate-180" : ""}`}
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 011.08 1.04l-4.24 4.38a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+          {diskMenuOpen && (
+            <ul
+              role="listbox"
+              aria-label="Disk count"
+              className="absolute right-0 mt-1 z-30 min-w-[120px] rounded-xl bg-[#11141d] border border-white/15 shadow-xl py-1 overflow-hidden"
+            >
+              {[3, 4, 5, 6, 7].map((n) => {
+                const selected = n === disks;
+                return (
+                  <li key={n} role="option" aria-selected={selected}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisks(n);
+                        setDiskMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold inline-flex items-center justify-between gap-3 transition-colors ${
+                        selected
+                          ? "bg-[var(--accent)]/25 text-white"
+                          : "text-white/85 hover:bg-white/10"
+                      }`}
+                    >
+                      <span>{n} disks</span>
+                      <span className="text-[10px] opacity-60">
+                        min {(1 << n) - 1}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* Board */}
