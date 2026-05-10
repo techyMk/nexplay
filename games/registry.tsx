@@ -130,4 +130,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  agma: dynamic(() => import("./agma/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
