@@ -11,11 +11,20 @@ const VIEW_W = 960;
 const VIEW_H = 600;
 const FOOD_COUNT = 220;
 const BOT_COUNT = 8;
-const SEG_SPACING = 6; // distance between consecutive snake segments
 const BASE_SPEED = 130; // px/sec
 const BOOST_SPEED = 220;
 const TURN_RATE = 4.5; // rad/sec — how fast head can rotate
 const PLAYER_HUE_BASE = 270;
+
+/** Body radius scales with length so a long snake reads as chunky. */
+function bodyRadiusFor(length: number): number {
+  return 8 + Math.min(18, Math.sqrt(Math.max(1, length)) * 0.9);
+}
+/** Segment spacing tracks body radius so the body stays a continuous
+ *  tube as the snake fattens. */
+function segSpacingFor(bodyR: number): number {
+  return Math.max(4, bodyR * 0.55);
+}
 
 type Vec = { x: number; y: number };
 type Snake = {
@@ -51,7 +60,7 @@ function makeFood(): Food {
   return {
     x: rng(20, WORLD - 20),
     y: rng(20, WORLD - 20),
-    r: premium ? rng(7, 9) : rng(3.5, 5.5),
+    r: premium ? rng(14, 18) : rng(7, 10),
     hue: premium ? rng(40, 60) : Math.random() * 360,
     premium,
     phase: Math.random() * Math.PI * 2,
@@ -69,10 +78,11 @@ function makeSnake(opts: {
   const dir = opts.startDir ?? Math.random() * Math.PI * 2;
   const segs: Vec[] = [];
   const len = 12;
+  const spacing = segSpacingFor(bodyRadiusFor(len));
   for (let i = 0; i < len; i++) {
     segs.push({
-      x: opts.startX - Math.cos(dir) * SEG_SPACING * i,
-      y: opts.startY - Math.sin(dir) * SEG_SPACING * i,
+      x: opts.startX - Math.cos(dir) * spacing * i,
+      y: opts.startY - Math.sin(dir) * spacing * i,
     });
   }
   return {
@@ -378,17 +388,21 @@ export default function Slither() {
         for (const s of st.snakes) {
           if (!s.alive) continue;
           const h = s.segs[0];
+          // Pickup grows with the snake's head — bigger snake, bigger
+          // mouth — and with the dot's own radius.
+          const headR = bodyRadiusFor(s.segs.length);
           for (let i = st.food.length - 1; i >= 0; i--) {
             const f = st.food[i];
             const dx2 = f.x - h.x;
             const dy2 = f.y - h.y;
-            // Premium food has a bigger pickup radius to match its size.
-            const pickupR = f.premium ? 18 : 14;
+            const pickupR = headR + f.r + 2;
             if (dx2 * dx2 + dy2 * dy2 < pickupR * pickupR) {
               st.food.splice(i, 1);
-              // Grow: premium gives 3 segments, normal gives 1.
+              // Growth per food is meaningful — three segments per
+              // normal pellet, seven per premium — so the snake
+              // visibly stretches as you eat.
               const tail = s.segs[s.segs.length - 1];
-              const grow = f.premium ? 3 : 1;
+              const grow = f.premium ? 7 : 3;
               for (let g = 0; g < grow; g++) s.segs.push({ ...tail });
               if (s.isPlayer) {
                 const pts = f.premium ? 25 : Math.round(f.r * 2 + 1);
@@ -401,19 +415,26 @@ export default function Slither() {
         // Replenish food
         while (st.food.length < FOOD_COUNT) st.food.push(makeFood());
 
-        // --- Head-vs-body collision ---
+        // --- Head-vs-body collision (scaled by both snakes' radii) ---
         for (const a of st.snakes) {
           if (!a.alive) continue;
           const ha = a.segs[0];
+          const aR = bodyRadiusFor(a.segs.length);
           for (const b of st.snakes) {
             if (!b.alive) continue;
-            // Skip own segments near the head (approximate self-collision off)
+            const bR = bodyRadiusFor(b.segs.length);
+            // collision threshold = sum of half-radii (both bodies are
+            // tubes, so their effective collision radius is around their
+            // body radius)
+            const hit = (aR * 0.55 + bR * 0.55);
+            const hitSq = hit * hit;
+            // Skip own segments near the head (self-collision off near the head)
             const skipFront = a === b ? 8 : 0;
             for (let i = skipFront; i < b.segs.length; i++) {
               const seg = b.segs[i];
               const dx3 = seg.x - ha.x;
               const dy3 = seg.y - ha.y;
-              if (dx3 * dx3 + dy3 * dy3 < 8 * 8) {
+              if (dx3 * dx3 + dy3 * dy3 < hitSq) {
                 killSnake(a, st);
                 if (a !== b) b.kills += 1;
                 break;
@@ -584,8 +605,9 @@ export default function Slither() {
       // Snakes
       for (const s of st.snakes) {
         if (!s.alive) continue;
-        // Body
-        const bodyR = 7 + Math.min(7, s.segs.length / 30);
+        // Body radius scales with length (sqrt-based, so growth feels
+        // earned but doesn't run away).
+        const bodyR = bodyRadiusFor(s.segs.length);
         for (let i = s.segs.length - 1; i >= 0; i--) {
           const seg = s.segs[i];
           if (
