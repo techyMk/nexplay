@@ -14,6 +14,17 @@ const COLS = 12;
 const ROW_OFFSET = (W - COLS * RADIUS * 2) / 2;
 const COLORS = ["#ef4444", "#3b82f6", "#facc15", "#16a34a", "#7c5cff", "#ec4899"];
 const SHOOTER_Y = H - 60;
+/** Vertical distance between adjacent rows in the hex grid. */
+const ROW_HEIGHT = RADIUS * 1.85;
+/** A new row is forced down from the top after this many shots that
+ *  failed to clear a cluster — clearing resets the counter. Lower =
+ *  more pressure. 6 felt fair in playtesting: a steady-state player
+ *  who clears every 2-3 shots holds ground; a player who misses is
+ *  pushed toward the bottom. */
+const SHOTS_PER_DROP = 6;
+/** Wall-drop animation length (seconds). Shooting is disabled while
+ *  the descent plays out. */
+const WALL_DROP_DUR = 0.35;
 
 type Bubble = {
   x: number;
@@ -22,6 +33,12 @@ type Bubble = {
   /** Game-time stamp at which this bubble landed in the grid. Used by
    *  drawBubble to apply a brief overshoot-and-settle scale on snap. */
   placedAt?: number;
+  /** Wall-drop animation source coordinates — when set, the bubble
+   *  renders at lerp(from, to, k) for the duration of the drop. */
+  animFromX?: number;
+  animFromY?: number;
+  animToX?: number;
+  animToY?: number;
 };
 type Shot = { x: number; y: number; vx: number; vy: number; color: number };
 type Falling = {
@@ -62,8 +79,10 @@ function makeInitialBoard(rows = 6): (Bubble | null)[][] {
   const grid: (Bubble | null)[][] = [];
   for (let r = 0; r < rows; r++) {
     const row: (Bubble | null)[] = [];
-    const colsThis = r % 2 === 0 ? COLS : COLS - 1;
-    for (let c = 0; c < colsThis; c++) {
+    // Uniform 12 columns per row — odd rows still hex-offset via colX,
+    // but using the same column count means wall drops can shift the
+    // whole grid down without losing edge bubbles.
+    for (let c = 0; c < COLS; c++) {
       row.push({
         x: colX(c, r),
         y: rowY(r),
@@ -73,6 +92,23 @@ function makeInitialBoard(rows = 6): (Bubble | null)[][] {
     grid.push(row);
   }
   return grid;
+}
+
+/** Build a fresh top row for a wall drop. Mostly draws from active
+ *  colours so the new row participates in possible matches; if the
+ *  board is empty (just won), fall back to any of the first five. */
+function makeDropRow(grid: (Bubble | null)[][]): (Bubble | null)[] {
+  const colours = activeColors(grid);
+  const pool = colours.length > 0 ? colours : [0, 1, 2, 3, 4];
+  const row: (Bubble | null)[] = [];
+  for (let c = 0; c < COLS; c++) {
+    row.push({
+      x: colX(c, 0),
+      y: rowY(0),
+      color: pool[Math.floor(Math.random() * pool.length)],
+    });
+  }
+  return row;
 }
 
 function neighbors(r: number, c: number): [number, number][] {
@@ -94,12 +130,56 @@ function pickShotColor(grid: (Bubble | null)[][]): number {
   return active[Math.floor(Math.random() * active.length)];
 }
 
+/** Push the wall down by one row: insert a fresh row at the top and
+ *  set up animation source/target coords on every bubble so the loop
+ *  can lerp them into their new positions over WALL_DROP_DUR. */
+function triggerWallDrop(st: {
+  grid: (Bubble | null)[][];
+  wallDrop: { active: boolean; t: number };
+}) {
+  // Capture each bubble's current coords as the animation start...
+  for (const row of st.grid) {
+    for (const b of row) {
+      if (!b) continue;
+      b.animFromX = b.x;
+      b.animFromY = b.y;
+    }
+  }
+  // ...insert a new row at the top.
+  const newRow = makeDropRow(st.grid);
+  // The new row's bubbles START above the visible area so they slide
+  // in from off-screen, then come to rest at row 0.
+  for (const b of newRow) {
+    if (!b) continue;
+    b.animFromX = b.x;
+    b.animFromY = b.y - ROW_HEIGHT;
+  }
+  st.grid.unshift(newRow);
+
+  // Now compute target coords for every bubble from its new (r, c).
+  // Existing rows have shifted index by 1, which means hex parity
+  // flipped — capture that in the new x.
+  for (let r = 0; r < st.grid.length; r++) {
+    for (let c = 0; c < st.grid[r].length; c++) {
+      const b = st.grid[r][c];
+      if (!b) continue;
+      b.animToX = colX(c, r);
+      b.animToY = rowY(r);
+    }
+  }
+
+  st.wallDrop.active = true;
+  st.wallDrop.t = 0;
+  Sfx.thud();
+}
+
 export default function BubbleShooter() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [over, setOver] = useState(false);
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [shotsUntilDrop, setShotsUntilDrop] = useState(SHOTS_PER_DROP);
   const [, forceTick] = useState(0); // re-render the next/swap pills
   const submitStatus = useSubmitScoreOnGameOver("bubble-shooter", score, over);
   const pausedRef = useRef(false);
@@ -120,6 +200,13 @@ export default function BubbleShooter() {
     /** Running game-time accumulator. Used as the timestamp for
      *  bubble.placedAt and as the seed for marching-ants aim line. */
     gameTime: 0,
+    /** Wall-drop state. While `active`, all bubbles render at lerp
+     *  between their animFrom/animTo coords; `t` accrues time and
+     *  the drop commits + clears at WALL_DROP_DUR. */
+    wallDrop: { active: false, t: 0 } as { active: boolean; t: number },
+    /** Mirror of the React state — read inside fire() to gate firing
+     *  during a drop animation without a re-render dependency. */
+    shotsUntilDrop: SHOTS_PER_DROP,
     mouseX: W / 2,
     mouseY: H - 80,
   });
@@ -137,6 +224,8 @@ export default function BubbleShooter() {
       particles: [],
       scorePopups: [],
       gameTime: 0,
+      wallDrop: { active: false, t: 0 },
+      shotsUntilDrop: SHOTS_PER_DROP,
       mouseX: W / 2,
       mouseY: H - 80,
     };
@@ -144,6 +233,7 @@ export default function BubbleShooter() {
     setOver(false);
     setStarted(false);
     setPaused(false);
+    setShotsUntilDrop(SHOTS_PER_DROP);
     forceTick((n) => n + 1);
   }, []);
 
@@ -162,6 +252,7 @@ export default function BubbleShooter() {
     if (!startedRef.current || pausedRef.current) return;
     const st = stateRef.current;
     if (st.shot) return;
+    if (st.wallDrop.active) return; // wait for the wall to settle
     const speed = 720;
     st.shot = {
       x: W / 2,
@@ -308,6 +399,7 @@ export default function BubbleShooter() {
               if (d < bestD) { bestD = d; bestR = r; bestC = c; }
             }
           }
+          let clusterCleared = false;
           if (bestR >= 0) {
             const placed: Bubble = {
               x: colX(bestC, bestR),
@@ -331,6 +423,7 @@ export default function BubbleShooter() {
               for (const [nr, nc] of neighbors(r, c)) stack.push([nr, nc]);
             }
             if (cluster.length >= 3) {
+              clusterCleared = true;
               const impactX = placed.x;
               const impactY = placed.y;
               for (const [r, c] of cluster) {
@@ -425,6 +518,38 @@ export default function BubbleShooter() {
             const any = st.grid.some((row) => row.some((b) => b));
             if (!any) { setOver(true); Sfx.win(); }
           }
+          // Wall-drop pressure: clearing a cluster resets the
+          // counter; missing decrements it. When it hits zero a new
+          // row pushes in from the top — but only if the round
+          // hasn't already ended (no point dropping after a win/loss).
+          // The grid emptiness check above will already have set
+          // `over=true` for the win path; the lowest-row check for the
+          // loss. Reading st.grid as the source of truth here keeps
+          // us decoupled from the React state's update timing.
+          const stillPlaying = st.grid.some((row) => row.some((b) => b));
+          const wallTooLow =
+            (st.grid.reduce(
+              (acc, row, r) => (row.some((b) => b) ? r : acc),
+              -1,
+            ) ?? -1) >= 0 &&
+            rowY(
+              st.grid.reduce(
+                (acc, row, r) => (row.some((b) => b) ? r : acc),
+                -1,
+              ),
+            ) > H - 120;
+          if (stillPlaying && !wallTooLow) {
+            if (clusterCleared) {
+              st.shotsUntilDrop = SHOTS_PER_DROP;
+            } else {
+              st.shotsUntilDrop -= 1;
+              if (st.shotsUntilDrop <= 0) {
+                triggerWallDrop(st);
+                st.shotsUntilDrop = SHOTS_PER_DROP;
+              }
+            }
+            setShotsUntilDrop(st.shotsUntilDrop);
+          }
           st.shot = null;
           forceTick((n) => n + 1);
         }
@@ -433,6 +558,45 @@ export default function BubbleShooter() {
       // Animations only advance while live
       if (live) {
         st.gameTime += dt;
+        // Wall-drop animation: lerp every bubble's (x, y) from its
+        // animFrom* to animTo*, then commit and check whether the
+        // descent has pushed bubbles past the danger line.
+        if (st.wallDrop.active) {
+          st.wallDrop.t += dt;
+          const k = Math.min(1, st.wallDrop.t / WALL_DROP_DUR);
+          for (const row of st.grid) {
+            for (const b of row) {
+              if (!b || b.animFromX == null || b.animToX == null) continue;
+              b.x = b.animFromX + (b.animToX - b.animFromX) * k;
+              b.y = b.animFromY! + (b.animToY! - b.animFromY!) * k;
+            }
+          }
+          if (k >= 1) {
+            // Commit: snap to target coords and clear the anim fields.
+            for (const row of st.grid) {
+              for (const b of row) {
+                if (!b) continue;
+                if (b.animToX != null) b.x = b.animToX;
+                if (b.animToY != null) b.y = b.animToY;
+                delete b.animFromX;
+                delete b.animFromY;
+                delete b.animToX;
+                delete b.animToY;
+              }
+            }
+            st.wallDrop.active = false;
+            // Game-over check after the drop settles — if the wall
+            // has descended past the danger line, the round ends.
+            const lowest = st.grid.reduce(
+              (acc, row, r) => (row.some((b) => b) ? r : acc),
+              -1,
+            );
+            if (lowest >= 0 && rowY(lowest) > H - 120) {
+              setOver(true);
+              Sfx.gameOver();
+            }
+          }
+        }
         const gravity = 1100;
         for (const f of st.falling) {
           f.vy += gravity * dt;
@@ -470,6 +634,22 @@ export default function BubbleShooter() {
       // Ceiling marker
       ctx.fillStyle = "rgba(255,255,255,0.04)";
       ctx.fillRect(0, 0, W, 2);
+
+      // Danger line — bubbles below this point lose the round.
+      // Pulses gently so the player notices what's at stake. Goes
+      // bright red when the wall is about to drop on the next miss.
+      const dangerY = H - 120;
+      const urgency = Math.max(0, 1 - st.shotsUntilDrop / SHOTS_PER_DROP);
+      const pulse = 0.5 + 0.5 * Math.sin(st.gameTime * 4);
+      const dangerAlpha = 0.22 + urgency * 0.55 * pulse;
+      ctx.strokeStyle = `rgba(239, 68, 68, ${dangerAlpha.toFixed(3)})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.moveTo(0, dangerY);
+      ctx.lineTo(W, dangerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
       // Aim guide line — marching-ants effect by sliding the dash
       // offset over time, so the trajectory reads as flowing toward
@@ -586,11 +766,6 @@ export default function BubbleShooter() {
         drawBubble(ctx, st.shot.x, st.shot.y, RADIUS, st.shot.color);
       }
 
-      // HUD
-      ctx.fillStyle = "white";
-      ctx.font = "bold 22px system-ui";
-      ctx.fillText(`${score}`, 16, 32);
-
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -601,14 +776,33 @@ export default function BubbleShooter() {
       canvas.removeEventListener("click", onClick);
       window.removeEventListener("keydown", onKey);
     };
-  }, [over, score, fire, swapNext]);
+  }, [over, fire, swapNext, togglePause]);
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-2 sm:p-3">
-      <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2">
+      <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2 flex-wrap">
         <SoundToggle />
+        <span className="px-2 py-0.5 rounded-md bg-white/10 inline-flex items-center gap-1.5">
+          <span className="opacity-60">SCORE</span>
+          <b>{score}</b>
+        </span>
+        <span
+          className={`px-2 py-0.5 rounded-md inline-flex items-center gap-1.5 transition-colors ${
+            shotsUntilDrop <= 1
+              ? "bg-rose-500/30 border border-rose-400/60 text-rose-100"
+              : shotsUntilDrop <= 3
+                ? "bg-amber-500/20 border border-amber-400/50 text-amber-100"
+                : "bg-white/10"
+          }`}
+          title="Shots until the wall drops"
+        >
+          <span className="opacity-60">DROP IN</span>
+          <b>{shotsUntilDrop}</b>
+        </span>
         <span className="opacity-80">
-          Aim · Click or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to shoot · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> swap · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
+          <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> shoot ·{" "}
+          <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> swap ·{" "}
+          <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
         </span>
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
