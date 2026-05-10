@@ -81,7 +81,7 @@ export function AdminUnlockCard({ alreadyUnlocked }: { alreadyUnlocked: boolean 
         variant: "success",
         emoji: "✉️",
         title: "Code sent",
-        description: "Check your admin inbox for a 6-digit code.",
+        description: "Check your admin inbox for the numeric code.",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send code");
@@ -94,7 +94,7 @@ export function AdminUnlockCard({ alreadyUnlocked }: { alreadyUnlocked: boolean 
       icon: "lucide:shield-check",
       title: "Unlock admin panel?",
       message:
-        "We'll email a 6-digit code to the admin address. Enter it on the next screen to unlock — your session alone isn't enough.",
+        "We'll email a one-time code to the admin address. Enter it on the next screen to unlock — your session alone isn't enough.",
       confirmText: "Send code",
     });
     if (!ok) return;
@@ -103,8 +103,8 @@ export function AdminUnlockCard({ alreadyUnlocked }: { alreadyUnlocked: boolean 
 
   const verify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^\d{6}$/.test(code.trim())) {
-      setError("The code is 6 digits.");
+    if (!/^\d{6,10}$/.test(code.trim())) {
+      setError("Enter the full numeric code from the email.");
       return;
     }
     setPhase("verifying");
@@ -170,25 +170,26 @@ export function AdminUnlockCard({ alreadyUnlocked }: { alreadyUnlocked: boolean 
         <form onSubmit={verify} className="space-y-3">
           <div>
             <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-1 font-bold">
-              Enter the 6-digit code
+              Enter the code from the email
             </div>
             <p className="text-xs text-[var(--muted)] mb-2">
-              We just emailed a code to the admin inbox. Codes expire in a few
-              minutes.
+              We just emailed a numeric code to the admin inbox. Length depends
+              on your Supabase OTP setting (typically 6–8 digits). Codes expire
+              in a few minutes.
             </p>
             <input
               ref={codeInputRef}
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              pattern="\d{6}"
-              maxLength={6}
+              pattern="\d{6,10}"
+              maxLength={10}
               value={code}
               onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                setCode(e.target.value.replace(/\D/g, "").slice(0, 10))
               }
               spellCheck={false}
-              className="w-full max-w-[14rem] h-12 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-2xl font-mono tracking-[0.4em] text-center transition-colors"
+              className="w-full max-w-[18rem] h-12 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-2xl font-mono tracking-[0.3em] text-center transition-colors"
               placeholder="••••••"
               disabled={phase === "verifying"}
             />
@@ -201,7 +202,7 @@ export function AdminUnlockCard({ alreadyUnlocked }: { alreadyUnlocked: boolean 
           <div className="flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={phase === "verifying" || !/^\d{6}$/.test(code.trim())}
+              disabled={phase === "verifying" || !/^\d{6,10}$/.test(code.trim())}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-sm font-bold disabled:opacity-50 hover:scale-105 transition-transform"
             >
               {phase === "verifying" ? "Verifying…" : "Unlock"}
