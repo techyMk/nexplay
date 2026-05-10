@@ -39,12 +39,23 @@ import { Sfx } from "@/lib/sound";
 
 const MAP_HALF = 28;
 const PLAYER_HEIGHT = 1.8;
+const PLAYER_HEIGHT_CROUCH = 1.2;
 const PLAYER_RADIUS = 0.4;
 const PLAYER_SPEED = 6.5;
 const SPRINT_MULT = 1.45;
-const JUMP_VEL = 7.2;
+const CROUCH_MULT = 0.55;
+const ADS_MULT = 0.55;
+const JUMP_VEL = 7.4;
 const GRAVITY = 22;
+/** When the player jumps the same frame they land, preserve a chunk of
+ *  their horizontal velocity. With the air-friction tuning this gives
+ *  bunny-hop chains a small but addictive speed kick. */
+const BHOP_PRESERVE = 0.85;
 const MOUSE_SENS = 0.0022;
+const BASE_FOV = 78;
+const SPRINT_FOV = 86;
+const ADS_FOV = 55;
+const SCOPE_FOV = 22;
 
 const PLAYER_MAX_HP = 100;
 const RESPAWN_DELAY = 1.5;
@@ -59,40 +70,82 @@ const BOT_VISION = 28;
 const BOT_FIRE_DELAY = 0.7; // seconds between shots
 const BOT_DAMAGE = 8;
 
-type WeaponKind = "pistol" | "rifle";
+/** Y threshold above which a hit counts as a headshot. Bots are 1.7m
+ *  tall with their feet at y=0; the head zone is the top 30% (y >= 1.19). */
+const HEADSHOT_Y = BOT_HEIGHT * 0.7;
+const HEADSHOT_MULT = 2;
+
+type WeaponKind = "pistol" | "rifle" | "sniper";
 type WeaponSpec = {
   name: string;
   kind: WeaponKind;
   damage: number;
   fireDelay: number; // seconds between shots
-  spread: number; // radians of cone
+  hipSpread: number; // radians of cone when hip-firing
+  adsSpread: number; // radians of cone when aiming down sights
+  /** Recoil kick applied to camera pitch on each shot, in radians. */
+  recoil: number;
+  /** Random horizontal kick applied per shot. */
+  recoilSide: number;
   magSize: number;
   reloadMs: number;
   auto: boolean;
+  /** Sniper has an actual scope overlay. The other guns just narrow
+   *  FOV when ADS-ing for a soft zoom. */
+  hasScope: boolean;
+  /** Used by the per-weapon sound dispatch. */
+  soundKind: "click-snap" | "rifle-rip" | "sniper-boom";
 };
 
 const WEAPONS: Record<WeaponKind, WeaponSpec> = {
   pistol: {
     name: "Pistol",
     kind: "pistol",
-    damage: 32,
-    fireDelay: 0.28,
-    spread: 0.005,
+    damage: 28,
+    fireDelay: 0.24,
+    hipSpread: 0.012,
+    adsSpread: 0.003,
+    recoil: 0.025,
+    recoilSide: 0.012,
     magSize: 12,
-    reloadMs: 1100,
+    reloadMs: 1000,
     auto: false,
+    hasScope: false,
+    soundKind: "click-snap",
   },
   rifle: {
     name: "Rifle",
     kind: "rifle",
-    damage: 18,
-    fireDelay: 0.09,
-    spread: 0.022,
+    damage: 16,
+    fireDelay: 0.08,
+    hipSpread: 0.034,
+    adsSpread: 0.012,
+    recoil: 0.022,
+    recoilSide: 0.014,
     magSize: 30,
-    reloadMs: 1700,
+    reloadMs: 1600,
     auto: true,
+    hasScope: false,
+    soundKind: "rifle-rip",
+  },
+  sniper: {
+    name: "Sniper",
+    kind: "sniper",
+    damage: 90,
+    fireDelay: 1.05,
+    hipSpread: 0.18, // unusable from the hip — has to be scoped
+    adsSpread: 0.001,
+    recoil: 0.12,
+    recoilSide: 0.02,
+    magSize: 5,
+    reloadMs: 2200,
+    auto: false,
+    hasScope: true,
+    soundKind: "sniper-boom",
   },
 };
+
+const WEAPON_ORDER: WeaponKind[] = ["pistol", "rifle", "sniper"];
 
 // ---------------------------------------------------------------------------
 // AABB helpers — we use simple box colliders for everything, which keeps the
@@ -231,10 +284,30 @@ type Player = {
   alive: boolean;
   respawnIn: number;
   weapon: WeaponKind;
-  ammo: { pistol: number; rifle: number };
+  ammo: { pistol: number; rifle: number; sniper: number };
   reloadingUntil: number;
   lastShotTime: number;
   onGround: boolean;
+  crouching: boolean;
+  /** Last frame's onGround flag — when transitioning from false → true,
+   *  if the player is holding jump we bunny-hop and preserve momentum. */
+  wasOnGround: boolean;
+  /** Aim-down-sights flag, toggled by the right mouse button. */
+  ads: boolean;
+  /** Current zoomed FOV in degrees, eased toward target each frame. */
+  fov: number;
+  /** Accumulated recoil applied to pitch — added to look angle when
+   *  rendering, then decays back to zero between shots. */
+  recoilPitch: number;
+  recoilYaw: number;
+  /** Dynamic spread bonus that grows with sustained fire and decays
+   *  back toward zero. Added to the weapon's base spread per shot. */
+  bloom: number;
+  /** Headbob phase — advances while moving on ground; 0 while still. */
+  bobPhase: number;
+  /** Weapon-swap animation timestamp. While > now, the held weapon
+   *  slides off-screen and the new one slides on. */
+  swapUntil: number;
 };
 
 type Bot = {
@@ -257,7 +330,23 @@ type Bot = {
 type Tracer = {
   from: THREE.Vector3;
   to: THREE.Vector3;
-  born: number; // timestamp seconds
+  born: number; // timestamp ms
+};
+
+/** Floating world-space damage number — drifts up and fades. */
+type DamageNumber = {
+  pos: THREE.Vector3;
+  amount: number;
+  headshot: boolean;
+  born: number; // ms
+};
+
+/** Killfeed entry shown briefly in the HUD. */
+type KillfeedEntry = {
+  id: number;
+  text: string;
+  headshot: boolean;
+  born: number; // ms
 };
 
 function spawnPosition(): THREE.Vector3 {
@@ -302,7 +391,7 @@ export default function Krunker() {
     hp: PLAYER_MAX_HP,
     ammoCur: WEAPONS.pistol.magSize,
     ammoMax: WEAPONS.pistol.magSize,
-    weapon: "Pistol" as string,
+    weapon: "pistol" as WeaponKind,
     reloading: false,
     reloadProgress: 0,
     kills: 0,
@@ -310,7 +399,20 @@ export default function Krunker() {
     timeLeft: ROUND_DURATION,
     score: 0,
     botsAlive: BOT_COUNT,
+    /** Spread radius in pixels for the dynamic crosshair — grows as
+     *  the player fires sustained or moves at speed. */
+    crosshairSpread: 0,
+    /** True when scoped through the sniper's full overlay. */
+    scoped: false,
+    /** True when ADS-ing (any weapon). */
+    ads: false,
   });
+  const [killfeed, setKillfeed] = useState<KillfeedEntry[]>([]);
+  /** Damage numbers projected to screen space each frame and rendered
+   *  via a separate React state so they participate in normal compose. */
+  const [damageOverlay, setDamageOverlay] = useState<
+    { id: number; x: number; y: number; alpha: number; amount: number; headshot: boolean }[]
+  >([]);
 
   const submitStatus = useSubmitScoreOnGameOver(
     "krunker",
@@ -332,8 +434,11 @@ export default function Krunker() {
     player: Player;
     bots: Bot[];
     tracers: Tracer[];
+    damageNumbers: DamageNumber[];
     keys: Set<string>;
     mouseDown: boolean;
+    ads: boolean;
+    jumpHeld: boolean;
     elapsed: number; // seconds
     timeLeft: number;
     kills: number;
@@ -345,6 +450,8 @@ export default function Krunker() {
     /** Muzzle flash light — flashes for ~60ms on each shot. */
     muzzleLight: THREE.PointLight | null;
     muzzleUntil: number;
+    killfeedSeq: number;
+    damageNumberSeq: number;
   }>({
     scene: new THREE.Scene(),
     camera: new THREE.PerspectiveCamera(75, 1, 0.1, 200),
@@ -361,15 +468,34 @@ export default function Krunker() {
       alive: true,
       respawnIn: 0,
       weapon: "pistol",
-      ammo: { pistol: WEAPONS.pistol.magSize, rifle: WEAPONS.rifle.magSize },
+      ammo: {
+        pistol: WEAPONS.pistol.magSize,
+        rifle: WEAPONS.rifle.magSize,
+        sniper: WEAPONS.sniper.magSize,
+      },
       reloadingUntil: 0,
       lastShotTime: 0,
       onGround: false,
+      crouching: false,
+      wasOnGround: false,
+      ads: false,
+      fov: BASE_FOV,
+      recoilPitch: 0,
+      recoilYaw: 0,
+      bloom: 0,
+      bobPhase: 0,
+      swapUntil: 0,
     },
     bots: [],
     tracers: [],
+    damageNumbers: [] as DamageNumber[],
     keys: new Set(),
     mouseDown: false,
+    /** Holds whether the player is requesting ADS this frame. Tied to
+     *  right mouse button. */
+    ads: false,
+    /** Whether jump is being held — used for bunny-hopping. */
+    jumpHeld: false,
     elapsed: 0,
     timeLeft: ROUND_DURATION,
     kills: 0,
@@ -378,6 +504,8 @@ export default function Krunker() {
     weaponMesh: null,
     muzzleLight: null,
     muzzleUntil: 0,
+    killfeedSeq: 0,
+    damageNumberSeq: 0,
   });
 
   // -------------------------------------------------------------------------
@@ -398,10 +526,26 @@ export default function Krunker() {
     st.player.ammo = {
       pistol: WEAPONS.pistol.magSize,
       rifle: WEAPONS.rifle.magSize,
+      sniper: WEAPONS.sniper.magSize,
     };
     st.player.reloadingUntil = 0;
     st.player.lastShotTime = 0;
     st.player.onGround = false;
+    st.player.crouching = false;
+    st.player.wasOnGround = false;
+    st.player.ads = false;
+    st.player.fov = BASE_FOV;
+    st.player.recoilPitch = 0;
+    st.player.recoilYaw = 0;
+    st.player.bloom = 0;
+    st.player.bobPhase = 0;
+    st.player.swapUntil = 0;
+    st.tracers = [];
+    st.damageNumbers = [];
+    st.ads = false;
+    st.jumpHeld = false;
+    setKillfeed([]);
+    setDamageOverlay([]);
 
     st.bots = [];
     for (let i = 0; i < BOT_COUNT; i++) {
@@ -432,7 +576,7 @@ export default function Krunker() {
       hp: PLAYER_MAX_HP,
       ammoCur: WEAPONS.pistol.magSize,
       ammoMax: WEAPONS.pistol.magSize,
-      weapon: "Pistol",
+      weapon: "pistol",
       reloading: false,
       reloadProgress: 0,
       kills: 0,
@@ -440,6 +584,9 @@ export default function Krunker() {
       timeLeft: ROUND_DURATION,
       score: 0,
       botsAlive: BOT_COUNT,
+      crosshairSpread: 0,
+      scoped: false,
+      ads: false,
     }));
     setOver(false);
     setPaused(false);
@@ -497,12 +644,15 @@ export default function Krunker() {
       st.keys.add(k);
       if (k === "1") setWeapon("pistol");
       else if (k === "2") setWeapon("rifle");
+      else if (k === "3") setWeapon("sniper");
       else if (k === "r") tryReload();
+      else if (k === "c") st.player.crouching = true;
       else if (k === "p" || k === "escape") {
         // Escape unlocks pointer naturally; treat as pause.
         if (started && !over) setPaused(true);
       } else if (k === " ") {
         e.preventDefault();
+        st.jumpHeld = true;
         if (st.player.onGround && st.player.alive) {
           st.player.vel.y = JUMP_VEL;
           st.player.onGround = false;
@@ -511,24 +661,54 @@ export default function Krunker() {
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      st.keys.delete(e.key.toLowerCase());
+      const k = e.key.toLowerCase();
+      st.keys.delete(k);
+      if (k === "c") st.player.crouching = false;
+      if (k === " ") st.jumpHeld = false;
     };
     const onMouseDown = (e: MouseEvent) => {
       if (!pointerLocked) return;
       if (e.button === 0) st.mouseDown = true;
+      else if (e.button === 2) {
+        // Right click → ADS. We toggle on hold rather than press, so
+        // releasing the button drops back to hipfire instantly.
+        st.ads = true;
+        e.preventDefault();
+      }
     };
     const onMouseUp = (e: MouseEvent) => {
       if (e.button === 0) st.mouseDown = false;
+      else if (e.button === 2) st.ads = false;
+    };
+    const onContextMenu = (e: MouseEvent) => {
+      // The browser right-click menu would steal pointer-lock focus.
+      e.preventDefault();
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (!pointerLocked || !st.player.alive) return;
+      // Negative deltaY = scroll up = previous weapon, positive = next.
+      const cur = WEAPON_ORDER.indexOf(st.player.weapon);
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const next =
+        WEAPON_ORDER[
+          (cur + dir + WEAPON_ORDER.length) % WEAPON_ORDER.length
+        ];
+      setWeapon(next);
+      e.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("wheel", onWheel);
     };
     // pointerLocked is read inside; we want a stable handler that consults
     // the latest value via closure — but since the handler depends on it,
@@ -539,19 +719,21 @@ export default function Krunker() {
   const setWeapon = (kind: WeaponKind) => {
     const st = stateRef.current;
     if (!st.player.alive) return;
+    if (st.player.weapon === kind) return;
     if (st.player.reloadingUntil > performance.now()) return;
     st.player.weapon = kind;
-    if (st.weaponMesh) {
-      st.weaponMesh.children.forEach((m) => {
-        m.visible = (m as THREE.Object3D & { userData: { weapon?: string } })
-          .userData.weapon === kind;
-      });
-    }
+    // Trigger the swap animation — the loop sweeps the held weapon
+    // off-screen and the new one back on for the duration of swapUntil.
+    st.player.swapUntil = performance.now() + 240;
+    // Drop ADS while swapping so the camera doesn't visibly zoom mid-swap.
+    st.ads = false;
     setHud((h) => ({
       ...h,
-      weapon: WEAPONS[kind].name,
+      weapon: kind,
       ammoMax: WEAPONS[kind].magSize,
       ammoCur: st.player.ammo[kind],
+      ads: false,
+      scoped: false,
     }));
     Sfx.click();
   };
@@ -640,24 +822,46 @@ export default function Krunker() {
       (bot as Bot & { mesh?: THREE.Mesh }).mesh = body;
     }
 
-    // First-person weapon model — two children, one per weapon kind, with
-    // visibility toggled in setWeapon.
+    // First-person weapon models — one mesh per weapon kind. Their
+    // local positions are kept in userData.basePos so the loop can
+    // animate them (swap slide, ADS shift, head-bob) without losing
+    // the rest position.
     const wgroup = new THREE.Group();
-    const pistol = new THREE.Mesh(
+    const addWeaponMesh = (
+      kind: WeaponKind,
+      geom: THREE.BufferGeometry,
+      color: number,
+      basePos: [number, number, number],
+    ) => {
+      const m = new THREE.Mesh(
+        geom,
+        new THREE.MeshLambertMaterial({ color }),
+      );
+      m.position.set(basePos[0], basePos[1], basePos[2]);
+      m.userData.weapon = kind;
+      m.userData.basePos = new THREE.Vector3(...basePos);
+      m.visible = kind === "pistol";
+      wgroup.add(m);
+      return m;
+    };
+    addWeaponMesh(
+      "pistol",
       new THREE.BoxGeometry(0.18, 0.2, 0.45),
-      new THREE.MeshLambertMaterial({ color: 0x222831 }),
+      0x222831,
+      [0.32, -0.32, -0.6],
     );
-    pistol.position.set(0.32, -0.32, -0.6);
-    pistol.userData.weapon = "pistol";
-    wgroup.add(pistol);
-    const rifle = new THREE.Mesh(
+    addWeaponMesh(
+      "rifle",
       new THREE.BoxGeometry(0.16, 0.18, 0.85),
-      new THREE.MeshLambertMaterial({ color: 0x444b5a }),
+      0x444b5a,
+      [0.32, -0.32, -0.8],
     );
-    rifle.position.set(0.32, -0.32, -0.8);
-    rifle.userData.weapon = "rifle";
-    rifle.visible = false;
-    wgroup.add(rifle);
+    addWeaponMesh(
+      "sniper",
+      new THREE.BoxGeometry(0.13, 0.16, 1.25),
+      0x1b1f2a,
+      [0.34, -0.3, -1.0],
+    );
     st.camera.add(wgroup);
     st.weaponMesh = wgroup;
 
@@ -681,6 +885,10 @@ export default function Krunker() {
     // -------------------------------------------------------------------------
     let raf = 0;
     let last = performance.now();
+    /** Tracks whether the overlay was last reported as non-empty, so
+     *  we can issue exactly one clearing setState when damage numbers
+     *  expire (rather than reading a closure-stale damageOverlay). */
+    let lastOverlayHadItems = false;
     const tick = (now: number) => {
       const dtMs = now - last;
       last = now;
@@ -713,6 +921,7 @@ export default function Krunker() {
             st.player.ammo = {
               pistol: WEAPONS.pistol.magSize,
               rifle: WEAPONS.rifle.magSize,
+              sniper: WEAPONS.sniper.magSize,
             };
             st.player.reloadingUntil = 0;
             setHud((h) => ({
@@ -739,21 +948,78 @@ export default function Krunker() {
           const sn = Math.sin(st.player.yaw);
           const wx = wishDir.x * cs - wishDir.z * sn;
           const wz = wishDir.x * sn + wishDir.z * cs;
-          const sprint = st.keys.has("shift") ? SPRINT_MULT : 1;
+          const sprintReq = st.keys.has("shift");
+          const sprintAllowed = sprintReq && !st.ads && !st.player.crouching;
+          const adsScale = st.ads ? ADS_MULT : 1;
+          const crouchScale = st.player.crouching ? CROUCH_MULT : 1;
+          const speedMult = (sprintAllowed ? SPRINT_MULT : 1) * adsScale * crouchScale;
           const target = new THREE.Vector3(
-            wx * PLAYER_SPEED * sprint,
+            wx * PLAYER_SPEED * speedMult,
             0,
-            wz * PLAYER_SPEED * sprint,
+            wz * PLAYER_SPEED * speedMult,
           );
           // Snappy ground accel; in-air retain horizontal velocity.
-          const blend = st.player.onGround ? 1 - Math.exp(-dt * 14) : 1 - Math.exp(-dt * 3);
+          const blend =
+            st.player.onGround ? 1 - Math.exp(-dt * 14) : 1 - Math.exp(-dt * 3);
           st.player.vel.x += (target.x - st.player.vel.x) * blend;
           st.player.vel.z += (target.z - st.player.vel.z) * blend;
           st.player.vel.y -= GRAVITY * dt;
 
           // Step + collide on each axis.
           movePlayer(st.player, st.walls, dt);
+
+          // Bunny-hop: if jump is still held the moment we touch
+          // ground, bounce again immediately and preserve a fraction
+          // of horizontal momentum. Without this the air-friction
+          // would kill speed every time the player landed.
+          if (st.player.onGround && !st.player.wasOnGround && st.jumpHeld) {
+            st.player.vel.x *= BHOP_PRESERVE;
+            st.player.vel.z *= BHOP_PRESERVE;
+            st.player.vel.y = JUMP_VEL;
+            st.player.onGround = false;
+            Sfx.jump();
+          }
+          st.player.wasOnGround = st.player.onGround;
+
+          // Head-bob phase: advance only when actually moving on the
+          // ground, decay the visible amplitude when in the air or
+          // standing still. The amplitude itself is applied at draw
+          // time so it doesn't disturb collision math.
+          const horizSpeed = Math.hypot(st.player.vel.x, st.player.vel.z);
+          if (st.player.onGround && horizSpeed > 1.5) {
+            st.player.bobPhase += dt * (sprintAllowed ? 12 : 8.5);
+          }
         }
+
+        // ----- FOV easing toward target (sprint / ADS / scope) -----
+        if (st.player.alive) {
+          const w = WEAPONS[st.player.weapon];
+          let targetFov = BASE_FOV;
+          if (st.ads) {
+            targetFov = w.hasScope ? SCOPE_FOV : ADS_FOV;
+          } else if (
+            st.keys.has("shift") &&
+            !st.player.crouching &&
+            (Math.abs(st.player.vel.x) + Math.abs(st.player.vel.z)) > 1
+          ) {
+            targetFov = SPRINT_FOV;
+          }
+          // Scope snaps faster than ADS so it feels like a hard zoom.
+          const fovBlend =
+            1 - Math.exp(-dt * (w.hasScope && st.ads ? 22 : 14));
+          st.player.fov += (targetFov - st.player.fov) * fovBlend;
+          if (Math.abs(st.player.fov - st.camera.fov) > 0.01) {
+            st.camera.fov = st.player.fov;
+            st.camera.updateProjectionMatrix();
+          }
+        }
+
+        // ----- Recoil + bloom decay -----
+        // Pitch recoil walks the camera up after each shot, then drifts
+        // back down. Yaw recoil is symmetric per-shot random kick.
+        st.player.recoilPitch *= Math.exp(-dt * 8);
+        st.player.recoilYaw *= Math.exp(-dt * 9);
+        st.player.bloom = Math.max(0, st.player.bloom - dt * 1.6);
 
         // ----- Player shooting -----
         if (st.player.alive) {
@@ -785,7 +1051,9 @@ export default function Krunker() {
             if (st.player.ammo[st.player.weapon] <= 0) {
               tryReload();
             } else {
-              firePlayer(st, now);
+              firePlayer(st, now, (entry) =>
+                setKillfeed((kf) => [entry, ...kf].slice(0, 5)),
+              );
               if (!w.auto) st.mouseDown = false; // semi-auto: require re-click
             }
           }
@@ -824,27 +1092,140 @@ export default function Krunker() {
         // ----- Tracer cleanup -----
         st.tracers = st.tracers.filter((t) => now - t.born < 80);
 
+        // ----- Damage numbers: age + project to screen for the React
+        //       overlay to render. Drift each one upward in world space
+        //       so they read as floating away from the impact point.
+        for (const d of st.damageNumbers) d.pos.y += dt * 0.6;
+        st.damageNumbers = st.damageNumbers.filter((d) => now - d.born < 800);
+        if (st.damageNumbers.length > 0) {
+          const overlay: typeof damageOverlay = [];
+          const tmp = new THREE.Vector3();
+          const halfW =
+            (mountEl.getBoundingClientRect().width || 1) / 2;
+          const halfH =
+            (mountEl.getBoundingClientRect().height || 1) / 2;
+          for (const d of st.damageNumbers) {
+            tmp.copy(d.pos).project(st.camera);
+            // Behind the camera → skip.
+            if (tmp.z > 1) continue;
+            const sx = tmp.x * halfW + halfW;
+            const sy = -tmp.y * halfH + halfH;
+            const k = (now - d.born) / 800;
+            overlay.push({
+              id: d.born,
+              x: sx,
+              y: sy,
+              alpha: Math.max(0, 1 - k),
+              amount: d.amount,
+              headshot: d.headshot,
+            });
+          }
+          setDamageOverlay(overlay);
+          lastOverlayHadItems = overlay.length > 0;
+        } else if (lastOverlayHadItems) {
+          setDamageOverlay([]);
+          lastOverlayHadItems = false;
+        }
+
+        // ----- Killfeed prune (5s lifetime) -----
+        // Use a functional updater so we read live state instead of the
+        // closure-stale killfeed; short-circuit when no entries expired
+        // so we don't trigger needless re-renders.
+        setKillfeed((kf) => {
+          const next = kf.filter((k) => now - k.born < 5000);
+          return next.length === kf.length ? kf : next;
+        });
+
         // ----- HUD push (low-frequency for scalar values) -----
+        const w = WEAPONS[st.player.weapon];
+        // Crosshair spread visualisation: combines weapon hipspread,
+        // dynamic bloom from sustained fire, and motion penalty so the
+        // reticle visibly opens up while running. Tightens dramatically
+        // when ADS-ing; ADS or scope hides the regular crosshair.
+        const motionPenalty =
+          Math.min(1, Math.hypot(st.player.vel.x, st.player.vel.z) / 8) *
+          0.018;
+        const crosshairRadians =
+          (st.ads ? w.adsSpread : w.hipSpread) +
+          st.player.bloom * 0.5 +
+          motionPenalty;
+        // Project the spread cone half-angle into screen-space pixels.
+        const halfH =
+          (mountEl.getBoundingClientRect().height || 1) / 2;
+        const focal = halfH / Math.tan((st.player.fov * Math.PI) / 360);
+        const crosshairSpread = Math.tan(crosshairRadians) * focal;
         setHudIfChanged({
           hp: Math.max(0, Math.round(st.player.hp)),
           ammoCur: st.player.ammo[st.player.weapon],
-          ammoMax: WEAPONS[st.player.weapon].magSize,
-          weapon: WEAPONS[st.player.weapon].name,
+          ammoMax: w.magSize,
+          weapon: st.player.weapon,
           kills: st.kills,
           deaths: st.deaths,
           score: st.score,
           timeLeft: Math.ceil(st.timeLeft),
           botsAlive: st.bots.filter((b) => b.alive).length,
+          crosshairSpread,
+          scoped: st.ads && w.hasScope,
+          ads: st.ads,
         });
       }
 
       // ----- Draw call (every frame, even paused, so the scene isn't black) -----
-      // Sync camera to player.
-      st.camera.position.copy(st.player.pos);
-      st.camera.position.y = st.player.pos.y; // pos.y is eye height
+      // Sync camera to player. Eye height drops when crouching and bobs
+      // gently while running. Recoil offsets the apparent look angle so
+      // shots walk up the screen even though st.player.pitch itself is
+      // exactly where the player aimed.
+      const eyeBase = st.player.crouching
+        ? st.player.pos.y - (PLAYER_HEIGHT - PLAYER_HEIGHT_CROUCH)
+        : st.player.pos.y;
+      const horizSpeedNow = Math.hypot(st.player.vel.x, st.player.vel.z);
+      const bobAmp = st.player.onGround
+        ? Math.min(0.06, horizSpeedNow * 0.012)
+        : 0;
+      const bobY = Math.sin(st.player.bobPhase * 2) * bobAmp;
+      const bobX = Math.cos(st.player.bobPhase) * bobAmp * 0.6;
+      st.camera.position.set(
+        st.player.pos.x,
+        eyeBase + bobY,
+        st.player.pos.z,
+      );
       st.camera.rotation.order = "YXZ";
-      st.camera.rotation.y = st.player.yaw;
-      st.camera.rotation.x = st.player.pitch;
+      st.camera.rotation.y = st.player.yaw + st.player.recoilYaw;
+      st.camera.rotation.x = st.player.pitch + st.player.recoilPitch;
+      // Tiny roll while strafing for some kinetic life — kept small so
+      // it doesn't disturb aim.
+      st.camera.rotation.z = bobX * 0.6;
+
+      // Weapon mesh: visibility for the active weapon + swap-slide
+      // animation. While swapping, the held weapon dives off-screen
+      // and the new weapon rises from below. While ADS-ing the active
+      // mesh tucks toward the centre of view and slightly forward.
+      if (st.weaponMesh) {
+        const swapLeft = Math.max(0, st.player.swapUntil - now);
+        const swapK = swapLeft / 240; // 1 → fully off, 0 → at rest
+        for (const m of st.weaponMesh.children) {
+          const mesh = m as THREE.Mesh & {
+            userData: { weapon?: WeaponKind; basePos?: THREE.Vector3 };
+          };
+          const wk = mesh.userData.weapon;
+          if (!wk) continue;
+          mesh.visible = wk === st.player.weapon;
+          if (!mesh.visible || !mesh.userData.basePos) continue;
+          const base = mesh.userData.basePos;
+          // ADS: slide toward 0 X (centre) and a hair forward.
+          const adsK = st.ads ? 1 : 0;
+          const adsX = base.x * (1 - adsK * 0.85);
+          const adsY =
+            base.y +
+            (WEAPONS[wk].hasScope ? 0.07 : 0.04) * adsK; // raise into the eye line
+          const adsZ = base.z + 0.08 * adsK;
+          // Swap dip on top of pose.
+          const dipY = -0.35 * swapK;
+          // Vertical bob on the gun mirrors the camera bob, but smaller.
+          const gunBob = bobY * 0.35;
+          mesh.position.set(adsX, adsY + dipY + gunBob, adsZ);
+        }
+      }
 
       // Sync bot meshes
       for (const bot of st.bots) {
@@ -939,16 +1320,46 @@ export default function Krunker() {
         {/* HUD overlay — drawn over the WebGL canvas via absolute positioning */}
         {started && !over && (
           <>
-            {/* Crosshair */}
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="relative w-6 h-6">
-                <div className="absolute left-1/2 top-0 -translate-x-1/2 w-0.5 h-2 bg-white/80" />
-                <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-0.5 h-2 bg-white/80" />
-                <div className="absolute top-1/2 left-0 -translate-y-1/2 h-0.5 w-2 bg-white/80" />
-                <div className="absolute top-1/2 right-0 -translate-y-1/2 h-0.5 w-2 bg-white/80" />
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-white/90 rounded-full" />
+            {/* Sniper scope overlay — full black mask with circular
+                cut-out, crosshair lines, and a faint range marker.
+                Replaces the regular crosshair when scoped. */}
+            {hud.scoped ? (
+              <div className="pointer-events-none absolute inset-0">
+                {/* Black mask with a circular cut-out. We use four
+                    edge bars + four corners so the SVG/clip-path
+                    isn't needed. */}
+                <div
+                  className="absolute inset-0 bg-black"
+                  style={{
+                    WebkitMaskImage:
+                      "radial-gradient(circle at 50% 50%, transparent 0, transparent 30%, black 31%)",
+                    maskImage:
+                      "radial-gradient(circle at 50% 50%, transparent 0, transparent 30%, black 31%)",
+                  }}
+                />
+                {/* Reticle inside the scope */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-[60vh] bg-rose-500/80" />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-px w-[60vh] bg-rose-500/80" />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-rose-500 rounded-full" />
+                {/* Tick marks on the vertical line for range-feel */}
+                {[-60, -40, -20, 20, 40, 60].map((y) => (
+                  <div
+                    key={y}
+                    className="absolute left-1/2 -translate-x-1/2 w-2 h-px bg-rose-500/60"
+                    style={{ top: `calc(50% + ${y}px)` }}
+                  />
+                ))}
+                {/* Vignette ring for the scope edge */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    boxShadow: "inset 0 0 80px 20px rgba(0,0,0,0.85)",
+                  }}
+                />
               </div>
-            </div>
+            ) : (
+              <Crosshair spread={hud.crosshairSpread} ads={hud.ads} />
+            )}
 
             {/* Top stats */}
             <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-white text-xs sm:text-sm font-bold">
@@ -995,8 +1406,23 @@ export default function Krunker() {
 
             {/* Ammo + weapon — bottom-right */}
             <div className="pointer-events-none absolute bottom-3 right-3 text-right">
-              <div className="text-[10px] uppercase tracking-wider text-white/60 font-bold">
-                {hud.weapon}
+              {/* Weapon strip — current weapon highlighted, others
+                  shown as muted slots so players see what they can
+                  swap to. Numbers (1/2/3) hint at the keybinds. */}
+              <div className="flex items-center justify-end gap-1.5 mb-1">
+                {WEAPON_ORDER.map((wk, i) => (
+                  <div
+                    key={wk}
+                    className={`px-2 py-1 rounded-md text-[10px] uppercase tracking-wider font-black border transition-colors ${
+                      wk === hud.weapon
+                        ? "bg-amber-400/20 border-amber-400/60 text-amber-200"
+                        : "bg-black/45 border-white/10 text-white/55"
+                    }`}
+                  >
+                    <span className="opacity-60 mr-1">{i + 1}</span>
+                    {WEAPONS[wk].name}
+                  </div>
+                ))}
               </div>
               <div className="text-3xl sm:text-4xl font-black text-white tabular-nums leading-none">
                 <span>{hud.ammoCur}</span>
@@ -1010,6 +1436,50 @@ export default function Krunker() {
                   />
                 </div>
               )}
+              {hud.ads && !hud.scoped && (
+                <div className="mt-1 text-[10px] uppercase tracking-wider text-amber-300 font-black">
+                  ADS
+                </div>
+              )}
+            </div>
+
+            {/* Killfeed — top-left under the sound toggle. Latest kill
+                at the top, fades after 5s (handled by the loop). */}
+            <div className="pointer-events-none absolute top-14 left-3 flex flex-col gap-1 text-[11px] font-bold">
+              {killfeed.map((k) => (
+                <div
+                  key={k.id}
+                  className="px-2 py-1 rounded-md bg-black/55 backdrop-blur-sm border border-white/10 text-white inline-flex items-center gap-1.5"
+                >
+                  {k.headshot && (
+                    <span className="text-rose-400" title="Headshot">
+                      ◎
+                    </span>
+                  )}
+                  <span>{k.text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Floating damage numbers projected from world space */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              {damageOverlay.map((d) => (
+                <div
+                  key={d.id}
+                  className={`absolute font-black tabular-nums ${
+                    d.headshot ? "text-rose-400 text-2xl" : "text-amber-300 text-lg"
+                  }`}
+                  style={{
+                    left: `${d.x}px`,
+                    top: `${d.y}px`,
+                    opacity: d.alpha,
+                    transform: "translate(-50%, -50%)",
+                    textShadow: "0 0 8px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  {d.headshot ? `${d.amount}!` : d.amount}
+                </div>
+              ))}
             </div>
 
             {/* Bots-alive minimap pill */}
@@ -1086,17 +1556,55 @@ export default function Krunker() {
   );
 }
 
+/** Dynamic crosshair — four ticks that radiate out from the centre by
+ *  the current spread (in pixels). Shrinks tight when ADS-ing. */
+function Crosshair({ spread, ads }: { spread: number; ads: boolean }) {
+  // Clamp so wild spread doesn't push ticks off-screen.
+  const s = Math.max(2, Math.min(60, spread));
+  const tick = "absolute bg-white/85 transition-[transform] duration-75";
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="relative w-2 h-2">
+        {/* Centre dot — slightly bigger when ADS-ing for a clear pip */}
+        <div
+          className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+            ads ? "w-1.5 h-1.5 bg-rose-400" : "w-1 h-1 bg-white/95"
+          }`}
+        />
+        <div
+          className={`${tick} left-1/2 -translate-x-1/2 w-0.5 h-2`}
+          style={{ top: `-${s}px` }}
+        />
+        <div
+          className={`${tick} left-1/2 -translate-x-1/2 w-0.5 h-2`}
+          style={{ bottom: `-${s}px` }}
+        />
+        <div
+          className={`${tick} top-1/2 -translate-y-1/2 h-0.5 w-2`}
+          style={{ left: `-${s}px` }}
+        />
+        <div
+          className={`${tick} top-1/2 -translate-y-1/2 h-0.5 w-2`}
+          style={{ right: `-${s}px` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Movement helpers
 // ---------------------------------------------------------------------------
 
 function playerAabb(p: Player): AABB {
   // The player's AABB is centred on pos; pos.y is eye height, so the
-  // collider extends from (pos.y - PLAYER_HEIGHT) to pos.y.
+  // collider extends from (pos.y - height) to pos.y. Crouching shrinks
+  // the collider so the player can duck under low cover.
+  const height = p.crouching ? PLAYER_HEIGHT_CROUCH : PLAYER_HEIGHT;
   return {
     min: new THREE.Vector3(
       p.pos.x - PLAYER_RADIUS,
-      p.pos.y - PLAYER_HEIGHT,
+      p.pos.y - height,
       p.pos.z - PLAYER_RADIUS,
     ),
     max: new THREE.Vector3(
@@ -1119,9 +1627,10 @@ function movePlayer(p: Player, walls: AABB[], dt: number) {
   resolveAxis(p, walls, "z");
   // Y
   p.pos.y += p.vel.y * dt;
-  // Ground floor: feet at 0 → eye at PLAYER_HEIGHT
-  if (p.pos.y < PLAYER_HEIGHT) {
-    p.pos.y = PLAYER_HEIGHT;
+  // Ground floor: feet at 0 → eye at the standing or crouching height.
+  const eyeFloor = p.crouching ? PLAYER_HEIGHT_CROUCH : PLAYER_HEIGHT;
+  if (p.pos.y < eyeFloor) {
+    p.pos.y = eyeFloor;
     p.vel.y = 0;
     p.onGround = true;
   } else {
@@ -1175,17 +1684,33 @@ function resolveAxis(p: Player, walls: AABB[], axis: "x" | "y" | "z") {
 function firePlayer(
   st: NonNullable<ReturnType<typeof loopStateShape>>,
   now: number,
+  pushKillfeed: (e: KillfeedEntry) => void,
 ) {
   const w = WEAPONS[st.player.weapon];
   st.player.ammo[st.player.weapon] -= 1;
   st.player.lastShotTime = now;
-  if (w.kind === "pistol") Sfx.shoot();
-  else Sfx.shoot();
 
-  // Compute ray direction from yaw + pitch with weapon spread.
-  const yaw = st.player.yaw;
-  const pitch = st.player.pitch;
-  const spread = w.spread;
+  // Per-weapon firing sound. We layer thud under shoot for the sniper
+  // so it reads as a heavier boom.
+  if (w.kind === "sniper") {
+    Sfx.thud();
+    Sfx.shoot();
+  } else {
+    Sfx.shoot();
+  }
+
+  // Apply recoil + bloom. Recoil walks the camera up + sideways for a
+  // single shot; bloom grows the spread cone for the *next* shot
+  // until it decays back. Both decay over time in the loop.
+  st.player.recoilPitch += w.recoil;
+  st.player.recoilYaw += (Math.random() - 0.5) * w.recoilSide;
+  st.player.bloom = Math.min(0.06, st.player.bloom + w.recoil * 0.6);
+
+  // Compute ray direction from yaw + pitch with weapon spread + bloom.
+  const yaw = st.player.yaw + st.player.recoilYaw;
+  const pitch = st.player.pitch + st.player.recoilPitch;
+  const baseSpread = st.ads ? w.adsSpread : w.hipSpread;
+  const spread = baseSpread + st.player.bloom;
   const rx = (Math.random() - 0.5) * spread;
   const ry = (Math.random() - 0.5) * spread;
   const dir = new THREE.Vector3(
@@ -1239,14 +1764,35 @@ function firePlayer(
   if (st.muzzleLight) st.muzzleLight.intensity = 4;
 
   if (hitBot && bestT <= wallT) {
-    hitBot.hp -= w.damage;
+    // Headshot detection: project the hit point and check whether
+    // it landed in the upper third of the bot's body.
+    const hitPoint = origin.clone().add(dir.clone().multiplyScalar(bestT));
+    const headshot = hitPoint.y >= HEADSHOT_Y;
+    const dmg = Math.round(w.damage * (headshot ? HEADSHOT_MULT : 1));
+    hitBot.hp -= dmg;
     hitBot.flashUntil = now + 100;
+    // Floating damage number at the impact point.
+    st.damageNumbers.push({
+      pos: hitPoint.clone(),
+      amount: dmg,
+      headshot,
+      born: now,
+    });
     if (hitBot.hp <= 0) {
       hitBot.alive = false;
       hitBot.respawnIn = 2.0;
       st.kills += 1;
-      st.score += 100;
+      st.score += headshot ? 150 : 100;
       Sfx.bigPickup();
+      // Killfeed: "You → Bot N" with optional headshot icon. The
+      // React state handles the actual rendering / fade.
+      st.killfeedSeq += 1;
+      pushKillfeed({
+        id: st.killfeedSeq,
+        text: `You · ${w.name} · Bot ${hitBot.id + 1}`,
+        headshot,
+        born: now,
+      });
     } else {
       Sfx.hit();
     }
@@ -1452,8 +1998,11 @@ function loopStateShape() {
     player: Player;
     bots: Bot[];
     tracers: Tracer[];
+    damageNumbers: DamageNumber[];
     keys: Set<string>;
     mouseDown: boolean;
+    ads: boolean;
+    jumpHeld: boolean;
     elapsed: number;
     timeLeft: number;
     kills: number;
@@ -1462,5 +2011,7 @@ function loopStateShape() {
     weaponMesh: THREE.Group | null;
     muzzleLight: THREE.PointLight | null;
     muzzleUntil: number;
+    killfeedSeq: number;
+    damageNumberSeq: number;
   };
 }
