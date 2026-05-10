@@ -39,14 +39,15 @@ type LevelDef = { theme: LevelTheme; grid: number[][] };
 
 const LEVELS: LevelDef[] = [
   // -------------------------------------------------------------
-  // Level 1 — The Cavern. Just walls + treasure, no hazards. Acts
-  // as the tutorial layout: get used to the cave aesthetic and the
-  // explorer sprite before anything tries to hurt you.
+  // Level 1 — The Cavern. Open arena with a few decorative wall
+  // pillars. Treasures are placed out in the open along the
+  // natural path from spawn (top-left) to exit (bottom-right). No
+  // hazards — this level teaches movement + pickups.
   // -------------------------------------------------------------
   {
     theme: {
       name: "The Cavern",
-      blurb: "Find five glints in the rock and head for the green exit.",
+      blurb: "Five glints in the rock. The exit is at the far end.",
       wall: "#2a1f12",
       floor: "#15110a",
       accent: "#facc15",
@@ -54,31 +55,34 @@ const LEVELS: LevelDef[] = [
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 1],
-      [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1],
-      [1, 0, 1, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-      [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-      [1, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
-      [1, 0, 1, 0, 0, 0, 1, 0, 1, 2, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-      [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-      [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 2, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 2, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1],
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ],
   },
   // -------------------------------------------------------------
-  // Level 2 — Spike Pit Ruins. Floor tiles marked `4` cycle between
-  // hidden (safe) and extended (dangerous). Stepping on an extended
-  // spike costs a life. Theme: cold stone ruins, red accent.
+  // Level 2 — Spike Pit Ruins. Same skeleton as Level 1 (same
+  // wall layout, same treasure positions) so the player can read
+  // the path immediately, plus rhythmic spike traps strewn across
+  // the floor. Stepping on an extended spike costs a life. Spikes
+  // never fully block a path — every treasure is still reachable
+  // along an obvious line, just dangerous.
   // -------------------------------------------------------------
   {
     theme: {
       name: "Spike Pit Ruins",
       blurb:
-        "Spikes pop up and retract on a rhythm — wait for them to drop, then run.",
+        "Same map, but the floor's gone hostile. Wait for spikes to drop, then run.",
       wall: "#2e2e3a",
       floor: "#181822",
       accent: "#ef4444",
@@ -86,32 +90,32 @@ const LEVELS: LevelDef[] = [
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 0, 0, 0, 4, 0, 0, 4, 0, 2, 0, 4, 0, 0, 4, 0, 0, 0, 2, 1],
-      [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-      [1, 0, 4, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 1],
-      [1, 0, 1, 1, 1, 1, 1, 4, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 1],
-      [1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1],
-      [1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 1, 1, 4, 1, 1, 1, 0, 1, 1, 4, 1, 1, 1, 1, 1, 1, 0, 1],
-      [1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 2, 0, 0, 1],
-      [1, 0, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 0, 1],
-      [1, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
+      [1, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 4, 0, 1, 1, 0, 4, 0, 0, 0, 4, 0, 0, 1, 1, 0, 4, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 2, 0, 0, 0, 4, 0, 1, 1, 1, 0, 4, 0, 0, 0, 0, 2, 0, 1],
+      [1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 2, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 4, 0, 0, 0, 4, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+      [1, 0, 4, 0, 1, 1, 0, 4, 0, 0, 0, 4, 0, 0, 1, 1, 0, 4, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 3, 1],
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ],
   },
   // -------------------------------------------------------------
-  // Level 3 — Frozen Vault. Every floor tile is ice (`5`). Player
-  // steering becomes a *target* velocity that the body lerps toward
-  // very slowly, so you skate around the maze and have to plan
-  // momentum for every turn. Theme: deep blue stone, cyan accent.
+  // Level 3 — Frozen Vault. Identical wall skeleton; every floor
+  // tile is ice. Player velocity lerps toward target slowly so the
+  // explorer skates around. Wide-open corridors give room to slow
+  // down, the wall pillars give edges to bank against.
   // -------------------------------------------------------------
   {
     theme: {
       name: "Frozen Vault",
       blurb:
-        "The floor is solid ice. Plan your turns — you don't stop on a dime.",
+        "Same map, but the floor is solid ice. Plan momentum into every turn.",
       wall: "#1f3a55",
       floor: "#0d2a3a",
       accent: "#22d3ee",
@@ -119,18 +123,18 @@ const LEVELS: LevelDef[] = [
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 5, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 1, 5, 5, 5, 2, 5, 5, 1],
-      [1, 5, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1],
-      [1, 5, 1, 2, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 5, 1],
-      [1, 5, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 5, 1, 5, 1],
-      [1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 2, 5, 5, 5, 5, 1, 5, 1, 5, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 5, 5, 5, 1],
-      [1, 5, 5, 5, 2, 5, 1, 5, 5, 5, 5, 5, 5, 1, 5, 1, 1, 1, 5, 1],
-      [1, 5, 1, 1, 1, 5, 1, 5, 1, 1, 1, 1, 5, 1, 5, 5, 5, 1, 5, 1],
-      [1, 5, 1, 5, 5, 5, 1, 5, 1, 2, 5, 1, 5, 1, 1, 1, 5, 1, 5, 1],
-      [1, 5, 1, 5, 1, 1, 1, 5, 1, 1, 5, 1, 5, 5, 5, 5, 5, 1, 5, 1],
-      [1, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 5, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 2, 5, 5, 5, 5, 5, 1, 1, 1, 5, 5, 5, 5, 5, 5, 2, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 2, 5, 5, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 5, 5, 5, 2, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 5, 5, 1],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1],
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ],
   },
@@ -198,7 +202,62 @@ function loadLevel(idx: number) {
       }
     }
   }
+  if (process.env.NODE_ENV === "development") {
+    validateLevel(idx, grid, treasures);
+  }
   return { grid, treasures, theme: level.theme };
+}
+
+/** Dev-time guard: BFS from the spawn cell (1,1) and assert that the
+ *  exit and every treasure live in the connected region. Hazard
+ *  tiles count as walkable for this check — they hurt you but they
+ *  don't block the path. Logs to the console if anything is
+ *  unreachable so we don't ship a level you can't finish. */
+function validateLevel(
+  idx: number,
+  grid: number[][],
+  treasures: Treasure[],
+) {
+  const visited = new Set<string>();
+  const q: Array<[number, number]> = [[1, 1]];
+  visited.add("1,1");
+  while (q.length) {
+    const [c, r] = q.shift()!;
+    const moves: Array<[number, number]> = [
+      [c + 1, r],
+      [c - 1, r],
+      [c, r + 1],
+      [c, r - 1],
+    ];
+    for (const [nc, nr] of moves) {
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if (grid[nr][nc] === 1) continue;
+      const key = `${nc},${nr}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      q.push([nc, nr]);
+    }
+  }
+  let exitOk = false;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] === 3 && visited.has(`${c},${r}`)) exitOk = true;
+    }
+  }
+  if (!exitOk) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[treasure-hunt] level ${idx + 1} (${LEVELS[idx]?.theme.name}): exit is unreachable from spawn`,
+    );
+  }
+  for (const t of treasures) {
+    if (!visited.has(`${t.cx},${t.cy}`)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[treasure-hunt] level ${idx + 1}: treasure at (${t.cx},${t.cy}) is unreachable`,
+      );
+    }
+  }
 }
 
 type Phase = "ready" | "playing" | "level-clear" | "won" | "dead";
