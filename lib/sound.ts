@@ -269,6 +269,138 @@ export const Sfx = {
   },
 };
 
+/** Background ambient drone — a small chord through a low-pass
+ *  filter, optionally with a slow LFO modulating the filter for
+ *  movement. Used by Treasure Hunt to give each map its own
+ *  atmosphere (warm cave, ominous ruins, cold vault). The returned
+ *  handle exposes `setVolume` so the caller can duck during
+ *  pause/over screens, and `stop` so it can be torn down on level
+ *  change or component unmount. Auto-subscribes to the global mute
+ *  flag so toggling the SoundToggle drops it to 0 even mid-loop. */
+export type AmbienceConfig = {
+  /** Hz frequencies that make up the chord. */
+  notes: number[];
+  type: OscillatorType;
+  /** Master gain when audible. Keep small (≈0.02–0.05); ambience
+   *  should sit *under* gameplay sounds, not on top. */
+  volume: number;
+  /** Cutoff for the static low-pass filter. */
+  filterFreq: number;
+  /** Optional slow filter modulation: how far to swing the cutoff. */
+  modDepth?: number;
+  /** Modulation frequency in Hz (typically < 1 for slow drift). */
+  modSpeed?: number;
+};
+
+export type Ambience = {
+  setVolume: (v: number) => void;
+  stop: () => void;
+};
+
+export function createAmbience(config: AmbienceConfig): Ambience | null {
+  if (typeof window === "undefined") return null;
+  const ac = ensureCtx();
+  if (!ac) return null;
+
+  const masterGain = ac.createGain();
+  masterGain.gain.value = 0;
+
+  const filter = ac.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.Q.value = 0.7;
+  filter.frequency.value = config.filterFreq;
+  filter.connect(masterGain);
+
+  const oscillators: OscillatorNode[] = [];
+  for (const freq of config.notes) {
+    const osc = ac.createOscillator();
+    osc.type = config.type;
+    osc.frequency.value = freq;
+    const oscGain = ac.createGain();
+    oscGain.gain.value = 1 / config.notes.length;
+    osc.connect(oscGain);
+    oscGain.connect(filter);
+    osc.start();
+    oscillators.push(osc);
+  }
+
+  let lfo: OscillatorNode | null = null;
+  if (config.modDepth && config.modSpeed) {
+    lfo = ac.createOscillator();
+    lfo.frequency.value = config.modSpeed;
+    const lfoGain = ac.createGain();
+    lfoGain.gain.value = config.modDepth;
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    lfo.start();
+  }
+
+  masterGain.connect(ac.destination);
+
+  let stopped = false;
+  let currentVolume = config.volume;
+
+  // Fade in
+  masterGain.gain.setTargetAtTime(
+    isMuted() ? 0 : config.volume,
+    ac.currentTime,
+    0.6,
+  );
+
+  // Keep the ambience in sync with the global mute toggle so a click
+  // on the SoundToggle pill silences us mid-loop without the caller
+  // having to plumb anything through.
+  const unsubscribe = subscribeMuted((muted) => {
+    if (stopped) return;
+    masterGain.gain.setTargetAtTime(
+      muted ? 0 : currentVolume,
+      ac.currentTime,
+      0.3,
+    );
+  });
+
+  return {
+    setVolume(v) {
+      if (stopped) return;
+      currentVolume = v;
+      masterGain.gain.setTargetAtTime(
+        isMuted() ? 0 : v,
+        ac.currentTime,
+        0.4,
+      );
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      unsubscribe();
+      masterGain.gain.setTargetAtTime(0, ac.currentTime, 0.4);
+      // Stop the underlying oscillators after the fade so we don't
+      // hear a click. 800 ms covers the fade comfortably.
+      setTimeout(() => {
+        for (const osc of oscillators) {
+          try {
+            osc.stop();
+          } catch {
+            // already stopped
+          }
+        }
+        if (lfo) {
+          try {
+            lfo.stop();
+          } catch {
+            // already stopped
+          }
+        }
+        try {
+          masterGain.disconnect();
+        } catch {
+          // already disconnected
+        }
+      }, 800);
+    },
+  };
+}
+
 /** Continuous engine-noise generator. Two oscillators (sawtooth +
  *  triangle a fifth above) feed a low-pass filter and a master gain;
  *  the caller updates frequency every frame to bind pitch to vehicle

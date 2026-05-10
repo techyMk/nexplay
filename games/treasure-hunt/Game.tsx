@@ -6,7 +6,12 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import {
+  Sfx,
+  createAmbience,
+  type Ambience,
+  type AmbienceConfig,
+} from "@/lib/sound";
 
 const COLS = 20;
 const ROWS = 14;
@@ -41,6 +46,13 @@ type LevelTheme = {
   /** Decoration kind drawn on a sparse subset of wall cells so each
    *  map has its own readable atmosphere. */
   decoration: "torches" | "chains" | "crystals";
+  /** How many walls between decorations — bigger = sparser. Torches
+   *  glow loudly so they want a bigger gap; chains and crystals are
+   *  small/subtle and read fine at a closer interval. */
+  decorationEvery: number;
+  /** Background drone configuration — handed to createAmbience on
+   *  level load. */
+  ambience: AmbienceConfig;
   /** When true, *every* walkable tile in this level is treated as
    *  slippery ice for movement friction — including spike tiles, so
    *  spike traps placed on this level become "ice spikes" you slide
@@ -69,6 +81,19 @@ const LEVELS: LevelDef[] = [
       canvasFrom: "#1a1208",
       canvasTo: "#040301",
       decoration: "torches",
+      // Torches throw big glow pools; one every ~12 walls is plenty
+      // for atmosphere without making the screen read as on fire.
+      decorationEvery: 12,
+      ambience: {
+        // Warm low-A drone with a fifth and an octave — sits low so
+        // it doesn't fight the pickup chimes.
+        notes: [55, 82.4, 110],
+        type: "sine",
+        volume: 0.04,
+        filterFreq: 420,
+        modDepth: 90,
+        modSpeed: 0.13,
+      },
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -108,6 +133,17 @@ const LEVELS: LevelDef[] = [
       canvasFrom: "#181828",
       canvasTo: "#080810",
       decoration: "chains",
+      decorationEvery: 5,
+      ambience: {
+        // Darker, dissonant — lower and a minor third for menace,
+        // sawtooth roughens the harmonics.
+        notes: [49, 58.3, 98],
+        type: "sawtooth",
+        volume: 0.025,
+        filterFreq: 280,
+        modDepth: 60,
+        modSpeed: 0.09,
+      },
     },
     grid: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -147,6 +183,18 @@ const LEVELS: LevelDef[] = [
       canvasFrom: "#0d2a3a",
       canvasTo: "#040c14",
       decoration: "crystals",
+      decorationEvery: 6,
+      ambience: {
+        // Bright, cold pad — A3 + E4 + A4 + C#5 (major triad an
+        // octave up). Triangle stays clean; faster filter
+        // modulation gives a shimmer.
+        notes: [220, 329.6, 440, 554.4],
+        type: "triangle",
+        volume: 0.035,
+        filterFreq: 1200,
+        modDepth: 250,
+        modSpeed: 0.22,
+      },
       allFloorIcy: true,
     },
     grid: [
@@ -571,6 +619,7 @@ export default function TreasureHunt() {
   pausedRef.current = paused;
 
   const stateRef = useRef(makeFreshState());
+  const ambienceRef = useRef<Ambience | null>(null);
 
   const start = useCallback(() => {
     stateRef.current = makeFreshState();
@@ -589,12 +638,40 @@ export default function TreasureHunt() {
         stateRef.current.treasures.length *
         (1 + (LEVEL_RESPAWNS[0] ?? 1)),
     });
+    // Tear down any prior ambience and start the new level's drone.
+    // Lazy creation here (instead of on mount) keeps the
+    // AudioContext locked until the user clicks "Begin".
+    ambienceRef.current?.stop();
+    ambienceRef.current = createAmbience(
+      stateRef.current.theme.ambience,
+    );
   }, []);
 
   const togglePause = useCallback(() => {
     if (phaseRef.current !== "playing") return;
     setPaused((p) => !p);
   }, []);
+
+  // Tear the ambience down on unmount so navigating away doesn't
+  // leave the oscillators humming.
+  useEffect(() => {
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, []);
+
+  // Duck the ambience to silence on pause / level-clear / won /
+  // dead, and bring it back when we resume into "playing." We push
+  // the level's intended volume back through setVolume so the new
+  // value sticks even after the next mute toggle.
+  useEffect(() => {
+    if (!ambienceRef.current) return;
+    const cfg = LEVELS[levelIdx]?.theme.ambience;
+    if (!cfg) return;
+    const audible = phase === "playing" && !paused;
+    ambienceRef.current.setVolume(audible ? cfg.volume : 0);
+  }, [phase, paused, levelIdx]);
 
   const advanceLevel = useCallback(() => {
     const st = stateRef.current;
@@ -628,6 +705,10 @@ export default function TreasureHunt() {
       total: loaded.treasures.length * (1 + (LEVEL_RESPAWNS[next] ?? 1)),
     });
     setPhase("playing");
+    // Swap to the next level's drone — fades the old one out as the
+    // new one fades in.
+    ambienceRef.current?.stop();
+    ambienceRef.current = createAmbience(loaded.theme.ambience);
   }, []);
 
   useEffect(() => {
@@ -968,13 +1049,15 @@ export default function TreasureHunt() {
 
       // Theme decorations on a sparse subset of wall cells —
       // torches in the Cavern, hanging chains in the Ruins, ice
-      // crystals in the Vault.
+      // crystals in the Vault. Each theme picks its own density
+      // (torches throw big glow pools and want a wider gap).
       let wallSeq = 0;
+      const decoEvery = st.theme.decorationEvery;
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (st.grid[r][c] !== 1) continue;
           wallSeq++;
-          if (wallSeq % 5 !== 0) continue;
+          if (wallSeq % decoEvery !== 0) continue;
           const x = c * CELL;
           const y = r * CELL;
           if (st.theme.decoration === "torches") {
