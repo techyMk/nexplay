@@ -114,4 +114,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  "doodle-jump": dynamic(() => import("./doodle/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
