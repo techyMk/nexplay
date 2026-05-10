@@ -510,36 +510,45 @@ function drawDino(
   const ducking = duckHeld && onGround;
 
   if (ducking) {
-    // ---- DUCKING POSE — body slung low, head reaching out ----
+    // ---- DUCKING POSE ----
+    // The whole silhouette is preserved here — tapered tail at the
+    // back-left, body in the middle, distinct head with a forward
+    // snout at the right — just compressed vertically and stretched
+    // horizontally so it'll fit under low birds.
     const dy = GROUND_Y - DINO_H_DUCK;
     ctx.fillStyle = color;
-    // Tail stub
-    ctx.fillRect(dx + 0, dy + 10, 6, 6);
-    ctx.fillRect(dx + 4, dy + 14, 4, 4);
-    // Body (long horizontal)
-    ctx.fillRect(dx + 4, dy + 8, 36, 14);
-    // Head extending forward
-    ctx.fillRect(dx + 36, dy + 4, 16, 14);
-    // Snout protrusion (forward)
-    ctx.fillRect(dx + 50, dy + 8, 8, 6);
-    ctx.fillRect(dx + 56, dy + 10, 4, 4);
-    // Eye
+    // Tail (tapered: thin tip → wider base)
+    ctx.fillRect(dx + 0, dy + 8, 6, 6);
+    ctx.fillRect(dx + 4, dy + 4, 10, 12);
+    // Body
+    ctx.fillRect(dx + 10, dy + 2, 28, 18);
+    ctx.fillRect(dx + 14, dy + 0, 22, 2); // back ridge
+    // Head
+    ctx.fillRect(dx + 36, dy + 2, 16, 16);
+    ctx.fillRect(dx + 38, dy + 0, 10, 2); // brow
+    // Snout — same forward protrusion the standing pose has, so
+    // the silhouette still parses as "dinosaur" while ducked.
+    ctx.fillRect(dx + 50, dy + 4, 8, 10);
+    ctx.fillRect(dx + 56, dy + 6, 4, 6);
+    // Eye + pupil
     ctx.fillStyle = "#fff";
-    ctx.fillRect(dx + 44, dy + 7, 4, 4);
+    ctx.fillRect(dx + 42, dy + 5, 4, 4);
     ctx.fillStyle = color;
-    ctx.fillRect(dx + 45, dy + 8, 2, 2);
-    // Mouth gap
+    ctx.fillRect(dx + 43, dy + 6, 2, 2);
+    // Mouth (cut with bg)
     ctx.fillStyle = bg;
-    ctx.fillRect(dx + 50, dy + 14, 6, 2);
+    ctx.fillRect(dx + 50, dy + 12, 6, 2);
     ctx.fillStyle = color;
-    // Legs alternating
+    // Legs scurrying
     const phase = Math.floor(st.legPhase * 2);
     if (phase === 0) {
-      ctx.fillRect(dx + 10, dy + 22, 4, 6);
-      ctx.fillRect(dx + 26, dy + 22, 4, 6);
+      ctx.fillRect(dx + 14, dy + 20, 6, 8);
+      ctx.fillRect(dx + 12, dy + 26, 10, 2);
+      ctx.fillRect(dx + 28, dy + 20, 6, 4);
     } else {
-      ctx.fillRect(dx + 14, dy + 22, 4, 6);
-      ctx.fillRect(dx + 30, dy + 22, 4, 6);
+      ctx.fillRect(dx + 14, dy + 20, 6, 4);
+      ctx.fillRect(dx + 28, dy + 20, 6, 8);
+      ctx.fillRect(dx + 26, dy + 26, 10, 2);
     }
     return;
   }
@@ -548,58 +557,60 @@ function drawDino(
   const dy = st.dinoY;
   ctx.fillStyle = color;
 
-  // Tail (small stub at the back)
-  ctx.fillRect(dx + 0, dy + 16, 6, 4);
-  ctx.fillRect(dx + 2, dy + 20, 4, 2);
+  // === TAIL ===
+  // Larger, tapered tail extending back-and-down from the upper
+  // body. Drawn before the body so any overlap reads as the tail
+  // attaching to the back rather than floating.
+  ctx.fillRect(dx + 0, dy + 18, 4, 6); // tail tip (thin)
+  ctx.fillRect(dx + 2, dy + 14, 8, 8); // tail middle (wider)
+  ctx.fillRect(dx + 6, dy + 12, 8, 8); // tail base (widest)
 
-  // Body — back, midsection, haunches
-  ctx.fillRect(dx + 4, dy + 14, 22, 6); // upper back
-  ctx.fillRect(dx + 6, dy + 20, 24, 12); // mid body
-  ctx.fillRect(dx + 10, dy + 32, 18, 6); // haunches
+  // === BODY ===
+  ctx.fillRect(dx + 8, dy + 12, 22, 22); // main body
+  ctx.fillRect(dx + 12, dy + 8, 18, 4); // upper back hump
+  ctx.fillRect(dx + 12, dy + 32, 18, 6); // haunches
 
-  // Head — square block with brow line on top
-  ctx.fillRect(dx + 20, dy + 2, 20, 18);
-  ctx.fillRect(dx + 22, dy + 0, 14, 4); // brow
+  // === HEAD ===
+  ctx.fillRect(dx + 22, dy + 0, 18, 18); // head block
+  ctx.fillRect(dx + 24, dy - 2, 12, 2); // brow ridge
 
-  // Snout — the protrusion that reads as "dinosaur head"
-  ctx.fillRect(dx + 38, dy + 8, 6, 8);
-  ctx.fillRect(dx + 42, dy + 10, 2, 4);
+  // === SNOUT — the forward-protruding cue that reads as "dinosaur" ===
+  ctx.fillRect(dx + 38, dy + 6, 6, 10);
+  ctx.fillRect(dx + 42, dy + 8, 2, 6);
 
-  // Eye + pupil
+  // === EYE + PUPIL ===
   ctx.fillStyle = "#fff";
-  ctx.fillRect(dx + 28, dy + 6, 4, 4);
+  ctx.fillRect(dx + 28, dy + 4, 4, 4);
   ctx.fillStyle = color;
-  ctx.fillRect(dx + 30, dy + 7, 2, 2);
+  ctx.fillRect(dx + 30, dy + 5, 2, 2);
 
-  // Mouth (painted in bg so the canvas stays opaque)
+  // === MOUTH (cut with bg so canvas stays opaque) ===
   ctx.fillStyle = bg;
-  ctx.fillRect(dx + 34, dy + 14, 6, 2);
+  ctx.fillRect(dx + 34, dy + 12, 6, 2);
   ctx.fillStyle = color;
 
-  // Tiny T-Rex arm tucked under the chest
+  // === T-REX ARM tucked under the chest ===
   ctx.fillRect(dx + 22, dy + 22, 4, 4);
   ctx.fillRect(dx + 20, dy + 24, 6, 2);
 
-  // Legs
+  // === LEGS ===
   if (onGround) {
     const phase = Math.floor(st.legPhase * 2);
     if (phase === 0) {
-      // Front leg planted, back leg lifted
-      ctx.fillRect(dx + 12, dy + 38, 6, 10);
-      ctx.fillRect(dx + 10, dy + 46, 10, 2);
-      ctx.fillRect(dx + 22, dy + 38, 6, 6);
+      ctx.fillRect(dx + 14, dy + 38, 6, 10);
+      ctx.fillRect(dx + 12, dy + 46, 10, 2); // foot
+      ctx.fillRect(dx + 24, dy + 38, 6, 6); // back leg lifted
     } else {
-      // Front leg lifted, back leg planted
-      ctx.fillRect(dx + 12, dy + 38, 6, 6);
-      ctx.fillRect(dx + 22, dy + 38, 6, 10);
-      ctx.fillRect(dx + 20, dy + 46, 10, 2);
+      ctx.fillRect(dx + 14, dy + 38, 6, 6); // front leg lifted
+      ctx.fillRect(dx + 24, dy + 38, 6, 10);
+      ctx.fillRect(dx + 22, dy + 46, 10, 2); // foot
     }
   } else {
     // Airborne — both legs tucked, feet together
-    ctx.fillRect(dx + 12, dy + 38, 6, 8);
-    ctx.fillRect(dx + 10, dy + 44, 10, 2);
-    ctx.fillRect(dx + 22, dy + 38, 6, 8);
-    ctx.fillRect(dx + 20, dy + 44, 10, 2);
+    ctx.fillRect(dx + 14, dy + 38, 6, 8);
+    ctx.fillRect(dx + 12, dy + 44, 10, 2);
+    ctx.fillRect(dx + 24, dy + 38, 6, 8);
+    ctx.fillRect(dx + 22, dy + 44, 10, 2);
   }
 }
 
