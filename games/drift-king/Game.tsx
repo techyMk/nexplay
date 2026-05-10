@@ -8,19 +8,181 @@ import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Sfx } from "@/lib/sound";
 
+// Canvas + road geometry
 const W = 480;
 const H = 700;
+const ROAD_LEFT_BASE = 60;
+const ROAD_RIGHT_BASE = W - 60;
+const PLAYER_Y = H - 130;
+const CAR_W = 44;
+const CAR_H = 70;
 
-type Obstacle = { x: number; y: number; w: number; h: number; color: string };
+// Speed model
+const SPEED_BASE = 200;
+const SPEED_MIN = 140;
+const SPEED_MAX = 580;
+const ACCEL = 110; // px/s/s when holding ↑
+const COAST_DECEL = 32; // gradual decay if neither ↑ nor ↓
+const BRAKE_DECEL = 280; // strong decel when holding ↓
+
+// Steering — smooth, lerp toward a target lateral velocity
+const STEER_SPEED = 360;
+
+// Score tuning
+const SCORE_PER_PX = 0.012; // distance scoring (speed * dt → px → score)
+const COIN_VALUE = 60;
+const NEAR_MISS_BASE = 25;
+const NEAR_MISS_PER_COMBO = 25;
+const COMBO_DECAY_SECONDS = 4;
+const NEAR_MISS_LATERAL_PX = 14; // how close past the bumper counts as a near-miss
+const MILESTONE_STEP = 1000;
+
+// Event tuning
+const EVENT_FIRST_AT = 14;
+const EVENT_GAP_MIN = 11;
+const EVENT_GAP_RANGE = 7;
+const EVENT_WARNING_SECONDS = 1.4;
+
+type EventKind = "normal" | "rush" | "tunnel" | "slick";
+
+type Obstacle = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  hue: number;
+  vx: number; // lateral drift (rush hour gives some traffic a wobble)
+  passed: boolean; // already crossed the player's y line — used for near-miss scoring
+};
+type Coin = { x: number; y: number; phase: number };
+type Particle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  max: number;
+  color: string;
+  r: number;
+};
+type Skid = { x: number; y: number; life: number };
+type Floater = { x: number; y: number; life: number; text: string; hue: number };
+type RainDrop = { x: number; y: number; vy: number };
+
+type State = {
+  carX: number;
+  carY: number;
+  carVx: number;
+  speed: number;
+  topSpeed: number;
+  roadOffset: number;
+  obstacles: Obstacle[];
+  coins: Coin[];
+  particles: Particle[];
+  skids: Skid[];
+  floaters: Floater[];
+  rain: RainDrop[];
+  spawnTimer: number;
+  coinTimer: number;
+  elapsed: number;
+  scoreFloat: number;
+  combo: number;
+  comboTimer: number;
+  nearMisses: number;
+  lastMilestone: number;
+  event: EventKind;
+  eventEndsAt: number;
+  nextEventAt: number;
+  warningEvent: Exclude<EventKind, "normal"> | null;
+  warningTimer: number;
+  bannerTimer: number; // active-event banner stays on briefly
+  flashTimer: number;
+  shake: number;
+  /** Reads as the road's *current* half-width offset from the centre.
+   *  In tunnel mode this lerps toward a tighter value so the walls
+   *  appear to close in smoothly instead of snapping. */
+  roadHalf: number;
+};
+
+function rng(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function makeFreshState(): State {
+  const halfBase = (ROAD_RIGHT_BASE - ROAD_LEFT_BASE) / 2;
+  return {
+    carX: W / 2,
+    carY: PLAYER_Y,
+    carVx: 0,
+    speed: SPEED_BASE,
+    topSpeed: SPEED_BASE,
+    roadOffset: 0,
+    obstacles: [],
+    coins: [],
+    particles: [],
+    skids: [],
+    floaters: [],
+    rain: [],
+    spawnTimer: 1.2,
+    coinTimer: 2.5,
+    elapsed: 0,
+    scoreFloat: 0,
+    combo: 0,
+    comboTimer: 0,
+    nearMisses: 0,
+    lastMilestone: 0,
+    event: "normal",
+    eventEndsAt: 0,
+    nextEventAt: EVENT_FIRST_AT,
+    warningEvent: null,
+    warningTimer: 0,
+    bannerTimer: 0,
+    flashTimer: 0,
+    shake: 0,
+    roadHalf: halfBase,
+  };
+}
+
+const EVENT_INFO: Record<
+  Exclude<EventKind, "normal">,
+  { label: string; emoji: string; duration: number; color: string }
+> = {
+  rush: {
+    label: "RUSH HOUR",
+    emoji: "🚦",
+    duration: 5,
+    color: "#ef4444",
+  },
+  tunnel: {
+    label: "TUNNEL",
+    emoji: "🏗️",
+    duration: 4,
+    color: "#facc15",
+  },
+  slick: {
+    label: "SLICK ROAD",
+    emoji: "🌧️",
+    duration: 5.5,
+    color: "#22d3ee",
+  },
+};
 
 export default function DriftKing() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keys = useKeyboard();
   const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [speed, setSpeed] = useState(SPEED_BASE);
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
+  // Stats shown on the crash screen
+  const [crashStats, setCrashStats] = useState<{
+    topSpeed: number;
+    nearMisses: number;
+    elapsed: number;
+  } | null>(null);
   const submitStatus = useSubmitScoreOnGameOver("drift-king", score, over);
 
   const startedRef = useRef(false);
@@ -29,40 +191,28 @@ export default function DriftKing() {
   pausedRef.current = paused;
   const overRef = useRef(false);
   overRef.current = over;
+  const scoreRef = useRef(0);
+  scoreRef.current = score;
+  const comboRef = useRef(0);
+  comboRef.current = combo;
+  const speedRef = useRef(SPEED_BASE);
+  speedRef.current = speed;
 
-  const stateRef = useRef({
-    carX: W / 2,
-    carY: H - 120,
-    speed: 200,
-    roadOffset: 0,
-    obstacles: [] as Obstacle[],
-    spawnAt: 0,
-    elapsed: 0,
-  });
+  const stateRef = useRef<State>(makeFreshState());
 
   useEffect(() => {
     setBest(Number(localStorage.getItem("nexplay:drift-best") || 0));
   }, []);
 
-  const reset = useCallback(() => {
-    stateRef.current = {
-      carX: W / 2,
-      carY: H - 120,
-      speed: 200,
-      roadOffset: 0,
-      obstacles: [],
-      spawnAt: 0,
-      elapsed: 0,
-    };
-    setScore(0);
-    setOver(false);
-    setStarted(false);
-    setPaused(false);
-  }, []);
-
   const start = useCallback(() => {
+    stateRef.current = makeFreshState();
+    setScore(0);
+    setCombo(0);
+    setSpeed(SPEED_BASE);
+    setOver(false);
     setStarted(true);
     setPaused(false);
+    setCrashStats(null);
   }, []);
 
   const togglePause = useCallback(() => {
@@ -70,147 +220,581 @@ export default function DriftKing() {
     setPaused((p) => !p);
   }, []);
 
+  // Hotkeys for pause / restart from over screen
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "p" || e.key === "P" || e.key === "Escape") {
         e.preventDefault();
         togglePause();
+        return;
+      }
+      if (overRef.current && (e.key === " " || e.key === "Enter")) {
+        e.preventDefault();
+        start();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePause]);
+  }, [togglePause, start]);
 
+  // Main loop
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
-
     let raf = 0;
     let last = performance.now();
+
+    const triggerEvent = (st: State, kind: Exclude<EventKind, "normal">) => {
+      st.event = kind;
+      st.eventEndsAt = st.elapsed + EVENT_INFO[kind].duration;
+      st.bannerTimer = 1.4;
+      Sfx.boost();
+    };
+
+    const explode = (
+      st: State,
+      x: number,
+      y: number,
+      colour: string,
+      n: number,
+      power = 1,
+    ) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = (60 + Math.random() * 200) * power;
+        st.particles.push({
+          x,
+          y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: 0.7,
+          max: 0.7,
+          color: colour,
+          r: 1.4 + Math.random() * 2.2,
+        });
+      }
+    };
 
     const tick = (now: number) => {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const st = stateRef.current;
       const k = keys.current;
-      const live =
-        startedRef.current && !pausedRef.current && !overRef.current;
+      const live = startedRef.current && !pausedRef.current && !overRef.current;
 
       if (live) {
-        if (k.has("ArrowLeft") || k.has("a")) st.carX -= 280 * dt;
-        if (k.has("ArrowRight") || k.has("d")) st.carX += 280 * dt;
-        if (k.has("ArrowUp") || k.has("w"))
-          st.speed = Math.min(540, st.speed + 80 * dt);
-        else st.speed = Math.max(180, st.speed - 30 * dt);
-        if (k.has("ArrowDown") || k.has("s"))
-          st.speed = Math.max(120, st.speed - 200 * dt);
-
-        st.carX = Math.max(80, Math.min(W - 80, st.carX));
-        st.roadOffset = (st.roadOffset + st.speed * dt) % 80;
         st.elapsed += dt;
-        st.spawnAt -= dt;
 
-        if (st.spawnAt <= 0) {
-          st.spawnAt = Math.max(0.4, 1.2 - st.elapsed * 0.01);
-          const lane = 80 + Math.random() * (W - 200);
-          st.obstacles.push({
-            x: lane,
-            y: -60,
-            w: 50,
-            h: 80,
-            color: [
-              "#dc2626",
-              "#7c5cff",
-              "#facc15",
-              "#06b6d4",
-            ][Math.floor(Math.random() * 4)],
+        // ----- Speed model -----
+        if (k.has("ArrowUp") || k.has("w")) {
+          st.speed = Math.min(SPEED_MAX, st.speed + ACCEL * dt);
+        } else if (k.has("ArrowDown") || k.has("s")) {
+          st.speed = Math.max(SPEED_MIN, st.speed - BRAKE_DECEL * dt);
+        } else {
+          st.speed = Math.max(SPEED_BASE, st.speed - COAST_DECEL * dt);
+        }
+        if (st.speed > st.topSpeed) st.topSpeed = st.speed;
+
+        // ----- Steering: lerp lateral velocity toward target -----
+        // Slick events make the lerp slower so the car drifts.
+        let targetVx = 0;
+        if (k.has("ArrowLeft") || k.has("a")) targetVx -= STEER_SPEED;
+        if (k.has("ArrowRight") || k.has("d")) targetVx += STEER_SPEED;
+        const steerK =
+          st.event === "slick" ? 1 - Math.exp(-dt * 2.4) : 1 - Math.exp(-dt * 12);
+        st.carVx += (targetVx - st.carVx) * steerK;
+        st.carX += st.carVx * dt;
+        // Skid marks when steering hard
+        if (Math.abs(st.carVx) > 220 && Math.random() < 0.5) {
+          st.skids.push({
+            x: st.carX - 14 + (st.carVx > 0 ? -2 : 2),
+            y: st.carY + 24,
+            life: 0.9,
+          });
+          st.skids.push({
+            x: st.carX + 14 + (st.carVx > 0 ? -2 : 2),
+            y: st.carY + 24,
+            life: 0.9,
           });
         }
 
-        for (const o of st.obstacles) o.y += st.speed * dt;
-        st.obstacles = st.obstacles.filter((o) => o.y < H + 100);
+        // ----- Road width (tunnel narrows the lanes) -----
+        const halfBase = (ROAD_RIGHT_BASE - ROAD_LEFT_BASE) / 2;
+        const halfTarget = st.event === "tunnel" ? halfBase * 0.62 : halfBase;
+        st.roadHalf += (halfTarget - st.roadHalf) * (1 - Math.exp(-dt * 4));
+        const roadL = W / 2 - st.roadHalf;
+        const roadR = W / 2 + st.roadHalf;
+        // Clamp the car inside the (current) road
+        const carHalf = CAR_W / 2;
+        if (st.carX < roadL + carHalf) {
+          st.carX = roadL + carHalf;
+          if (st.carVx < 0) st.carVx = 0;
+        }
+        if (st.carX > roadR - carHalf) {
+          st.carX = roadR - carHalf;
+          if (st.carVx > 0) st.carVx = 0;
+        }
 
-        // collision
+        // ----- Lane-marking scroll -----
+        st.roadOffset = (st.roadOffset + st.speed * dt) % 80;
+
+        // ----- Spawn obstacles -----
+        const baseSpawn = Math.max(0.32, 1.1 - st.elapsed * 0.012);
+        const spawnInterval =
+          st.event === "rush" ? baseSpawn * 0.42 : baseSpawn;
+        st.spawnTimer -= dt;
+        if (st.spawnTimer <= 0) {
+          st.spawnTimer = spawnInterval * (0.85 + Math.random() * 0.3);
+          const x = rng(roadL + 28, roadR - 28);
+          const wobble = st.event === "rush" && Math.random() < 0.4;
+          st.obstacles.push({
+            x,
+            y: -80,
+            w: 46,
+            h: 74,
+            hue: [0, 35, 200, 280, 130][Math.floor(Math.random() * 5)],
+            vx: wobble ? rng(-60, 60) : 0,
+            passed: false,
+          });
+        }
+
+        // ----- Spawn coins (sparser than obstacles) -----
+        st.coinTimer -= dt;
+        if (st.coinTimer <= 0) {
+          st.coinTimer = rng(1.6, 3.2);
+          st.coins.push({
+            x: rng(roadL + 24, roadR - 24),
+            y: -30,
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+
+        // ----- Move world (relative to player) -----
+        const scroll = st.speed * dt;
         for (const o of st.obstacles) {
-          if (
-            Math.abs(o.x - st.carX) < o.w / 2 + 22 &&
-            Math.abs(o.y - st.carY) < o.h / 2 + 35
-          ) {
-            setOver(true);
-            Sfx.gameOver();
-            setScore((s) => {
-              setBest((b) => {
-                const nb = Math.max(b, s);
-                localStorage.setItem("nexplay:drift-best", String(nb));
-                return nb;
-              });
-              return s;
-            });
-            break;
+          o.y += scroll;
+          o.x += o.vx * dt;
+          // Bounce gently off the lane walls so wobblers don't escape
+          if (o.x < roadL + o.w / 2) {
+            o.x = roadL + o.w / 2;
+            o.vx = Math.abs(o.vx);
+          }
+          if (o.x > roadR - o.w / 2) {
+            o.x = roadR - o.w / 2;
+            o.vx = -Math.abs(o.vx);
           }
         }
-        setScore((s) => s + Math.floor(st.speed * dt * 0.1));
+        for (const c of st.coins) {
+          c.y += scroll;
+          c.phase += dt * 6;
+        }
+        for (const s of st.skids) {
+          s.y += scroll;
+          s.life -= dt;
+        }
+        st.skids = st.skids.filter(
+          (s) => s.life > 0 && s.y < H + 20,
+        );
+
+        // ----- Coin pickup -----
+        for (let i = st.coins.length - 1; i >= 0; i--) {
+          const c = st.coins[i];
+          if (Math.abs(c.x - st.carX) < 20 && Math.abs(c.y - st.carY) < 30) {
+            st.coins.splice(i, 1);
+            st.scoreFloat += COIN_VALUE;
+            st.floaters.push({
+              x: c.x,
+              y: c.y,
+              life: 0.9,
+              text: `+${COIN_VALUE}`,
+              hue: 50,
+            });
+            explode(st, c.x, c.y, "#facc15", 8, 0.7);
+            Sfx.pickup();
+          }
+        }
+
+        // ----- Obstacle: collision + near-miss scoring -----
+        let crashed = false;
+        for (const o of st.obstacles) {
+          const dx = Math.abs(o.x - st.carX);
+          const dy = Math.abs(o.y - st.carY);
+          if (dx < o.w / 2 + carHalf - 4 && dy < o.h / 2 + CAR_H / 2 - 4) {
+            crashed = true;
+            break;
+          }
+          // Near-miss: obstacle just crossed the player's y line and was
+          // close laterally
+          if (!o.passed && o.y > st.carY) {
+            o.passed = true;
+            const lateral = dx - (o.w / 2 + carHalf);
+            if (lateral > 0 && lateral < NEAR_MISS_LATERAL_PX) {
+              st.combo += 1;
+              st.comboTimer = COMBO_DECAY_SECONDS;
+              st.nearMisses += 1;
+              const reward =
+                NEAR_MISS_BASE + NEAR_MISS_PER_COMBO * (st.combo - 1);
+              st.scoreFloat += reward;
+              st.floaters.push({
+                x: st.carX,
+                y: st.carY - 30,
+                life: 0.85,
+                text: `+${reward}  ×${st.combo}`,
+                hue: 280,
+              });
+              st.flashTimer = Math.max(st.flashTimer, 0.18);
+              Sfx.bounce();
+            }
+          }
+        }
+        st.obstacles = st.obstacles.filter((o) => o.y < H + 100);
+        st.coins = st.coins.filter((c) => c.y < H + 30);
+
+        // ----- Combo decay -----
+        if (st.comboTimer > 0) {
+          st.comboTimer = Math.max(0, st.comboTimer - dt);
+          if (st.comboTimer === 0) st.combo = 0;
+        }
+
+        // ----- Distance score (the bug fix — accumulate as float, only
+        //       push to React when the integer changes). -----
+        st.scoreFloat += st.speed * dt * SCORE_PER_PX * 16;
+        const intScore = Math.floor(st.scoreFloat);
+        if (intScore !== scoreRef.current) {
+          scoreRef.current = intScore;
+          setScore(intScore);
+          // Score milestone — every 1000 points triggers a chime + brief
+          // bonus banner.
+          if (intScore - st.lastMilestone >= MILESTONE_STEP) {
+            st.lastMilestone =
+              Math.floor(intScore / MILESTONE_STEP) * MILESTONE_STEP;
+            st.floaters.push({
+              x: W / 2,
+              y: 240,
+              life: 1.5,
+              text: `${st.lastMilestone}!`,
+              hue: 50,
+            });
+            Sfx.win();
+          }
+        }
+        if (st.combo !== comboRef.current) {
+          comboRef.current = st.combo;
+          setCombo(st.combo);
+        }
+        const speedRound = Math.round(st.speed);
+        if (speedRound !== speedRef.current) {
+          speedRef.current = speedRound;
+          setSpeed(speedRound);
+        }
+
+        // ----- Particles -----
+        for (let i = st.particles.length - 1; i >= 0; i--) {
+          const p = st.particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vx *= 0.94;
+          p.vy *= 0.94;
+          p.life -= dt;
+          if (p.life <= 0) st.particles.splice(i, 1);
+        }
+        st.floaters = st.floaters.filter((f) => (f.life -= dt) > 0);
+        if (st.flashTimer > 0)
+          st.flashTimer = Math.max(0, st.flashTimer - dt * 3);
+        if (st.shake > 0) st.shake = Math.max(0, st.shake - dt * 5);
+
+        // ----- Smoke trail when accelerating -----
+        if (st.speed > SPEED_BASE + 50 && Math.random() < 0.6) {
+          st.particles.push({
+            x: st.carX + rng(-12, 12),
+            y: st.carY + 38,
+            vx: rng(-15, 15),
+            vy: 30 + Math.random() * 40,
+            life: 0.6,
+            max: 0.6,
+            color: "rgba(180,180,200,0.55)",
+            r: 3 + Math.random() * 2,
+          });
+        }
+
+        // ----- Rain drops (slick event) -----
+        if (st.event === "slick") {
+          const want = 80;
+          while (st.rain.length < want) {
+            st.rain.push({
+              x: rng(0, W),
+              y: rng(-H, 0),
+              vy: rng(700, 950),
+            });
+          }
+          for (const r of st.rain) {
+            r.y += r.vy * dt;
+            r.x -= 60 * dt;
+            if (r.y > H) {
+              r.y = -10;
+              r.x = rng(0, W);
+            }
+          }
+        } else if (st.rain.length) {
+          // Drain quickly when the event ends
+          for (const r of st.rain) r.y += r.vy * dt;
+          st.rain = st.rain.filter((r) => r.y < H + 20);
+        }
+
+        // ----- Event scheduler -----
+        if (
+          st.event === "normal" &&
+          !st.warningEvent &&
+          st.elapsed >= st.nextEventAt
+        ) {
+          const choices: Exclude<EventKind, "normal">[] = [
+            "rush",
+            "tunnel",
+            "slick",
+          ];
+          st.warningEvent =
+            choices[Math.floor(Math.random() * choices.length)];
+          st.warningTimer = EVENT_WARNING_SECONDS;
+          Sfx.error();
+        }
+        if (st.warningTimer > 0) {
+          st.warningTimer -= dt;
+          if (st.warningTimer <= 0 && st.warningEvent) {
+            triggerEvent(st, st.warningEvent);
+            st.warningEvent = null;
+          }
+        }
+        if (st.event !== "normal" && st.elapsed >= st.eventEndsAt) {
+          st.event = "normal";
+          st.nextEventAt =
+            st.elapsed + EVENT_GAP_MIN + Math.random() * EVENT_GAP_RANGE;
+        }
+        if (st.bannerTimer > 0) st.bannerTimer = Math.max(0, st.bannerTimer - dt);
+
+        // ----- Crash -----
+        if (crashed && !overRef.current) {
+          setOver(true);
+          Sfx.gameOver();
+          st.shake = 1;
+          // Big particle burst
+          explode(st, st.carX, st.carY, "#ef4444", 30, 1.4);
+          explode(st, st.carX, st.carY, "#facc15", 18, 1);
+          setCrashStats({
+            topSpeed: Math.round(st.topSpeed),
+            nearMisses: st.nearMisses,
+            elapsed: st.elapsed,
+          });
+          const final = Math.floor(st.scoreFloat);
+          setScore(final);
+          setBest((b) => {
+            const nb = Math.max(b, final);
+            if (nb !== b)
+              localStorage.setItem("nexplay:drift-best", String(nb));
+            return nb;
+          });
+        }
       }
 
-      // draw
-      ctx.fillStyle = "#1f2937";
-      ctx.fillRect(0, 0, W, H);
-      // grass
+      // ============================================================
+      // ----- DRAW -------------------------------------------------
+      // ============================================================
+      const shakeX = st.shake > 0 ? (Math.random() - 0.5) * st.shake * 12 : 0;
+      const shakeY = st.shake > 0 ? (Math.random() - 0.5) * st.shake * 12 : 0;
+      ctx.save();
+      ctx.translate(shakeX, shakeY);
+
+      // Background — verge / grass
+      const halfBase = (ROAD_RIGHT_BASE - ROAD_LEFT_BASE) / 2;
+      const roadL = W / 2 - st.roadHalf;
+      const roadR = W / 2 + st.roadHalf;
       ctx.fillStyle = "#0d2b1a";
-      ctx.fillRect(0, 0, 60, H);
-      ctx.fillRect(W - 60, 0, 60, H);
-      // road edge
-      ctx.fillStyle = "white";
-      ctx.fillRect(60, 0, 4, H);
-      ctx.fillRect(W - 64, 0, 4, H);
-      // lane markings
-      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, W, H);
+
+      // Road body
+      const roadGrad = ctx.createLinearGradient(roadL, 0, roadR, 0);
+      roadGrad.addColorStop(0, "#1b1f2c");
+      roadGrad.addColorStop(0.5, "#2a2f3f");
+      roadGrad.addColorStop(1, "#1b1f2c");
+      ctx.fillStyle = roadGrad;
+      ctx.fillRect(roadL, 0, roadR - roadL, H);
+
+      // Road edges (rumble strips, alternating red/white)
+      const stripeStep = 32;
+      for (let y = -stripeStep + (st.roadOffset % stripeStep); y < H; y += stripeStep) {
+        const isRed = Math.floor(y / stripeStep) % 2 === 0;
+        ctx.fillStyle = isRed ? "#dc2626" : "white";
+        ctx.fillRect(roadL - 6, y, 6, stripeStep / 2);
+        ctx.fillRect(roadR, y, 6, stripeStep / 2);
+      }
+
+      // Centre lane dashes
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
       for (let y = -80 + st.roadOffset; y < H; y += 80) {
         ctx.fillRect(W / 2 - 3, y, 6, 40);
       }
 
-      // obstacles
-      for (const o of st.obstacles) {
-        ctx.fillStyle = o.color;
-        ctx.fillRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h);
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.fillRect(o.x - o.w / 2 + 6, o.y - o.h / 2 + 8, o.w - 12, 14);
+      // Skid marks (under everything else)
+      for (const s of st.skids) {
+        ctx.fillStyle = `rgba(0,0,0,${(s.life / 0.9) * 0.5})`;
+        ctx.fillRect(s.x - 2, s.y, 4, 8);
       }
 
-      // car
-      ctx.save();
-      ctx.translate(st.carX, st.carY);
-      ctx.fillStyle = "#7c5cff";
-      ctx.fillRect(-22, -35, 44, 70);
-      ctx.fillStyle = "#1f2937";
-      ctx.fillRect(-18, -28, 36, 18);
-      ctx.fillRect(-18, 8, 36, 14);
-      ctx.fillStyle = "#0a0a0a";
-      ctx.fillRect(-26, -30, 6, 16);
-      ctx.fillRect(20, -30, 6, 16);
-      ctx.fillRect(-26, 14, 6, 16);
-      ctx.fillRect(20, 14, 6, 16);
-      ctx.restore();
+      // Coins
+      for (const c of st.coins) {
+        const wob = 1 + 0.15 * Math.sin(c.phase);
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.scale(wob, 1);
+        // Glow
+        const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 22);
+        g.addColorStop(0, "rgba(252,211,77,0.85)");
+        g.addColorStop(1, "rgba(252,211,77,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#facc15";
+        ctx.beginPath();
+        ctx.arc(0, 0, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fde68a";
+        ctx.fillRect(-2, -7, 4, 14);
+        ctx.restore();
+      }
 
-      // hud
-      ctx.fillStyle = "white";
-      ctx.font = "bold 20px system-ui";
-      ctx.fillText(`Score: ${score}`, 12, 30);
-      ctx.fillText(`Speed: ${Math.round(st.speed)}`, 12, 55);
+      // Obstacle cars
+      for (const o of st.obstacles) {
+        drawCar(ctx, o.x, o.y, o.w, o.h, o.hue, false);
+      }
+
+      // Player car
+      drawCar(ctx, st.carX, st.carY, CAR_W, CAR_H, 270, true);
+
+      // Particles
+      for (const p of st.particles) {
+        const a = Math.max(0, p.life / p.max);
+        ctx.fillStyle = p.color.startsWith("rgba")
+          ? p.color
+          : `${p.color}${Math.floor(a * 255)
+              .toString(16)
+              .padStart(2, "0")}`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * (0.6 + a * 0.6), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Rain (slick event)
+      if (st.rain.length > 0) {
+        ctx.strokeStyle = "rgba(180,220,255,0.45)";
+        ctx.lineWidth = 1.4;
+        for (const r of st.rain) {
+          ctx.beginPath();
+          ctx.moveTo(r.x, r.y);
+          ctx.lineTo(r.x - 6, r.y + 16);
+          ctx.stroke();
+        }
+      }
+
+      // Tunnel: glowing red walls inside the road, suggesting closed
+      // lanes — bonus visual for the narrowed event.
+      if (st.event === "tunnel" || (st.roadHalf < halfBase - 4)) {
+        const inset = halfBase - st.roadHalf;
+        ctx.fillStyle = "rgba(239,68,68,0.18)";
+        ctx.fillRect(roadL - inset, 0, inset, H);
+        ctx.fillRect(roadR, 0, inset, H);
+        ctx.strokeStyle = "rgba(239,68,68,0.85)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(roadL, 0);
+        ctx.lineTo(roadL, H);
+        ctx.moveTo(roadR, 0);
+        ctx.lineTo(roadR, H);
+        ctx.stroke();
+      }
+
+      // Floating score / combo callouts
+      ctx.font = "bold 16px system-ui";
+      ctx.textAlign = "center";
+      for (const f of st.floaters) {
+        const a = Math.min(1, f.life / 0.5);
+        ctx.fillStyle = `hsla(${f.hue}, 90%, 70%, ${a})`;
+        ctx.fillText(f.text, f.x, f.y - (1 - f.life) * 30);
+      }
+
+      // Near-miss / pickup vignette
+      if (st.flashTimer > 0) {
+        ctx.fillStyle = `rgba(124,92,255,${st.flashTimer * 0.35})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Speed trails when at top speed (motion blur on lane markings)
+      if (st.speed > SPEED_MAX * 0.85) {
+        ctx.fillStyle = "rgba(255,92,174,0.05)";
+        ctx.fillRect(roadL, 0, roadR - roadL, H);
+      }
+
+      // Event banner / warning at the top of the road
+      if (st.warningEvent) {
+        const info = EVENT_INFO[st.warningEvent];
+        const a = 0.5 + 0.5 * Math.sin(now * 0.02);
+        drawBanner(
+          ctx,
+          `${info.emoji}  ${info.label}  INCOMING`,
+          info.color,
+          a,
+        );
+      } else if (st.event !== "normal" && st.bannerTimer > 0) {
+        const info = EVENT_INFO[st.event];
+        drawBanner(ctx, `${info.emoji}  ${info.label}`, info.color, 1);
+      }
+
+      ctx.restore();
 
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [keys, score]);
+    // We deliberately depend only on `keys`; everything else is read
+    // through refs each frame so the loop never restarts mid-game.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Speed-bar colour: green at base, amber mid, red near max
+  const speedRatio = Math.min(1, (speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN));
+  const speedColour =
+    speedRatio > 0.75 ? "#ef4444" : speedRatio > 0.5 ? "#facc15" : "#16a34a";
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0808] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
-        <SoundToggle />
-        <span>
-          Best: <b>{best}</b> · Arrow keys / WASD · P pauses
+        <Stat label="Score" value={score} accent />
+        {combo > 0 ? (
+          <span className="px-3 py-1 rounded-lg bg-pink-500/25 border border-pink-400/60 inline-flex items-center gap-1.5 animate-pulse">
+            <span className="text-[10px] uppercase tracking-wider opacity-80">
+              Combo
+            </span>
+            <b>×{combo}</b>
+          </span>
+        ) : (
+          <Stat label="Combo" value="—" />
+        )}
+        <span className="px-3 py-1 rounded-lg bg-white/10 inline-flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider opacity-60">
+            Speed
+          </span>
+          <span className="relative w-20 h-2 rounded-full bg-white/10 overflow-hidden">
+            <span
+              className="absolute inset-y-0 left-0 transition-all duration-100"
+              style={{
+                width: `${speedRatio * 100}%`,
+                background: speedColour,
+              }}
+            />
+          </span>
+          <b className="tabular-nums w-10 text-right">{speed}</b>
         </span>
+        <Stat label="Best" value={best} />
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}
@@ -230,8 +814,26 @@ export default function DriftKing() {
             <GameOverlay
               icon="🏎️"
               title="Drift King"
-              subtitle="Dodge traffic at speed. Hold ↑ to accelerate, ←/→ to swerve."
-              primary={{ label: "▶ Play", onClick: start }}
+              subtitle={
+                <>
+                  Dodge traffic at speed. Hold{" "}
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    ↑
+                  </kbd>{" "}
+                  to floor it,{" "}
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    ←
+                  </kbd>
+                  /
+                  <kbd className="px-1 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    →
+                  </kbd>{" "}
+                  to swerve. Coins, near-misses, and combo chains all
+                  bank score; watch out for rush hour, tunnels, and
+                  slick weather.
+                </>
+              }
+              primary={{ label: "▶ Race", onClick: start }}
             />
           )}
           {paused && started && !over && (
@@ -242,7 +844,9 @@ export default function DriftKing() {
               subtitle={
                 <>
                   Press{" "}
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    P
+                  </kbd>{" "}
                   to resume
                 </>
               }
@@ -253,14 +857,156 @@ export default function DriftKing() {
             <GameOverlay
               icon="💥"
               title="Crashed"
-              subtitle={`Score: ${score}`}
-              primary={{ label: "Race again", onClick: reset }}
+              subtitle={
+                crashStats
+                  ? `Score ${score} · top ${crashStats.topSpeed} mph · ${crashStats.nearMisses} near-miss${crashStats.nearMisses === 1 ? "" : "es"} · ${Math.round(crashStats.elapsed)}s on the road`
+                  : `Score ${score}`
+              }
+              primary={{ label: "Race again", onClick: start }}
             >
               <ScoreStatus gameSlug="drift-king" status={submitStatus} />
             </GameOverlay>
           )}
         </div>
       </div>
+      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">
+        <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">↑</kbd>{" "}
+        accelerate ·{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">↓</kbd>{" "}
+        brake ·{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">←</kbd>/
+        <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">→</kbd>{" "}
+        steer ·{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+        pauses
+      </div>
     </div>
+  );
+}
+
+function drawCar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hue: number,
+  isPlayer: boolean,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Body — rounded rectangle with vertical gradient for sheen
+  const grad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+  grad.addColorStop(0, `hsl(${hue}, 80%, 65%)`);
+  grad.addColorStop(0.5, `hsl(${hue}, 80%, 45%)`);
+  grad.addColorStop(1, `hsl(${hue}, 80%, 35%)`);
+  ctx.fillStyle = grad;
+  roundRect(ctx, -w / 2, -h / 2, w, h, 8);
+  ctx.fill();
+  // Cabin (darker mid-section)
+  ctx.fillStyle = `hsl(${hue}, 60%, 22%)`;
+  roundRect(ctx, -w / 2 + 5, -h / 2 + 16, w - 10, h - 32, 4);
+  ctx.fill();
+  // Front windshield (top)
+  ctx.fillStyle = "rgba(120,200,255,0.55)";
+  ctx.fillRect(-w / 2 + 7, -h / 2 + 18, w - 14, 8);
+  // Rear window (bottom)
+  ctx.fillStyle = "rgba(120,200,255,0.35)";
+  ctx.fillRect(-w / 2 + 7, h / 2 - 22, w - 14, 6);
+  // Headlights at the front (top edge)
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-w / 2 + 4, -h / 2 + 1, 7, 4);
+  ctx.fillRect(w / 2 - 11, -h / 2 + 1, 7, 4);
+  // Taillights at the back
+  ctx.fillStyle = isPlayer ? "#ef4444" : "#dc2626";
+  ctx.fillRect(-w / 2 + 4, h / 2 - 5, 7, 4);
+  ctx.fillRect(w / 2 - 11, h / 2 - 5, 7, 4);
+  // Wheels
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(-w / 2 - 4, -h / 2 + 8, 5, 14);
+  ctx.fillRect(w / 2 - 1, -h / 2 + 8, 5, 14);
+  ctx.fillRect(-w / 2 - 4, h / 2 - 22, 5, 14);
+  ctx.fillRect(w / 2 - 1, h / 2 - 22, 5, 14);
+  // Outline accent — only the player's car gets the crisp white edge
+  if (isPlayer) {
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, -w / 2, -h / 2, w, h, 8);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
+}
+
+function drawBanner(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  colour: string,
+  alpha: number,
+) {
+  ctx.save();
+  const w = 320;
+  const h = 44;
+  const x = (W - w) / 2;
+  const y = 60;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.fill();
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = 2;
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.stroke();
+  ctx.fillStyle = colour;
+  ctx.font = "bold 16px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, W / 2, y + h / 2);
+  ctx.restore();
+}
+
+function Stat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number | string;
+  accent?: boolean;
+}) {
+  return (
+    <span
+      className={`px-3 py-1 rounded-lg ${
+        accent
+          ? "bg-[var(--accent)]/20 border border-[var(--accent)]/40"
+          : "bg-white/10"
+      }`}
+    >
+      <span className="text-[10px] uppercase tracking-wider opacity-60 mr-1.5">
+        {label}
+      </span>
+      <b>{value}</b>
+    </span>
   );
 }
