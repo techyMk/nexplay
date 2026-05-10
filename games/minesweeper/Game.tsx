@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { GameOverlay } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Sfx } from "@/lib/sound";
+import { useSubmitScoreOnGameOver } from "@/lib/scores";
+import { ScoreStatus } from "@/components/ScoreStatus";
 
 const COLS = 16;
 const ROWS = 16;
@@ -110,6 +112,15 @@ export default function Minesweeper() {
   const [bonus, setBonus] = useState(0);
   const flags = board.flat().filter((c) => c.flagged).length;
   const revealedRef = useRef(0);
+  // Submits the score to the global leaderboard whenever the game
+  // ends (win or loss). Wins naturally end up higher because of the
+  // time-bonus, but lost runs with lots of revealed cells still
+  // count for ranking.
+  const submitStatus = useSubmitScoreOnGameOver(
+    "minesweeper",
+    score,
+    over || won,
+  );
 
   // Pull best out of localStorage on mount.
   useEffect(() => {
@@ -132,17 +143,25 @@ export default function Minesweeper() {
       // Time bonus rewards fast clears; tapers to 0 after ~3 minutes.
       const tBonus = Math.max(0, 800 - time * 5);
       setBonus(tBonus);
-      const finalScore = score + tBonus;
-      setScore(finalScore);
-      setBest((b) => {
-        const nb = Math.max(b, finalScore);
-        if (nb !== b)
-          localStorage.setItem("nexplay:minesweeper-best", String(nb));
-        return nb;
-      });
+      setScore((s) => s + tBonus);
       Sfx.win();
     }
-  }, [board, over, won, time, score]);
+  }, [board, over, won, time]);
+
+  // Persist personal best on any game end (win OR loss). A loss with
+  // a high cell-reveal count is still a meaningful run and should be
+  // remembered locally. The leaderboard hook above handles the
+  // global submission.
+  useEffect(() => {
+    if (!(over || won)) return;
+    if (score <= best) return;
+    setBest(score);
+    try {
+      localStorage.setItem("nexplay:minesweeper-best", String(score));
+    } catch {
+      // localStorage can throw in private mode — best is nice-to-have
+    }
+  }, [over, won, score, best]);
 
   const click = (r: number, c: number) => {
     if (over || won || !started) return;
@@ -324,13 +343,14 @@ export default function Minesweeper() {
           subtitle={
             won
               ? `${time}s · ${revealedRef.current}/${SAFE_CELLS} cells · time bonus +${bonus}`
-              : `Score ${score} · revealed ${revealedRef.current}/${SAFE_CELLS}`
+              : `Revealed ${revealedRef.current}/${SAFE_CELLS} · best ${Math.max(best, score)}`
           }
           primary={{ label: "Play again", onClick: reset }}
         >
           <div className="text-3xl font-black text-emerald-400">
             Score: {score}
           </div>
+          <ScoreStatus gameSlug="minesweeper" status={submitStatus} />
         </GameOverlay>
       )}
     </div>
