@@ -178,6 +178,10 @@ export default function GeoGuessr() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  /** ResizeObserver attached to the map div — must be disconnected on
+   *  unmount, so we track it separately rather than relying on Leaflet
+   *  to tear it down. */
+  const mapResizeObsRef = useRef<ResizeObserver | null>(null);
   /** Active markers + line drawn on the map. We keep references so
    *  they can be cleared between rounds. */
   const guessMarkerRef = useRef<L.Marker | null>(null);
@@ -218,11 +222,15 @@ export default function GeoGuessr() {
   }, [isOver, totalScore, best]);
 
   // -------------------------------------------------------------------------
-  // Leaflet map init / teardown. Done once on mount; we mutate the map
-  // imperatively each round rather than reinit'ing it.
+  // Leaflet map init / teardown. The map div isn't even rendered while
+  // `phase === "intro"`, so init has to wait until the player clicks
+  // Play. Once inited the map persists across all subsequent phases —
+  // we mutate it imperatively each round rather than rebuilding.
   // -------------------------------------------------------------------------
 
   useEffect(() => {
+    if (phase === "intro") return;
+    if (mapRef.current) return; // already inited from an earlier phase
     const div = mapDivRef.current;
     if (!div) return;
 
@@ -243,27 +251,38 @@ export default function GeoGuessr() {
     mapRef.current = map;
 
     // Map clicks during guessing: place / move the player's marker.
+    // Guarded by a phase ref so we don't have to re-bind the listener
+    // every time `phase` changes.
     const onMapClick = (e: L.LeafletMouseEvent) => {
-      // Use a ref-based gate so we don't have to recreate the listener
-      // every time `phase` changes.
-      const ph = phaseRef.current;
-      if (ph !== "guessing") return;
+      if (phaseRef.current !== "guessing") return;
       placeGuessMarker(map, e.latlng);
       setGuessLatLng(e.latlng);
       Sfx.click();
     };
     map.on("click", onMapClick);
 
-    // Leaflet draws based on container size at init time. If the
-    // host div resizes (e.g. fullscreen toggle), we have to nudge it.
+    // Leaflet sizes itself off the container at init; if the wrapper
+    // resizes (fullscreen, sidebar collapse, etc.) we have to nudge.
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(div);
+    mapResizeObsRef.current = ro;
+    // Phase changes trigger this effect, but we deliberately don't
+    // return a cleanup here — the map should outlive a phase swap.
+    // Component-unmount cleanup is handled by the effect below.
+  }, [phase]);
 
+  /** Unmount-only teardown for the map + observer. Empty deps so the
+   *  cleanup fires exactly once when the component goes away. */
+  useEffect(() => {
     return () => {
-      ro.disconnect();
-      map.off("click", onMapClick);
-      map.remove();
-      mapRef.current = null;
+      if (mapResizeObsRef.current) {
+        mapResizeObsRef.current.disconnect();
+        mapResizeObsRef.current = null;
+      }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
       guessMarkerRef.current = null;
       actualMarkerRef.current = null;
       lineRef.current = null;
@@ -443,28 +462,35 @@ export default function GeoGuessr() {
       ref={wrapRef}
       className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1530] to-[#0b0d12] select-none"
     >
-      {/* Top HUD */}
-      <div className="shrink-0 flex items-center justify-center gap-2 p-2 text-white text-xs sm:text-sm flex-wrap border-b border-white/10 bg-black/30">
-        <span className="px-3 py-1 rounded-md bg-white/10">
-          <span className="opacity-60 mr-1.5">ROUND</span>
-          <b>{Math.min(round + 1, TOTAL_ROUNDS)}</b>
-          <span className="opacity-60"> / {TOTAL_ROUNDS}</span>
-        </span>
-        <span className="px-3 py-1 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-200">
-          <span className="opacity-60 mr-1.5">SCORE</span>
-          <b className="tabular-nums">{totalScore.toLocaleString()}</b>
-        </span>
-        {best > 0 && (
-          <span className="px-3 py-1 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-200">
-            <span className="opacity-60 mr-1.5">BEST</span>
-            <b className="tabular-nums">{best.toLocaleString()}</b>
+      {/* Top HUD — only meaningful once the round starts. While in
+          intro we hide it so the splash overlay can be the only
+          thing the player sees. */}
+      {phase !== "intro" && (
+        <div className="shrink-0 flex items-center justify-center gap-2 p-2 text-white text-xs sm:text-sm flex-wrap border-b border-white/10 bg-black/30">
+          <span className="px-3 py-1 rounded-md bg-white/10">
+            <span className="opacity-60 mr-1.5">ROUND</span>
+            <b>{Math.min(round + 1, TOTAL_ROUNDS)}</b>
+            <span className="opacity-60"> / {TOTAL_ROUNDS}</span>
           </span>
-        )}
-        <SoundToggle />
-      </div>
+          <span className="px-3 py-1 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-200">
+            <span className="opacity-60 mr-1.5">SCORE</span>
+            <b className="tabular-nums">{totalScore.toLocaleString()}</b>
+          </span>
+          {best > 0 && (
+            <span className="px-3 py-1 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-200">
+              <span className="opacity-60 mr-1.5">BEST</span>
+              <b className="tabular-nums">{best.toLocaleString()}</b>
+            </span>
+          )}
+          <SoundToggle />
+        </div>
+      )}
 
       {/* Main two-pane area: photo on the left, map on the right.
-          Stacks vertically on narrow viewports. */}
+          Stacks vertically on narrow viewports. Skipped entirely
+          while phase === "intro" so the map doesn't render behind
+          the splash. */}
+      {phase !== "intro" && (
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-2 p-2">
         {/* Photo pane */}
         <div className="relative rounded-xl overflow-hidden bg-black/40 border border-white/10 flex items-center justify-center">
@@ -547,35 +573,38 @@ export default function GeoGuessr() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Bottom action bar */}
-      <div className="shrink-0 flex items-center justify-center gap-2 p-2 border-t border-white/10 bg-black/30">
-        {phase === "guessing" && (
-          <>
-            <span className="text-white/60 text-xs hidden sm:inline">
-              Click the map to drop a pin, then submit your guess.
-            </span>
+      {/* Bottom action bar — also hidden while in intro */}
+      {phase !== "intro" && (
+        <div className="shrink-0 flex items-center justify-center gap-2 p-2 border-t border-white/10 bg-black/30">
+          {phase === "guessing" && (
+            <>
+              <span className="text-white/60 text-xs hidden sm:inline">
+                Click the map to drop a pin, then submit your guess.
+              </span>
+              <button
+                onClick={submitGuess}
+                disabled={!guessLatLng}
+                className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-black font-black text-sm transition-colors"
+              >
+                {guessLatLng ? "▶ Submit guess" : "Drop a pin first"}
+              </button>
+            </>
+          )}
+          {phase === "result" && (
             <button
-              onClick={submitGuess}
-              disabled={!guessLatLng}
-              className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-black font-black text-sm transition-colors"
+              onClick={nextRound}
+              className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm transition-colors"
             >
-              {guessLatLng ? "▶ Submit guess" : "Drop a pin first"}
+              {round + 1 >= TOTAL_ROUNDS ? "See results →" : "Next round →"}
             </button>
-          </>
-        )}
-        {phase === "result" && (
-          <button
-            onClick={nextRound}
-            className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm transition-colors"
-          >
-            {round + 1 >= TOTAL_ROUNDS ? "See results →" : "Next round →"}
-          </button>
-        )}
-        {phase === "loading" && (
-          <span className="text-white/60 text-xs">Preparing the round…</span>
-        )}
-      </div>
+          )}
+          {phase === "loading" && (
+            <span className="text-white/60 text-xs">Preparing the round…</span>
+          )}
+        </div>
+      )}
 
       {/* Intro overlay */}
       {phase === "intro" && (
