@@ -118,4 +118,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  wordle: dynamic(() => import("./wordle/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
