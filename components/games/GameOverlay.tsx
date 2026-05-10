@@ -37,6 +37,19 @@ export function GameOverlay({
 }) {
   return (
     <div
+      // Stop pointer/click events from bubbling to the game wrapper.
+      // Several games attach pointerdown/click listeners on the wrap
+      // div that call start() when over=true — without stopping
+      // propagation here, tapping "Home" would re-launch the game
+      // (unmounting the overlay) before the <Link> click could
+      // navigate, so the user would land back inside the game.
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onMouseUp={(e) => e.stopPropagation()}
       className={`absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl gap-2 p-4 ${
         variant === "blur" ? "bg-black/65 backdrop-blur-sm" : "bg-black/70"
       }`}

@@ -75,9 +75,14 @@ export async function POST(request: Request) {
 
   if (action === "verify") {
     const token = typeof body?.token === "string" ? body.token.trim() : "";
-    if (!/^\d{6}$/.test(token)) {
+    // Supabase's email OTP length is configurable in the dashboard
+    // (Authentication → Email Settings) and can be 6–10 digits. We
+    // accept anything in that range and let verifyOtp do the real
+    // check; mismatch on length usually means the user typed a
+    // partial code, which we surface as a friendly error.
+    if (!/^\d{6,10}$/.test(token)) {
       return NextResponse.json(
-        { error: "Enter the 6-digit code from the email." },
+        { error: "Enter the full numeric code from the email." },
         { status: 400 },
       );
     }
