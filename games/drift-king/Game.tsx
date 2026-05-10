@@ -411,6 +411,15 @@ export default function DriftKing() {
         engineRef.current.update(60, 0);
       }
 
+      // Camera shake / flash timers must decay every frame, including
+      // *after* the crash. If we only decayed inside the `live` block,
+      // the crash itself sets shake = 1 → live becomes false next
+      // frame → shake stays at 1 forever and the road jitters
+      // permanently behind the game-over overlay.
+      if (st.flashTimer > 0)
+        st.flashTimer = Math.max(0, st.flashTimer - dt * 3);
+      if (st.shake > 0) st.shake = Math.max(0, st.shake - dt * 5);
+
       if (live) {
         st.elapsed += dt;
 
@@ -704,9 +713,8 @@ export default function DriftKing() {
           if (p.life <= 0) st.particles.splice(i, 1);
         }
         st.floaters = st.floaters.filter((f) => (f.life -= dt) > 0);
-        if (st.flashTimer > 0)
-          st.flashTimer = Math.max(0, st.flashTimer - dt * 3);
-        if (st.shake > 0) st.shake = Math.max(0, st.shake - dt * 5);
+        // (flashTimer / shake decay moved out of the live block — see
+        // top of tick — so the crash doesn't get stuck shaking.)
 
         // ----- Smoke trail when accelerating -----
         if (st.speed > SPEED_BASE + 50 && Math.random() < 0.6) {

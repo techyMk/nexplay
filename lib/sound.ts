@@ -226,6 +226,47 @@ export const Sfx = {
       type: "sawtooth",
       volume: 0.15,
     }),
+  /** Quiet footstep — single low blip, designed to be played
+   *  rhythmically during movement without becoming annoying. */
+  step: () =>
+    play({ freq: 80, duration: 0.05, type: "sine", volume: 0.07 }),
+  /** Bright treasure ping for gems / sparkly pickups. */
+  gem: () => {
+    play({
+      freq: 880,
+      endFreq: 1320,
+      duration: 0.1,
+      type: "triangle",
+      volume: 0.18,
+    });
+    play({
+      freq: 1320,
+      duration: 0.14,
+      type: "triangle",
+      volume: 0.16,
+      delay: 0.08,
+    });
+  },
+  /** Treasure-chest opening flourish — a low thud followed by a
+   *  rising arpeggio. */
+  chest: () => {
+    play({ freq: 220, duration: 0.08, type: "triangle", volume: 0.2 });
+    play({
+      freq: 600,
+      endFreq: 880,
+      duration: 0.18,
+      type: "triangle",
+      volume: 0.2,
+      delay: 0.06,
+    });
+    play({
+      freq: 1320,
+      duration: 0.12,
+      type: "triangle",
+      volume: 0.16,
+      delay: 0.18,
+    });
+  },
 };
 
 /** Continuous engine-noise generator. Two oscillators (sawtooth +
