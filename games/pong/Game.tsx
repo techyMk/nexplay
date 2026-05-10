@@ -17,11 +17,57 @@ type Side = "left" | "right" | null;
 
 const DIFFICULTY: Record<
   Difficulty,
-  { speed: number; reaction: number; jitter: number }
+  {
+    /** Max paddle move speed in px/sec — caps how fast it can chase. */
+    speed: number;
+    /** Strategy used to choose where to move. "track" = follow current
+     *  ball y; "linear" = predict where ball will be ignoring walls;
+     *  "bounce" = full prediction with wall bounces. */
+    strategy: "track" | "linear" | "bounce";
+    /** ± random offset added to the target each retarget, in pixels. */
+    jitter: number;
+    /** Max paddle area the AI considers a "hit" — wider means it
+     *  positions to the centre and has slack on the edges (easy);
+     *  narrow means the paddle aligns precisely with the ball. */
+    aimSlack: number;
+    /** How often (probability per frame) the AI is "frozen" / not
+     *  moving this frame. Imitates a beginner's reaction lag. */
+    freezeChance: number;
+    /** Probability per frame of recomputing the target (low =
+     *  decisions stick, high = constantly retargeting). */
+    decisionRate: number;
+    /** Probability per retarget that the AI guesses wrong direction
+     *  outright, picking the opposite side of the court. */
+    blunderChance: number;
+  }
 > = {
-  easy: { speed: 240, reaction: 0.55, jitter: 28 },
-  medium: { speed: 340, reaction: 0.78, jitter: 14 },
-  hard: { speed: 460, reaction: 0.95, jitter: 4 },
+  easy: {
+    speed: 220,
+    strategy: "track",
+    jitter: 60,
+    aimSlack: 28,
+    freezeChance: 0.18,
+    decisionRate: 0.06,
+    blunderChance: 0.18,
+  },
+  medium: {
+    speed: 340,
+    strategy: "linear",
+    jitter: 22,
+    aimSlack: 8,
+    freezeChance: 0.04,
+    decisionRate: 0.5,
+    blunderChance: 0.04,
+  },
+  hard: {
+    speed: 520,
+    strategy: "bounce",
+    jitter: 4,
+    aimSlack: 0,
+    freezeChance: 0,
+    decisionRate: 1,
+    blunderChance: 0,
+  },
 };
 
 function newServe(toward: Side): {
@@ -190,34 +236,71 @@ export default function Pong() {
         }
 
         if (modeRef.current === "ai") {
-          // AI: track the ball with a tunable response. Recompute the
-          // target only every few frames to make easier difficulties feel
-          // less robotic. Add a per-difficulty jitter to the target.
           const cfg = DIFFICULTY[difficultyRef.current];
-          if (Math.random() < cfg.reaction) {
-            // Predict roughly where ball will be when it arrives, only
-            // when ball is heading right.
+
+          // Recompute the target — frequency depends on difficulty.
+          // Easy retargets rarely (so it commits to a wrong move); hard
+          // every frame (so it adjusts continuously).
+          if (Math.random() < cfg.decisionRate) {
+            let target: number;
+
             if (st.bvx > 0) {
-              const timeToArrive = Math.max(
-                0.05,
-                (W - 20 - PAD_W - st.bx) / Math.max(50, st.bvx),
-              );
-              let predictedY = st.by + st.bvy * timeToArrive;
-              // Bounce off walls in prediction
-              while (predictedY < 0 || predictedY > H) {
-                if (predictedY < 0) predictedY = -predictedY;
-                else if (predictedY > H) predictedY = 2 * H - predictedY;
+              // Ball heading toward AI. Different strategies per level.
+              if (cfg.strategy === "track") {
+                // Beginner: chase the ball's CURRENT y. Always behind.
+                target = st.by;
+              } else if (cfg.strategy === "linear") {
+                // Intermediate: extrapolate without modeling walls.
+                // Misjudges anything that bounces off the top/bottom.
+                const timeToArrive = Math.max(
+                  0.05,
+                  (W - 20 - PAD_W - st.bx) / Math.max(50, st.bvx),
+                );
+                target = st.by + st.bvy * timeToArrive;
+                target = Math.max(20, Math.min(H - 20, target));
+              } else {
+                // Pro: full prediction including wall bounces.
+                const timeToArrive = Math.max(
+                  0.05,
+                  (W - 20 - PAD_W - st.bx) / Math.max(50, st.bvx),
+                );
+                let predicted = st.by + st.bvy * timeToArrive;
+                while (predicted < 0 || predicted > H) {
+                  if (predicted < 0) predicted = -predicted;
+                  else if (predicted > H) predicted = 2 * H - predicted;
+                }
+                target = predicted;
               }
-              st.aiTargetY = predictedY + (Math.random() - 0.5) * cfg.jitter;
+
+              // Easy occasionally guesses the wrong half outright.
+              if (Math.random() < cfg.blunderChance) {
+                target = H - target;
+              }
             } else {
-              // Drift back toward center
-              st.aiTargetY = H / 2 + (Math.random() - 0.5) * cfg.jitter;
+              // Ball moving away. Easy keeps tracking the ball
+              // (clueless); medium drifts back to center; hard centers
+              // precisely.
+              if (cfg.strategy === "track") target = st.by;
+              else target = H / 2;
+            }
+
+            st.aiTargetY = target + (Math.random() - 0.5) * cfg.jitter;
+          }
+
+          // Frozen-frame: easier levels skip movement sometimes.
+          if (Math.random() >= cfg.freezeChance) {
+            const center = st.rightY + PAD_H / 2;
+            const diff = st.aiTargetY - center;
+            // aimSlack: ignore tiny offsets (easy never makes
+            // micro-adjustments, hard always does).
+            if (Math.abs(diff) > cfg.aimSlack) {
+              const step = Math.max(
+                -cfg.speed * dt,
+                Math.min(cfg.speed * dt, diff),
+              );
+              st.rightY += step;
             }
           }
-          const center = st.rightY + PAD_H / 2;
-          const diff = st.aiTargetY - center;
-          const step = Math.max(-cfg.speed * dt, Math.min(cfg.speed * dt, diff));
-          st.rightY += step;
         }
 
         st.leftY = Math.max(0, Math.min(H - PAD_H, st.leftY));
