@@ -47,6 +47,15 @@ const MULTIPLAYER_GAMES = [
     available: true,
     badge: "New",
   },
+  {
+    slug: "chess",
+    title: "Chess",
+    glyph: "♔",
+    gradient: "linear-gradient(135deg, #78350f 0%, #1c1917 100%)",
+    desc: "Real-time 1-vs-1 with full rules. Host plays white, guest plays black.",
+    available: true,
+    badge: "New",
+  },
 ];
 
 export default function MultiplayerHub() {
