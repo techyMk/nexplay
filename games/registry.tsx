@@ -106,4 +106,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  "agar-clone": dynamic(() => import("./agar-clone/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
