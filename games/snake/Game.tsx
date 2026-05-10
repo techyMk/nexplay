@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const COLS = 24;
 const ROWS = 18;
@@ -249,6 +251,7 @@ export default function Snake() {
           ) {
             setOver(true);
             setRunning(false);
+            Sfx.gameOver();
             setScore((finalScore) => {
               setBestByDiff((prev) => {
                 const cur = prev[difficulty];
@@ -276,6 +279,7 @@ export default function Snake() {
             setLength(st.snake.length);
             st.speed = Math.min(cfg.capSpeed, st.speed + cfg.speedStep);
             setHudSpeed(st.speed);
+            Sfx.pickup();
           } else if (
             st.bonus &&
             nh.x === st.bonus.pos.x &&
@@ -284,6 +288,7 @@ export default function Snake() {
             // Eat bonus
             st.bonus = null;
             setScore((s) => s + BONUS_FOOD_PTS);
+            Sfx.bigPickup();
             setLength(st.snake.length);
             // Bonus also gives a small speed bump
             st.speed = Math.min(cfg.capSpeed, st.speed + cfg.speedStep * 0.5);
@@ -459,6 +464,7 @@ export default function Snake() {
         <Stat label="Length" value={length} />
         <Stat label="Speed" value={`${hudSpeed.toFixed(1)}/s`} />
         <Stat label="Best" value={best} />
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 800;
 const H = 540;
@@ -169,12 +171,15 @@ export default function Breakout() {
           st.bvx = Math.cos(angle) * speed;
           st.bvy = Math.sin(angle) * speed;
           st.by = H - 30 - PADDLE_H - BALL_R;
+          Sfx.bounce();
         }
         if (st.by > H + 40) {
+          Sfx.hit();
           setLives((l) => {
             const nl = l - 1;
             if (nl <= 0) {
               setPhase("over");
+              Sfx.gameOver();
               setScore((s) => {
                 setBest((b) => {
                   const nb = Math.max(b, s);
@@ -202,6 +207,7 @@ export default function Breakout() {
           ) {
             b.alive = false;
             setScore((s) => s + 10);
+            Sfx.match();
             // simple bounce: pick the side with smaller penetration
             const dxL = st.bx + BALL_R - b.x;
             const dxR = b.x + BRICK_W - (st.bx - BALL_R);
@@ -215,6 +221,7 @@ export default function Breakout() {
         }
         if (aliveCount === 0) {
           setPhase("won");
+          Sfx.win();
           setScore((s) => {
             setBest((b) => {
               const nb = Math.max(b, s);
@@ -271,6 +278,7 @@ export default function Breakout() {
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0218] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
         <span>Best: <b>{best}</b> · Arrows / A,D or drag · Space / tap to launch · P pauses</span>
+        <SoundToggle />
         {phase === "play" && (
           <button
             onClick={togglePause}

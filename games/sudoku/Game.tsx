@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type Cell = { value: number; given: boolean; pencil: number[] };
 type Board = Cell[][];
@@ -102,14 +104,22 @@ export default function Sudoku() {
       next[sel.r][sel.c].value = v;
       return next;
     });
-    if (v > 0 && parseInt(initial.solution[sel.r * 9 + sel.c], 10) !== v) {
+    if (v === 0) {
+      Sfx.click();
+    } else if (parseInt(initial.solution[sel.r * 9 + sel.c], 10) !== v) {
       setErrors((e) => e + 1);
+      Sfx.error();
+    } else {
+      Sfx.place();
     }
   };
 
   useEffect(() => {
-    if (isComplete(board, initial.solution)) setWon(true);
-  }, [board, initial.solution]);
+    if (isComplete(board, initial.solution) && !won) {
+      setWon(true);
+      Sfx.win();
+    }
+  }, [board, initial.solution, won]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -180,6 +190,7 @@ export default function Sudoku() {
             </button>
           ))}
         </div>
+        <SoundToggle />
         {started && !won && (
           <PauseToggle paused={paused} onClick={() => setPaused((p) => !p)} />
         )}

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const VIEW_W = 800;
 const VIEW_H = 220;
@@ -120,6 +122,7 @@ export default function ChromeDino() {
     const onGround = st.dinoY >= GROUND_Y - DINO_H_RUN - 0.5;
     if (onGround) {
       st.dinoVy = JUMP_VEL;
+      Sfx.jump();
     }
   }, []);
 
@@ -192,6 +195,7 @@ export default function ChromeDino() {
     const triggerGameOver = () => {
       if (overRef.current) return;
       setOver(true);
+      Sfx.gameOver();
       const finalScore = scoreRef.current;
       const nb = Math.max(bestRef.current, finalScore);
       if (nb !== bestRef.current) {
@@ -221,7 +225,15 @@ export default function ChromeDino() {
 
         const dx = st.speed * dt;
         st.distance += dx;
+        const prevScore = scoreRef.current;
         scoreRef.current = Math.floor(st.distance * SCORE_PER_PX);
+        if (
+          scoreRef.current !== prevScore &&
+          Math.floor(prevScore / 100) !== Math.floor(scoreRef.current / 100) &&
+          scoreRef.current > 0
+        ) {
+          Sfx.win();
+        }
         setScore(scoreRef.current);
 
         // Dino physics
@@ -387,6 +399,7 @@ export default function ChromeDino() {
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-xs flex-wrap">
         <Stat label="Score" value={score} accent />
         <Stat label="Best" value={best} />
+        <SoundToggle />
         {started && !over && (
           <PauseToggle paused={paused} onClick={togglePause} />
         )}

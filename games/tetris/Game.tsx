@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const COLS = 10;
 const ROWS = 20;
@@ -134,9 +136,12 @@ export default function Tetris() {
   const lockAndSpawn = useCallback(() => {
     const st = stateRef.current;
     st.board = merge(st.board, st.piece);
+    Sfx.thud();
     const { board: nb, cleared } = clearLines(st.board);
     st.board = nb;
     if (cleared) {
+      if (cleared >= 4) Sfx.bigMatch();
+      else Sfx.match();
       setLines((l) => {
         const total = l + cleared;
         setLevel(Math.floor(total / 10) + 1);
@@ -155,7 +160,10 @@ export default function Tetris() {
     }
     st.piece = st.next;
     st.next = randomPiece();
-    if (collides(st.board, st.piece)) setOver(true);
+    if (collides(st.board, st.piece)) {
+      setOver(true);
+      Sfx.gameOver();
+    }
   }, [level]);
 
   useEffect(() => {
@@ -349,6 +357,7 @@ export default function Tetris() {
           ←→ move<br />↑ rotate<br />↓ soft drop<br />space hard drop<br />P pause<br />
           <span className="text-white/50">swipe / tap on mobile</span>
         </div>
+        <SoundToggle className="self-stretch" />
         {!over && (
           <button
             onClick={togglePause}
