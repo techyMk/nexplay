@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { FloatingMenu } from "@/components/FloatingMenu";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeScript } from "@/components/ThemeScript";
@@ -178,6 +179,7 @@ export default async function RootLayout({
                 </div>
               </div>
           </footer>
+          <FloatingMenu />
         </ConfirmProvider>
         </ToastProvider>
       </body>
