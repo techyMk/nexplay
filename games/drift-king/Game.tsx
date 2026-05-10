@@ -5,6 +5,8 @@ import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 480;
 const H = 700;
@@ -135,6 +137,7 @@ export default function DriftKing() {
             Math.abs(o.y - st.carY) < o.h / 2 + 35
           ) {
             setOver(true);
+            Sfx.gameOver();
             setScore((s) => {
               setBest((b) => {
                 const nb = Math.max(b, s);
@@ -204,6 +207,7 @@ export default function DriftKing() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a0808] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
+        <SoundToggle />
         <span>
           Best: <b>{best}</b> · Arrow keys / WASD · P pauses
         </span>

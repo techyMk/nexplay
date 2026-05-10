@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 const W = 480;
 const H = 640;
@@ -140,6 +142,7 @@ export default function BubbleShooter() {
     st.nextColor = st.holdColor;
     st.holdColor = pickShotColor(st.grid);
     forceTick((n) => n + 1);
+    Sfx.shoot();
   }, []);
 
   const swapNext = useCallback(() => {
@@ -300,6 +303,7 @@ export default function BubbleShooter() {
                 st.grid[r][c] = null;
               }
               setScore((s) => s + cluster.length * 10);
+              Sfx.match();
               // drop floaters: anything not connected to row 0
               const reachable = new Set<string>();
               const q: [number, number][] = [];
@@ -345,10 +349,10 @@ export default function BubbleShooter() {
             }
             // game over check
             const lowest = st.grid.reduce((acc, row, r) => (row.some((b) => b) ? r : acc), -1);
-            if (rowY(lowest) > H - 120) setOver(true);
+            if (rowY(lowest) > H - 120) { setOver(true); Sfx.gameOver(); }
             // win check
             const any = st.grid.some((row) => row.some((b) => b));
-            if (!any) setOver(true);
+            if (!any) { setOver(true); Sfx.win(); }
           }
           st.shot = null;
           forceTick((n) => n + 1);
@@ -470,6 +474,7 @@ export default function BubbleShooter() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2">
+        <SoundToggle />
         <span className="opacity-80">
           Aim · Click or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to shoot · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> swap · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
         </span>

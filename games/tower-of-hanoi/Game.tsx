@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type Pegs = number[][];
 
@@ -22,6 +24,9 @@ export default function TowerOfHanoi() {
 
   const minMoves = (1 << disks) - 1;
   const won = pegs[2].length === disks && started;
+  useEffect(() => {
+    if (won) Sfx.win();
+  }, [won]);
 
   useEffect(() => {
     setPegs(initial);
@@ -54,6 +59,7 @@ export default function TowerOfHanoi() {
     const dest = to[to.length - 1];
     if (dest !== undefined && top > dest) {
       setSel(null);
+      Sfx.error();
       return;
     }
     const next: Pegs = [pegs[0].slice(), pegs[1].slice(), pegs[2].slice()];
@@ -61,6 +67,7 @@ export default function TowerOfHanoi() {
     setPegs(next);
     setMoves((m) => m + 1);
     setSel(null);
+    Sfx.thud();
   };
 
   const reset = () => {
@@ -77,6 +84,7 @@ export default function TowerOfHanoi() {
         <span className="px-3 py-1 rounded-lg bg-white/10">🎯 {moves} moves</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⏱️ {time}s</span>
         <span className="px-3 py-1 rounded-lg bg-white/10">⚡ Min: {minMoves}</span>
+        <SoundToggle />
         <select
           value={disks}
           onChange={(e) => setDisks(parseInt(e.target.value, 10))}

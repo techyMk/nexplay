@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type Cell = "X" | "O" | null;
 type Difficulty = "easy" | "medium" | "hard";
@@ -135,9 +137,16 @@ export default function TicTacToe() {
 
   useEffect(() => {
     if (over) {
-      if (winner === "X") setScore((s) => ({ ...s, x: s.x + 1 }));
-      else if (winner === "O") setScore((s) => ({ ...s, o: s.o + 1 }));
-      else setScore((s) => ({ ...s, draws: s.draws + 1 }));
+      if (winner === "X") {
+        setScore((s) => ({ ...s, x: s.x + 1 }));
+        Sfx.win();
+      } else if (winner === "O") {
+        setScore((s) => ({ ...s, o: s.o + 1 }));
+        Sfx.gameOver();
+      } else {
+        setScore((s) => ({ ...s, draws: s.draws + 1 }));
+        Sfx.click();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [over, winner]);
@@ -164,6 +173,7 @@ export default function TicTacToe() {
     next[i] = "X";
     setBoard(next);
     setTurn("O");
+    Sfx.place();
   };
 
   const reset = () => {
@@ -174,6 +184,7 @@ export default function TicTacToe() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#1a1325] to-[#2a1240] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-6 mb-2 text-white text-xs sm:text-sm font-medium flex-wrap">
+        <SoundToggle />
         <div className={`px-3 py-1 rounded-lg ${turn === "X" && !over ? "bg-[var(--accent)]" : "bg-white/10"}`}>
           You (X) — {score.x}
         </div>
