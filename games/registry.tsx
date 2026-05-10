@@ -94,4 +94,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  slither: dynamic(() => import("./slither/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
