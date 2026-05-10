@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 const W = 800;
 const H = 540;
@@ -116,6 +117,7 @@ export default function Asteroids() {
   const [wave, setWave] = useState(1);
   const [over, setOver] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [started, setStarted] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("asteroids", score, over);
 
   // Live mirrors of state so the tick can read latest values without
@@ -126,6 +128,8 @@ export default function Asteroids() {
   overRef.current = over;
   const pausedRef = useRef(false);
   pausedRef.current = paused;
+  const startedRef = useRef(false);
+  startedRef.current = started;
 
   const stateRef = useRef({
     px: W / 2,
@@ -180,10 +184,16 @@ export default function Asteroids() {
     setWave(1);
     setOver(false);
     setPaused(false);
+    setStarted(false);
+  }, []);
+
+  const start = useCallback(() => {
+    setStarted(true);
+    setPaused(false);
   }, []);
 
   const togglePause = useCallback(() => {
-    if (overRef.current) return;
+    if (overRef.current || !startedRef.current) return;
     setPaused((p) => !p);
   }, []);
 
@@ -211,7 +221,7 @@ export default function Asteroids() {
       last = now;
       const st = stateRef.current;
       const k = keys.current;
-      const live = !overRef.current && !pausedRef.current;
+      const live = !overRef.current && !pausedRef.current && startedRef.current;
 
       let scoredThisFrame = 0;
 
@@ -665,32 +675,38 @@ export default function Asteroids() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
-          {paused && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
-              <div className="text-5xl mb-1">⏸</div>
-              <div className="text-3xl font-black text-white mb-1">Paused</div>
-              <div className="text-white/70 text-xs mb-3">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
-              </div>
-              <button
-                onClick={() => setPaused(false)}
-                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                ▶ Resume
-              </button>
-            </div>
+          {!started && !over && (
+            <GameOverlay
+              icon="🚀"
+              title="Asteroids"
+              subtitle="Rotate, thrust, fire. Watch out for UFOs and grab bonuses to chain combos."
+              primary={{ label: "▶ Play", onClick: start }}
+            />
+          )}
+          {paused && started && !over && (
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
           )}
           {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
-              <div className="text-4xl font-black text-white">Game over</div>
-              <div className="text-white/80">
-                Score: {score} · Wave {wave}
-              </div>
+            <GameOverlay
+              icon="💥"
+              title="Game over"
+              subtitle={`Score: ${score} · Wave ${wave}`}
+              primary={{ label: "Play again", onClick: reset }}
+            >
               <ScoreStatus gameSlug="asteroids" status={submitStatus} />
-              <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-                Play again
-              </button>
-            </div>
+            </GameOverlay>
           )}
         </div>
       </div>

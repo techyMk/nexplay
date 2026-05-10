@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
 const W = 480;
 const H = 640;
@@ -72,8 +73,14 @@ export default function BubbleShooter() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [over, setOver] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [, forceTick] = useState(0); // re-render the next/swap pills
   const submitStatus = useSubmitScoreOnGameOver("bubble-shooter", score, over);
+  const pausedRef = useRef(false);
+  pausedRef.current = paused;
+  const startedRef = useRef(false);
+  startedRef.current = started;
 
   const stateRef = useRef({
     grid: makeInitialBoard() as (Bubble | null)[][],
@@ -102,10 +109,24 @@ export default function BubbleShooter() {
     };
     setScore(0);
     setOver(false);
+    setStarted(false);
+    setPaused(false);
     forceTick((n) => n + 1);
   }, []);
 
+  const start = useCallback(() => {
+    setStarted(true);
+    setPaused(false);
+    forceTick((n) => n + 1);
+  }, []);
+
+  const togglePause = useCallback(() => {
+    if (!startedRef.current) return;
+    setPaused((p) => !p);
+  }, []);
+
   const fire = useCallback(() => {
+    if (!startedRef.current || pausedRef.current) return;
     const st = stateRef.current;
     if (st.shot) return;
     const speed = 720;
@@ -158,6 +179,9 @@ export default function BubbleShooter() {
       } else if (e.key === "q" || e.key === "Q" || e.key === "Tab") {
         e.preventDefault();
         swapNext();
+      } else if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
       }
     };
     canvas.addEventListener("mousemove", onMove);
@@ -216,9 +240,10 @@ export default function BubbleShooter() {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const st = stateRef.current;
+      const live = startedRef.current && !pausedRef.current;
 
-      // shot
-      if (st.shot) {
+      // shot — only advances when live
+      if (live && st.shot) {
         st.shot.x += st.shot.vx * dt;
         st.shot.y += st.shot.vy * dt;
         if (st.shot.x < RADIUS || st.shot.x > W - RADIUS) st.shot.vx *= -1;
@@ -330,19 +355,19 @@ export default function BubbleShooter() {
         }
       }
 
-      // Update falling bubbles (gravity)
-      const gravity = 1100;
-      for (const f of st.falling) {
-        f.vy += gravity * dt;
-        f.y += f.vy * dt;
-        f.x += f.vx * dt;
-        if (f.y > H + 50) f.alpha = 0;
+      // Animations only advance while live
+      if (live) {
+        const gravity = 1100;
+        for (const f of st.falling) {
+          f.vy += gravity * dt;
+          f.y += f.vy * dt;
+          f.x += f.vx * dt;
+          if (f.y > H + 50) f.alpha = 0;
+        }
+        st.falling = st.falling.filter((f) => f.alpha > 0);
+        for (const p of st.pops) p.t += dt;
+        st.pops = st.pops.filter((p) => p.t < 0.32);
       }
-      st.falling = st.falling.filter((f) => f.alpha > 0);
-
-      // Update pop animation (scale up + fade)
-      for (const p of st.pops) p.t += dt;
-      st.pops = st.pops.filter((p) => p.t < 0.32);
 
       // ---- draw ----
       // Background gradient
@@ -444,8 +469,13 @@ export default function BubbleShooter() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1828] to-[#0b0d12] p-2 sm:p-3">
-      <div className="shrink-0 text-white text-[11px] sm:text-xs text-center mb-2 opacity-80">
-        Aim with mouse · Click or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to shoot · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> to swap next
+      <div className="shrink-0 flex items-center justify-center gap-2 text-white text-[11px] sm:text-xs mb-2">
+        <span className="opacity-80">
+          Aim · Click or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to shoot · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> swap · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause
+        </span>
+        {started && !over && (
+          <PauseToggle paused={paused} onClick={togglePause} />
+        )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         <div
@@ -458,18 +488,38 @@ export default function BubbleShooter() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 cursor-crosshair"
           />
+          {!started && !over && (
+            <GameOverlay
+              icon="🎯"
+              title="Bubble Shooter"
+              subtitle="Match three or more bubbles of the same color to clear them."
+              primary={{ label: "▶ Play", onClick: start }}
+            />
+          )}
+          {paused && started && !over && (
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
+          )}
           {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl gap-2">
-              <div className="text-3xl sm:text-4xl font-black text-white">Round over</div>
-              <div className="text-white/80">Score: {score}</div>
+            <GameOverlay
+              icon="🛑"
+              title="Round over"
+              subtitle={`Score: ${score}`}
+              primary={{ label: "Play again", onClick: reset }}
+            >
               <ScoreStatus gameSlug="bubble-shooter" status={submitStatus} />
-              <button
-                onClick={reset}
-                className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                Play again
-              </button>
-            </div>
+            </GameOverlay>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
 const COLS = 24;
 const ROWS = 18;
@@ -36,7 +37,8 @@ export default function Snake() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
-  const [running, setRunning] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("snake", score, over);
 
@@ -65,14 +67,21 @@ export default function Snake() {
     };
     setScore(0);
     setOver(false);
+    setRunning(false);
+    setStarted(false);
+    setPaused(false);
+  }, []);
+
+  const start = useCallback(() => {
+    setStarted(true);
     setRunning(true);
     setPaused(false);
   }, []);
 
   const togglePause = useCallback(() => {
-    if (over) return;
+    if (over || !started) return;
     setPaused((p) => !p);
-  }, [over]);
+  }, [over, started]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -219,13 +228,8 @@ export default function Snake() {
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <span className="px-3 py-1 rounded-lg bg-white/10">Score: <b>{score}</b></span>
         <span className="px-3 py-1 rounded-lg bg-white/10">Best: <b>{best}</b></span>
-        {!over && (
-          <button
-            onClick={togglePause}
-            className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 font-bold transition-colors"
-          >
-            {paused ? "▶ Resume" : "⏸ Pause"}
-          </button>
+        {started && !over && (
+          <PauseToggle paused={paused} onClick={togglePause} />
         )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
@@ -239,33 +243,38 @@ export default function Snake() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
-          {paused && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
-              <div className="text-5xl mb-1">⏸</div>
-              <div className="text-3xl font-black text-white mb-1">Paused</div>
-              <div className="text-white/70 text-xs mb-3">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
-              </div>
-              <button
-                onClick={() => setPaused(false)}
-                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                ▶ Resume
-              </button>
-            </div>
+          {!started && !over && (
+            <GameOverlay
+              icon="🐍"
+              title="Snake"
+              subtitle="Eat the pink dots, grow longer, don't bite yourself."
+              primary={{ label: "▶ Play", onClick: start }}
+            />
+          )}
+          {paused && started && !over && (
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
           )}
           {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl gap-2">
-              <div className="text-3xl font-black text-white mb-1">Game over</div>
-              <div className="text-white/80">Score: {score}</div>
+            <GameOverlay
+              icon="💀"
+              title="Game over"
+              subtitle={`Score: ${score}`}
+              primary={{ label: "Play again", onClick: reset }}
+            >
               <ScoreStatus gameSlug="snake" status={submitStatus} />
-              <button
-                onClick={reset}
-                className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                Play again
-              </button>
-            </div>
+            </GameOverlay>
           )}
         </div>
       </div>
