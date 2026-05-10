@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 const COLS = 16;
 const ROWS = 16;
@@ -58,6 +59,7 @@ const NUM_COLOR = ["", "#06b6d4", "#16a34a", "#ef4444", "#7c5cff", "#f97316", "#
 export default function Minesweeper() {
   const [board, setBoard] = useState<CellState[][]>(() => makeBoard());
   const [first, setFirst] = useState(true);
+  const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [won, setWon] = useState(false);
   const [time, setTime] = useState(0);
@@ -76,7 +78,7 @@ export default function Minesweeper() {
   }, [board, over, won]);
 
   const click = (r: number, c: number) => {
-    if (over || won) return;
+    if (over || won || !started) return;
     let b: CellState[][];
     if (first) {
       b = makeBoard({ row: r, col: c });
@@ -110,9 +112,14 @@ export default function Minesweeper() {
   const reset = () => {
     setBoard(makeBoard());
     setFirst(true);
+    setStarted(false);
     setOver(false);
     setWon(false);
     setTime(0);
+  };
+
+  const start = () => {
+    setStarted(true);
   };
 
   return (
@@ -157,17 +164,21 @@ export default function Minesweeper() {
       <div className="shrink-0 mt-2 text-[10px] text-white/50 text-center">
         Left-click to reveal • Right-click to flag
       </div>
+      {!started && !over && !won && (
+        <GameOverlay
+          icon="💣"
+          title="Minesweeper"
+          subtitle={`${ROWS}×${COLS} grid · ${MINES} mines · Right-click to flag.`}
+          primary={{ label: "▶ Play", onClick: start }}
+        />
+      )}
       {(over || won) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-          <div className="text-5xl mb-2">{won ? "🏆" : "💥"}</div>
-          <div className="text-3xl font-black text-white mb-2">
-            {won ? "You won!" : "Boom!"}
-          </div>
-          {won && <div className="text-white/80 mb-4">in {time}s</div>}
-          <button onClick={reset} className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-            Play again
-          </button>
-        </div>
+        <GameOverlay
+          icon={won ? "🏆" : "💥"}
+          title={won ? "You won!" : "Boom!"}
+          subtitle={won ? `in ${time}s` : undefined}
+          primary={{ label: "Play again", onClick: reset }}
+        />
       )}
     </div>
   );
