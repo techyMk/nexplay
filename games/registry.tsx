@@ -98,7 +98,7 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
-  hextrix: dynamic(() => import("./hextrix/Game"), {
+  hextris: dynamic(() => import("./hextris/Game"), {
     ssr: false,
     loading: Loading,
   }),
