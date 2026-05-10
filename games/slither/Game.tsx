@@ -119,6 +119,7 @@ export default function Slither() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
   const [length, setLength] = useState(12);
+  const [lengthFlash, setLengthFlash] = useState(false);
   const [rank, setRank] = useState(BOT_COUNT + 1);
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
@@ -126,6 +127,8 @@ export default function Slither() {
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("slither", score, over);
 
+  const prevLenRef = useRef(12);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedRef = useRef(false);
   startedRef.current = started;
   const pausedRef = useRef(false);
@@ -184,6 +187,12 @@ export default function Slither() {
     };
     setScore(0);
     setLength(player.segs.length);
+    prevLenRef.current = player.segs.length;
+    if (flashTimerRef.current) {
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = null;
+    }
+    setLengthFlash(false);
     setRank(BOT_COUNT + 1);
     setOver(false);
     setStarted(false);
@@ -205,7 +214,9 @@ export default function Slither() {
     reset();
   }, [reset]);
 
-  // Keyboard — pause + boost
+  // Keyboard — pause + boost. Also clear boost on blur/visibility
+  // change so alt-tab or focus loss can't leave it "stuck on" and
+  // silently drain the snake's length.
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.key === "p" || e.key === "P" || e.key === "Escape") {
@@ -223,11 +234,21 @@ export default function Slither() {
         stateRef.current.boost = false;
       }
     };
+    const clearBoost = () => {
+      stateRef.current.boost = false;
+    };
+    const onVis = () => {
+      if (document.hidden) stateRef.current.boost = false;
+    };
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", clearBoost);
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", clearBoost);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [togglePause]);
 
@@ -362,8 +383,10 @@ export default function Slither() {
           // Shorten while boosting (cost) — only on player, and only
           // while the snake is long enough that one more pop won't kill
           // them. Below the floor, boost is "free" so the player can
-          // always escape.
-          if (s.isPlayer && wantsBoost && Math.random() < 0.15) {
+          // always escape. Rate is per-frame; at 60fps 5% ≈ 3 segs/sec
+          // — meaningful but recoverable from a single normal pellet
+          // per second.
+          if (s.isPlayer && wantsBoost && Math.random() < 0.05) {
             if (s.segs.length > 12) s.segs.pop();
           }
           s.segs.pop();
@@ -454,9 +477,16 @@ export default function Slither() {
 
         // --- HUD updates ---
         if (player.alive) {
-          setLength(player.segs.length);
+          const newLen = player.segs.length;
+          if (newLen < prevLenRef.current) {
+            setLengthFlash(true);
+            if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+            flashTimerRef.current = setTimeout(() => setLengthFlash(false), 220);
+          }
+          prevLenRef.current = newLen;
+          setLength(newLen);
           // Rank: count alive snakes longer than player + 1
-          const lenP = player.segs.length;
+          const lenP = newLen;
           const longerCount = st.snakes.filter(
             (s) => s.alive && s !== player && s.segs.length > lenP,
           ).length;
@@ -608,6 +638,24 @@ export default function Slither() {
         // Body radius scales with length (sqrt-based, so growth feels
         // earned but doesn't run away).
         const bodyR = bodyRadiusFor(s.segs.length);
+        // Boost streak: pink trail off the tail so the player can see
+        // when boost is actually firing (and therefore costing length).
+        if (s.isPlayer && st.boost && s.segs.length > 12) {
+          const tailCount = Math.min(10, s.segs.length - 1);
+          for (let i = 1; i <= tailCount; i++) {
+            const seg = s.segs[s.segs.length - i];
+            if (!seg) continue;
+            const t = i / tailCount;
+            const r = bodyR * (1.3 - t * 0.4) * (1 + 0.1 * Math.sin(now * 0.03 + i));
+            const halo = ctx.createRadialGradient(seg.x, seg.y, 0, seg.x, seg.y, r * 2.4);
+            halo.addColorStop(0, `rgba(255,92,174,${0.55 * (1 - t)})`);
+            halo.addColorStop(1, "rgba(255,92,174,0)");
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(seg.x, seg.y, r * 2.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
         for (let i = s.segs.length - 1; i >= 0; i--) {
           const seg = s.segs[i];
           if (
@@ -727,7 +775,7 @@ export default function Slither() {
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs sm:text-sm flex-wrap">
         <Stat label="Score" value={score} accent />
-        <Stat label="Length" value={length} />
+        <Stat label="Length" value={length} flash={lengthFlash} />
         <Stat label="Rank" value={`#${rank}`} />
         <Stat label="Best" value={best} />
         {started && !over && (
@@ -818,18 +866,21 @@ function Stat({
   label,
   value,
   accent = false,
+  flash = false,
 }: {
   label: string;
   value: number | string;
   accent?: boolean;
+  flash?: boolean;
 }) {
+  const bg = flash
+    ? "bg-pink-500/30 border border-pink-400/60"
+    : accent
+      ? "bg-[var(--accent)]/20 border border-[var(--accent)]/40"
+      : "bg-white/10";
   return (
     <span
-      className={`px-3 py-1 rounded-lg ${
-        accent
-          ? "bg-[var(--accent)]/20 border border-[var(--accent)]/40"
-          : "bg-white/10"
-      }`}
+      className={`px-3 py-1 rounded-lg transition-colors duration-150 ${bg}`}
     >
       <span className="text-[10px] uppercase tracking-wider opacity-60 mr-1.5">
         {label}
