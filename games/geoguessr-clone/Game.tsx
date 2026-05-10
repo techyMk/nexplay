@@ -125,24 +125,38 @@ function scoreForDistance(km: number): number {
   return Math.round(MAX_ROUND_SCORE * Math.exp(-km / SCORE_DECAY_KM));
 }
 
-/** Fetch the lead image URL for a Wikipedia page. Public REST API
- *  with CORS enabled — no key required. Returns null on failure so
- *  the round can still proceed with a fallback panel. */
+/** Fetch the lead image URL for a Wikipedia page. Uses the MediaWiki
+ *  action API's `pageimages` prop with a requested thumb size — the
+ *  server picks the nearest pre-generated thumbnail >= our request,
+ *  which is critical because Wikimedia rejects arbitrary thumbnail
+ *  sizes with a 400 (only specific cached sizes are served). The
+ *  REST page-summary endpoint returns a fixed 330px thumb that's too
+ *  small for our photo pane, so we use this richer endpoint instead.
+ *  `origin=*` opts the request into anonymous CORS. */
 async function fetchLandmarkImage(page: string): Promise<string | null> {
-  const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page)}`;
+  const params = new URLSearchParams({
+    action: "query",
+    titles: page,
+    prop: "pageimages",
+    format: "json",
+    pithumbsize: "800",
+    origin: "*",
+  });
+  const url = `https://en.wikipedia.org/w/api.php?${params.toString()}`;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(url);
     if (!res.ok) return null;
     const json = (await res.json()) as {
-      thumbnail?: { source?: string };
-      originalimage?: { source?: string };
+      query?: {
+        pages?: Record<string, { thumbnail?: { source?: string } }>;
+      };
     };
-    let src = json.thumbnail?.source ?? json.originalimage?.source ?? null;
-    if (src && src.includes("/thumb/")) {
-      // The default thumbnail is ~320px; bump to 800 for legibility.
-      src = src.replace(/\/(\d+)px-/, "/800px-");
+    const pages = json.query?.pages ?? {};
+    for (const k of Object.keys(pages)) {
+      const src = pages[k]?.thumbnail?.source;
+      if (src) return src;
     }
-    return src;
+    return null;
   } catch {
     return null;
   }
