@@ -194,12 +194,24 @@ export default function Minesweeper() {
                   key={`${r}-${c}`}
                   onClick={() => click(r, c)}
                   onContextMenu={(e) => flag(e, r, c)}
-                  className={`relative flex items-center justify-center text-base sm:text-lg font-black transition-all duration-150 rounded-[3px] ${
+                  // Only transition `background-color` (and the
+                  // gradient stops Tailwind animates with it). Any
+                  // transform/scale would change the cell's visible
+                  // size mid-click — and `active:scale-*` paired with
+                  // a `transition-all` made revealed cells look like
+                  // they were a different size than their unrevealed
+                  // neighbours during the click→reveal hand-off.
+                  className={`relative flex items-center justify-center text-base sm:text-lg font-black transition-colors duration-150 rounded-[3px] ${
                     isRevealedMine
                       ? "bg-gradient-to-br from-red-500 to-red-700 shadow-[inset_0_0_8px_rgba(0,0,0,0.55)]"
                       : isRevealedSafe
-                        ? "bg-[#1a2030] shadow-[inset_2px_2px_3px_rgba(0,0,0,0.55),inset_-1px_-1px_0_rgba(255,255,255,0.04)]"
-                        : "bg-gradient-to-br from-[#3d4863] via-[#2c344a] to-[#1f2638] shadow-[inset_2px_2px_0_rgba(255,255,255,0.18),inset_-2px_-2px_0_rgba(0,0,0,0.5)] hover:from-[#4a5573] hover:via-[#384058] hover:to-[#252b3e] active:scale-[0.94]"
+                        ? // Match the unrevealed cell's bevel weight
+                          // (2 px hard inset + 1 px inverse) so the
+                          // visual edge sits in the same place — only
+                          // the lighting flips from "raised" to
+                          // "recessed".
+                          "bg-[#1a2030] shadow-[inset_2px_2px_0_rgba(0,0,0,0.55),inset_-1px_-1px_0_rgba(255,255,255,0.05)]"
+                        : "bg-gradient-to-br from-[#3d4863] via-[#2c344a] to-[#1f2638] shadow-[inset_2px_2px_0_rgba(255,255,255,0.18),inset_-2px_-2px_0_rgba(0,0,0,0.5)] hover:from-[#4a5573] hover:via-[#384058] hover:to-[#252b3e]"
                   }`}
                   style={{
                     color: isRevealedSafe
