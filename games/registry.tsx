@@ -134,4 +134,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  chess: dynamic(() => import("./chess/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
