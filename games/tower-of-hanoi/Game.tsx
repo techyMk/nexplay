@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 type Pegs = number[][];
 
@@ -17,25 +18,27 @@ export default function TowerOfHanoi() {
   const [sel, setSel] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
   const [time, setTime] = useState(0);
+  const [started, setStarted] = useState(false);
 
   const minMoves = (1 << disks) - 1;
-  const won = pegs[2].length === disks;
+  const won = pegs[2].length === disks && started;
 
   useEffect(() => {
     setPegs(initial);
     setSel(null);
     setMoves(0);
     setTime(0);
+    setStarted(false);
   }, [initial]);
 
   useEffect(() => {
-    if (won) return;
+    if (won || !started) return;
     const id = setInterval(() => setTime((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [won]);
+  }, [won, started]);
 
   const click = (i: number) => {
-    if (won) return;
+    if (won || !started) return;
     if (sel === null) {
       if (pegs[i].length === 0) return;
       setSel(i);
@@ -65,6 +68,7 @@ export default function TowerOfHanoi() {
     setSel(null);
     setMoves(0);
     setTime(0);
+    setStarted(false);
   };
 
   return (
@@ -133,18 +137,25 @@ export default function TowerOfHanoi() {
         Reset
       </button>
 
+      {!started && !won && (
+        <GameOverlay
+          icon="🗼"
+          title="Tower of Hanoi"
+          subtitle={`Move all ${disks} disks to the right peg. Bigger disks never go on smaller. Minimum: ${minMoves} moves.`}
+          primary={{ label: "▶ Play", onClick: () => setStarted(true) }}
+        />
+      )}
       {won && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
-          <div className="text-5xl">🏆</div>
-          <div className="text-3xl font-black text-white">Solved!</div>
-          <div className="text-white/80">{moves} moves · {time}s · min was {minMoves}</div>
+        <GameOverlay
+          icon="🏆"
+          title="Solved!"
+          subtitle={`${moves} moves · ${time}s · min was ${minMoves}`}
+          primary={{ label: "Play again", onClick: reset }}
+        >
           {moves === minMoves && (
             <div className="text-yellow-400 font-bold">⭐ Perfect run!</div>
           )}
-          <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-            Play again
-          </button>
-        </div>
+        </GameOverlay>
       )}
     </div>
   );

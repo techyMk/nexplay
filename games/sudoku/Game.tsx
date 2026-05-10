@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 
 type Cell = { value: number; given: boolean; pencil: number[] };
 type Board = Cell[][];
@@ -66,6 +67,8 @@ export default function Sudoku() {
   const [errors, setErrors] = useState(0);
   const [time, setTime] = useState(0);
   const [won, setWon] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver(
     "sudoku",
     won ? Math.max(100, 5000 - errors * 200 - time * 2) : 0,
@@ -77,17 +80,19 @@ export default function Sudoku() {
     setErrors(0);
     setTime(0);
     setWon(false);
+    setStarted(false);
+    setPaused(false);
     setSel(null);
   }, [initial]);
 
   useEffect(() => {
-    if (won) return;
+    if (won || !started || paused) return;
     const id = setInterval(() => setTime((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [won]);
+  }, [won, started, paused]);
 
   const setValue = (v: number) => {
-    if (!sel || won) return;
+    if (!sel || won || !started || paused) return;
     const cell = board[sel.r][sel.c];
     if (cell.given) return;
     setBoard((b) => {
@@ -140,6 +145,9 @@ export default function Sudoku() {
           <option value={1}>Medium</option>
           <option value={2}>Hard</option>
         </select>
+        {started && !won && (
+          <PauseToggle paused={paused} onClick={() => setPaused((p) => !p)} />
+        )}
       </div>
 
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
@@ -206,6 +214,23 @@ export default function Sudoku() {
         Erase
       </button>
 
+      {!started && !won && (
+        <GameOverlay
+          icon="🔢"
+          title="Sudoku"
+          subtitle={`${initial.diff}. Fill the grid so every row, column, and 3×3 box has 1-9.`}
+          primary={{ label: "▶ Play", onClick: () => setStarted(true) }}
+        />
+      )}
+      {paused && started && !won && (
+        <GameOverlay
+          variant="blur"
+          icon="⏸"
+          title="Paused"
+          subtitle="The board is hidden so you can't peek."
+          primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+        />
+      )}
       {won && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
           <div className="text-5xl">🏆</div>

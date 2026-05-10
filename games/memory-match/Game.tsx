@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 const EMOJIS = ["🎮", "🚀", "🎯", "🎲", "🎨", "🏆", "⚡", "🌟"];
 
@@ -21,9 +22,10 @@ export default function MemoryMatch() {
   const [second, setSecond] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState(false);
 
   const flip = (id: number) => {
-    if (busy) return;
+    if (busy || !started) return;
     const card = cards.find((c) => c.id === id);
     if (!card || card.flipped || card.matched) return;
     setCards((cs) => cs.map((c) => (c.id === id ? { ...c, flipped: true } : c)));
@@ -68,6 +70,11 @@ export default function MemoryMatch() {
     setCards(shuffle());
     setFirst(null); setSecond(null);
     setMoves(0); setBusy(false);
+    setStarted(false);
+  };
+
+  const start = () => {
+    setStarted(true);
   };
 
   return (
@@ -114,17 +121,21 @@ export default function MemoryMatch() {
       </div>
       </div>
 
+      {!started && !allMatched && (
+        <GameOverlay
+          icon="🎴"
+          title="Memory Match"
+          subtitle="Flip cards to find matching pairs. Fewer moves is better."
+          primary={{ label: "▶ Play", onClick: start }}
+        />
+      )}
       {allMatched && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
-          <div className="text-4xl font-black text-white mb-2">🎉 You won!</div>
-          <div className="text-white/80 mb-4">in {moves} moves</div>
-          <button
-            onClick={reset}
-            className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-          >
-            Play again
-          </button>
-        </div>
+        <GameOverlay
+          icon="🎉"
+          title="You won!"
+          subtitle={`in ${moves} moves`}
+          primary={{ label: "Play again", onClick: reset }}
+        />
       )}
     </div>
   );

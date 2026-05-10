@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
+import { GameOverlay } from "@/components/games/GameOverlay";
 
 const SIZE = 8;
 const MOVES = 25;
@@ -72,6 +73,7 @@ export default function MatchThree() {
   const [moves, setMoves] = useState(MOVES);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState(false);
   const overRef = useRef(false);
   const over = moves <= 0 && !busy;
   const submitStatus = useSubmitScoreOnGameOver("match-three", score, over);
@@ -128,7 +130,7 @@ export default function MatchThree() {
   };
 
   const click = (r: number, c: number) => {
-    if (busy || over) return;
+    if (busy || over || !started) return;
     if (!sel) {
       setSel([r, c]);
       return;
@@ -147,7 +149,12 @@ export default function MatchThree() {
     setMoves(MOVES);
     setSel(null);
     setBusy(false);
+    setStarted(false);
     overRef.current = false;
+  };
+
+  const start = () => {
+    setStarted(true);
   };
 
   return (
@@ -193,16 +200,23 @@ export default function MatchThree() {
         Click two adjacent gems to swap. Match 3+ in a row.
       </div>
 
+      {!started && !over && (
+        <GameOverlay
+          icon="💎"
+          title="Match Three"
+          subtitle={`${MOVES} moves to score as high as you can. Match 3+ gems in a row.`}
+          primary={{ label: "▶ Play", onClick: start }}
+        />
+      )}
       {over && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2">
-          <div className="text-5xl">🏆</div>
-          <div className="text-3xl font-black text-white">Round complete!</div>
-          <div className="text-white/80">Score: {score}</div>
+        <GameOverlay
+          icon="🏆"
+          title="Round complete!"
+          subtitle={`Score: ${score}`}
+          primary={{ label: "Play again", onClick: reset }}
+        >
           <ScoreStatus gameSlug="match-three" status={submitStatus} />
-          <button onClick={reset} className="mt-2 px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform">
-            Play again
-          </button>
-        </div>
+        </GameOverlay>
       )}
     </div>
   );
