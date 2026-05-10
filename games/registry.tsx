@@ -122,4 +122,8 @@ export const CUSTOM_GAMES: Record<string, ComponentType> = {
     ssr: false,
     loading: Loading,
   }),
+  krunker: dynamic(() => import("./krunker/Game"), {
+    ssr: false,
+    loading: Loading,
+  }),
 };
