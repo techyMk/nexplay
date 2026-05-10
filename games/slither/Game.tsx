@@ -31,18 +31,30 @@ type Snake = {
   ai?: { wanderUntil: number; targetX: number; targetY: number };
   kills: number;
 };
-type Food = { x: number; y: number; r: number; hue: number };
+type Food = {
+  x: number;
+  y: number;
+  r: number;
+  hue: number;
+  /** "premium" food gives more growth + points and looks distinct. */
+  premium: boolean;
+  /** Random phase so pulses across the field aren't synced. */
+  phase: number;
+};
 
 function rng(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
 function makeFood(): Food {
+  const premium = Math.random() < 0.06;
   return {
     x: rng(20, WORLD - 20),
     y: rng(20, WORLD - 20),
-    r: rng(2.5, 4.5),
-    hue: Math.random() * 360,
+    r: premium ? rng(7, 9) : rng(3.5, 5.5),
+    hue: premium ? rng(40, 60) : Math.random() * 360,
+    premium,
+    phase: Math.random() * Math.PI * 2,
   };
 }
 
@@ -276,8 +288,10 @@ export default function Slither() {
         if (Math.hypot(dx, dy) > 4) {
           player.targetDir = Math.atan2(dy, dx);
         }
-        // Boost shortens the snake gradually
-        const wantsBoost = st.boost && player.segs.length > 14;
+        // Boost is always available — it just stops costing length once
+        // the snake gets short enough that further shrinkage would kill
+        // it. This way Space works from frame 1.
+        const wantsBoost = st.boost;
         player.speed = wantsBoost ? BOOST_SPEED : BASE_SPEED;
 
         // --- AI bots ---
@@ -335,10 +349,12 @@ export default function Slither() {
           const ny = head.y + Math.sin(s.dir) * s.speed * dt;
           // Move head: prepend new head, drop last segment if no growth
           s.segs.unshift({ x: nx, y: ny });
-          // Shorten while boosting (cost) — only on player
+          // Shorten while boosting (cost) — only on player, and only
+          // while the snake is long enough that one more pop won't kill
+          // them. Below the floor, boost is "free" so the player can
+          // always escape.
           if (s.isPlayer && wantsBoost && Math.random() < 0.15) {
-            // drop two to compensate for adding one
-            if (s.segs.length > 14) s.segs.pop();
+            if (s.segs.length > 12) s.segs.pop();
           }
           s.segs.pop();
         }
@@ -366,13 +382,17 @@ export default function Slither() {
             const f = st.food[i];
             const dx2 = f.x - h.x;
             const dy2 = f.y - h.y;
-            if (dx2 * dx2 + dy2 * dy2 < 14 * 14) {
+            // Premium food has a bigger pickup radius to match its size.
+            const pickupR = f.premium ? 18 : 14;
+            if (dx2 * dx2 + dy2 * dy2 < pickupR * pickupR) {
               st.food.splice(i, 1);
-              // Grow: append a duplicate of the tail
+              // Grow: premium gives 3 segments, normal gives 1.
               const tail = s.segs[s.segs.length - 1];
-              s.segs.push({ ...tail });
+              const grow = f.premium ? 3 : 1;
+              for (let g = 0; g < grow; g++) s.segs.push({ ...tail });
               if (s.isPlayer) {
-                setScore((sc) => sc + Math.round(f.r * 2 + 1));
+                const pts = f.premium ? 25 : Math.round(f.r * 2 + 1);
+                setScore((sc) => sc + pts);
               }
             }
           }
@@ -491,20 +511,74 @@ export default function Slither() {
       ctx.strokeRect(0, 0, WORLD, WORLD);
       ctx.shadowBlur = 0;
 
-      // Food (only those in view)
+      // Food — only those in view. Each dot is a radial gradient
+      // (bright core → fading halo) with a mild pulse, so the field
+      // reads as glowing pellets instead of flat circles.
       for (const f of st.food) {
+        const margin = f.premium ? 28 : 14;
         if (
-          f.x < minGX - 10 ||
-          f.x > maxGX + 10 ||
-          f.y < minGY - 10 ||
-          f.y > maxGY + 10
+          f.x < minGX - margin ||
+          f.x > maxGX + margin ||
+          f.y < minGY - margin ||
+          f.y > maxGY + margin
         )
           continue;
-        const tw = 0.85 + 0.15 * Math.sin(now * 0.005 + f.x);
-        ctx.fillStyle = `hsla(${f.hue},90%,65%,0.9)`;
+        const tw = 0.85 + 0.15 * Math.sin(now * 0.005 + f.phase);
+        const baseR = f.r * tw;
+        // Outer halo
+        const haloR = baseR * (f.premium ? 3.6 : 2.6);
+        const halo = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, haloR);
+        halo.addColorStop(0, `hsla(${f.hue},95%,75%,${f.premium ? 0.55 : 0.35})`);
+        halo.addColorStop(1, `hsla(${f.hue},95%,55%,0)`);
+        ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(f.x, f.y, f.r * tw, 0, Math.PI * 2);
+        ctx.arc(f.x, f.y, haloR, 0, Math.PI * 2);
         ctx.fill();
+        // Body (radial: white-ish core → saturated rim)
+        const body = ctx.createRadialGradient(
+          f.x - baseR * 0.3,
+          f.y - baseR * 0.3,
+          baseR * 0.05,
+          f.x,
+          f.y,
+          baseR,
+        );
+        body.addColorStop(0, `hsla(${f.hue},100%,90%,1)`);
+        body.addColorStop(0.5, `hsla(${f.hue},95%,65%,1)`);
+        body.addColorStop(1, `hsla(${f.hue},95%,45%,1)`);
+        ctx.fillStyle = body;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, baseR, 0, Math.PI * 2);
+        ctx.fill();
+        // Specular dot, top-left
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.beginPath();
+        ctx.arc(
+          f.x - baseR * 0.35,
+          f.y - baseR * 0.35,
+          baseR * 0.22,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        // Premium gets a slow rotating sparkle ring
+        if (f.premium) {
+          ctx.save();
+          ctx.translate(f.x, f.y);
+          ctx.rotate(now * 0.001 + f.phase);
+          ctx.strokeStyle = `hsla(${f.hue},100%,80%,${0.5 + 0.3 * tw})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let k = 0; k < 5; k++) {
+            const a = (k / 5) * Math.PI * 2;
+            const inner = baseR * 1.3;
+            const outer = baseR * 1.9;
+            ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+            ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
       // Snakes
@@ -702,7 +776,9 @@ export default function Slither() {
 function killSnake(s: Snake, st: { food: Food[] }) {
   if (!s.alive) return;
   s.alive = false;
-  // Drop body as food pellets, every other segment to keep it manageable
+  // Drop body as food pellets, every other segment to keep it
+  // manageable. Death drops never count as premium — those have to
+  // be earned from the natural spawn pool.
   for (let i = 0; i < s.segs.length; i += 2) {
     const seg = s.segs[i];
     st.food.push({
@@ -710,6 +786,8 @@ function killSnake(s: Snake, st: { food: Food[] }) {
       y: seg.y + (Math.random() - 0.5) * 6,
       r: 3 + Math.random() * 1.5,
       hue: s.hue + (Math.random() - 0.5) * 30,
+      premium: false,
+      phase: Math.random() * Math.PI * 2,
     });
   }
 }
