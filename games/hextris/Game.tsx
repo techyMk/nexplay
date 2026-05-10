@@ -10,10 +10,23 @@ const VIEW_H = 600;
 /** Perpendicular distance from hex centre to each face. Stacks
  *  start growing outward from this radius. */
 const HEX_APOTHEM = 64;
-/** Width (along the face) of one block — equal to the hex side. */
+/** Hex side length — sets the maximum block extent along the face. */
 const HEX_SIDE = (HEX_APOTHEM * 2) / Math.sqrt(3);
+/** Visual width of a block along its face. Narrower than HEX_SIDE so
+ *  blocks read as discrete tiles with clear gaps between adjacent
+ *  faces, instead of melting into one continuous ring. */
+const BLOCK_W = HEX_SIDE * 0.6;
 /** Radial depth of one stacked block. */
 const BLOCK_H = 22;
+/** Difficulty ramp parameters. fallSpeed and spawnInterval move
+ *  continuously from "dead slow" at t=0 to "dead fast" near
+ *  RAMP_DURATION, so a single run flows smoothly from chill into
+ *  frantic without level-based step changes. */
+const RAMP_DURATION = 150;
+const FALL_SPEED_MIN = 28;
+const FALL_SPEED_MAX = 195;
+const SPAWN_INTERVAL_MAX = 1.7;
+const SPAWN_INTERVAL_MIN = 0.45;
 /** Stack length (in blocks) at which any face overflowing ends the
  *  game. Drawn as a dashed danger ring. */
 const MAX_STACK = 6;
@@ -193,11 +206,23 @@ export default function Hextris() {
         if (st.flash > 0) st.flash = Math.max(0, st.flash - dt * 3);
         if (st.shake > 0) st.shake = Math.max(0, st.shake - dt * 5);
 
+        // Smooth difficulty ramp tied to elapsed time. Eases from
+        // 0 → 1 over RAMP_DURATION using ease-out-quad so the first
+        // few seconds feel *dead slow* and players settle into the
+        // hex before the rain picks up. After the ramp, the curve
+        // saturates at "dead fast" rather than snapping to it.
+        const t = Math.min(1, st.elapsed / RAMP_DURATION);
+        const ease = 1 - (1 - t) * (1 - t);
+        const fallSpeed =
+          FALL_SPEED_MIN + (FALL_SPEED_MAX - FALL_SPEED_MIN) * ease;
+        const baseSpawnInterval =
+          SPAWN_INTERVAL_MAX -
+          (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN) * ease;
+
         // Spawn falling blocks
         st.spawnTimer -= dt;
         if (st.spawnTimer <= 0) {
-          const interval = Math.max(0.45, 1.4 - lvl * 0.07);
-          st.spawnTimer = interval * (0.85 + Math.random() * 0.3);
+          st.spawnTimer = baseSpawnInterval * (0.85 + Math.random() * 0.3);
           const lane = Math.floor(Math.random() * 6);
           const color = Math.floor(Math.random() * COLORS.length);
           st.falling.push({
@@ -209,7 +234,6 @@ export default function Hextris() {
         }
 
         // Move falling blocks; land them when they hit the stack top
-        const fallSpeed = 55 + lvl * 7;
         for (let i = st.falling.length - 1; i >= 0; i--) {
           const f = st.falling[i];
           f.radial -= fallSpeed * dt;
@@ -536,9 +560,9 @@ function drawBlock(
 ) {
   const m = 1.4; // small inset so blocks read as discrete tiles
   const x = innerR + m;
-  const y = -HEX_SIDE / 2 + m;
+  const y = -BLOCK_W / 2 + m;
   const w = BLOCK_H - m * 2;
-  const h = HEX_SIDE - m * 2;
+  const h = BLOCK_W - m * 2;
   // Body gradient — bright on the inside (centre-facing) edge,
   // darker on the outside, so depth reads.
   const grad = ctx.createLinearGradient(x, 0, x + w, 0);
