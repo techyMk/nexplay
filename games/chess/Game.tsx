@@ -25,6 +25,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Chess, type Move, type PieceSymbol, type Square } from "chess.js";
 import { GameOverlay } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
@@ -558,6 +559,13 @@ export default function ChessGame() {
         >
           🏳 Resign
         </button>
+        <Link
+          href="/multiplayer/chess"
+          className="px-2.5 py-1 rounded-md bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-xs font-bold transition-colors inline-flex items-center gap-1"
+          title="Play against another person online"
+        >
+          🌐 Online
+        </Link>
         <SoundToggle />
       </div>
 
