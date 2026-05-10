@@ -34,12 +34,40 @@ type Cell = {
   isPlayer: boolean;
   alive: boolean;
   ai?: AI;
+  /** Smoothed look direction for the eyes — falls back to last
+   *  non-trivial velocity so the cell doesn't look "blank" when it
+   *  briefly stops. */
+  lookX?: number;
+  lookY?: number;
 };
-type Food = { x: number; y: number; r: number; hue: number };
+type Food = {
+  x: number;
+  y: number;
+  r: number;
+  hue: number;
+  /** "gold" pellets are rare (~1% of spawns), bigger, and worth far
+   *  more score — gives the player a target to chase across the map. */
+  kind: "normal" | "gold";
+};
+/** Coloured shard launched when a cell eats another cell; gravity-free
+ *  in world space, fades over `maxLife`. */
+type Particle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  hue: number;
+};
+/** Floating "+N" badge in world space — drifts upward and fades. */
+type ScorePopup = { x: number; y: number; text: string; t: number };
 
 type State = {
   cells: Cell[];
   food: Food[];
+  particles: Particle[];
+  scorePopups: ScorePopup[];
   mouseScreen: { x: number; y: number };
   cameraX: number;
   cameraY: number;
@@ -52,11 +80,13 @@ function rng(min: number, max: number) {
 }
 
 function makeFood(): Food {
+  const isGold = Math.random() < 0.012;
   return {
     x: rng(20, WORLD - 20),
     y: rng(20, WORLD - 20),
-    r: FOOD_R + Math.random() * 2,
-    hue: Math.random() * 360,
+    r: isGold ? FOOD_R * 2.4 : FOOD_R + Math.random() * 2,
+    hue: isGold ? 50 : Math.random() * 360,
+    kind: isGold ? "gold" : "normal",
   };
 }
 
@@ -97,6 +127,8 @@ export default function Agar() {
   const stateRef = useRef<State>({
     cells: [],
     food: [],
+    particles: [],
+    scorePopups: [],
     mouseScreen: { x: VIEW_W / 2, y: VIEW_H / 2 - 80 },
     cameraX: WORLD / 2,
     cameraY: WORLD / 2,
@@ -125,6 +157,8 @@ export default function Agar() {
     stateRef.current = {
       cells: [player, ...bots],
       food,
+      particles: [],
+      scorePopups: [],
       mouseScreen: { x: VIEW_W / 2, y: VIEW_H / 2 - 80 },
       cameraX: WORLD / 2,
       cameraY: WORLD / 2,
@@ -297,6 +331,21 @@ export default function Agar() {
           c.y += c.vy * dt;
           c.x = Math.max(c.r, Math.min(WORLD - c.r, c.x));
           c.y = Math.max(c.r, Math.min(WORLD - c.r, c.y));
+          // Smooth look direction — used by the eyes. We track this
+          // separately so the gaze keeps pointing forward even when
+          // the cell briefly stalls (e.g. the player parking on the
+          // cursor or a bot pausing to wander).
+          const speed = Math.hypot(c.vx, c.vy);
+          if (speed > 6) {
+            const desiredX = c.vx / speed;
+            const desiredY = c.vy / speed;
+            const blend = 1 - Math.exp(-dt * 12);
+            c.lookX = (c.lookX ?? desiredX) * (1 - blend) + desiredX * blend;
+            c.lookY = (c.lookY ?? desiredY) * (1 - blend) + desiredY * blend;
+          } else if (c.lookX === undefined) {
+            c.lookX = 1;
+            c.lookY = 0;
+          }
         }
 
         // --- Cells eat food ---
@@ -308,11 +357,40 @@ export default function Agar() {
               (c.x - f.x) * (c.x - f.x) + (c.y - f.y) * (c.y - f.y);
             if (d2 < c.r * c.r) {
               st.food.splice(i, 1);
-              // Mass conservation: r_new = sqrt(r1² + r2²)
+              // Mass conservation: r_new = sqrt(r1² + r2²). Gold
+              // pellets count for ~5x their radius's normal value
+              // (and have a much bigger radius too).
               c.r = Math.sqrt(c.r * c.r + f.r * f.r);
               if (c.isPlayer) {
-                setScore((s) => s + Math.round(f.r));
-                Sfx.pickup();
+                if (f.kind === "gold") {
+                  const earned = Math.round(f.r * 5);
+                  setScore((s) => s + earned);
+                  Sfx.gem();
+                  st.scorePopups.push({
+                    x: f.x,
+                    y: f.y - 6,
+                    text: `+${earned}`,
+                    t: 0,
+                  });
+                  // small confetti burst — gold pellets feel
+                  // ceremonial when claimed
+                  for (let p = 0; p < 14; p++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const sp = 40 + Math.random() * 80;
+                    st.particles.push({
+                      x: f.x,
+                      y: f.y,
+                      vx: Math.cos(a) * sp,
+                      vy: Math.sin(a) * sp,
+                      life: 0.6,
+                      maxLife: 0.6,
+                      hue: 50,
+                    });
+                  }
+                } else {
+                  setScore((s) => s + Math.round(f.r));
+                  Sfx.pickup();
+                }
               }
             }
           }
@@ -334,13 +412,48 @@ export default function Agar() {
             if (d < a.r - b.r * 0.6) {
               a.r = Math.sqrt(a.r * a.r + b.r * b.r);
               b.alive = false;
+              // Particle burst from the eaten cell — radius-scaled
+              // count so devouring a big rival looks like a big event.
+              const count = Math.min(36, 8 + Math.round(b.r * 0.6));
+              for (let p = 0; p < count; p++) {
+                const ang = Math.random() * Math.PI * 2;
+                const sp = 40 + Math.random() * (80 + b.r);
+                st.particles.push({
+                  x: b.x,
+                  y: b.y,
+                  vx: Math.cos(ang) * sp,
+                  vy: Math.sin(ang) * sp,
+                  life: 0.55 + Math.random() * 0.3,
+                  maxLife: 0.85,
+                  hue: b.hue,
+                });
+              }
               if (a.isPlayer) {
-                setScore((s) => s + Math.round(b.r * 5));
+                const earned = Math.round(b.r * 5);
+                setScore((s) => s + earned);
                 Sfx.bigPickup();
+                st.scorePopups.push({
+                  x: b.x,
+                  y: b.y - 8,
+                  text: `+${earned}`,
+                  t: 0,
+                });
               }
             }
           }
         }
+
+        // --- Particles + score popups (advance only while live) ---
+        for (const p of st.particles) {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vx *= 0.94;
+          p.vy *= 0.94;
+          p.life -= dt;
+        }
+        st.particles = st.particles.filter((p) => p.life > 0);
+        for (const sp of st.scorePopups) sp.t += dt;
+        st.scorePopups = st.scorePopups.filter((sp) => sp.t < 1.0);
 
         // --- Respawn dead bots so the arena stays populated ---
         let aliveBots = 0;
@@ -458,13 +571,41 @@ export default function Agar() {
       ctx.lineWidth = 4 / st.zoom;
       ctx.strokeRect(0, 0, WORLD, WORLD);
 
-      // Food pellets
+      // Food pellets — gold ones get a soft glow so they stand out
+      // across the arena.
       for (const f of st.food) {
         if (f.x < minX || f.x > maxX || f.y < minY || f.y > maxY) continue;
-        ctx.fillStyle = `hsl(${f.hue}, 85%, 62%)`;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        ctx.fill();
+        if (f.kind === "gold") {
+          // Outer glow halo
+          const halo = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 3);
+          halo.addColorStop(0, "rgba(252,211,77,0.55)");
+          halo.addColorStop(1, "rgba(252,211,77,0)");
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r * 3, 0, Math.PI * 2);
+          ctx.fill();
+          // Bright core
+          const core = ctx.createRadialGradient(
+            f.x - f.r * 0.3,
+            f.y - f.r * 0.3,
+            f.r * 0.1,
+            f.x,
+            f.y,
+            f.r,
+          );
+          core.addColorStop(0, "#fef9c3");
+          core.addColorStop(0.6, "#facc15");
+          core.addColorStop(1, "#b45309");
+          ctx.fillStyle = core;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = `hsl(${f.hue}, 85%, 62%)`;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // Cells — sort by radius so smaller render under larger; that way
@@ -504,6 +645,9 @@ export default function Agar() {
         ctx.beginPath();
         ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
         ctx.stroke();
+        // Eyes — give the cell a face. Two whites placed perpendicular
+        // to the look direction with pupils offset toward it.
+        drawEyes(ctx, c);
         // Name plate (only readable above some size)
         if (c.r >= 20) {
           const fontPx = Math.max(13, c.r * 0.42);
@@ -516,14 +660,44 @@ export default function Agar() {
           const name = c.isPlayer
             ? "You"
             : `Bot ${c.id.split("-")[1] ?? ""}`;
-          ctx.fillText(name, c.x, c.y - fontPx * 0.1);
+          // Push name below the eyes so they don't collide visually.
+          ctx.fillText(name, c.x, c.y + c.r * 0.5);
           ctx.shadowBlur = 0;
           // Mass under the name
-          ctx.font = `bold ${fontPx * 0.65}px system-ui`;
+          ctx.font = `bold ${fontPx * 0.55}px system-ui`;
           ctx.fillStyle = "rgba(255,255,255,0.85)";
-          ctx.fillText(String(Math.round(c.r * c.r)), c.x, c.y + fontPx * 0.7);
+          ctx.fillText(
+            String(Math.round(c.r * c.r)),
+            c.x,
+            c.y + c.r * 0.5 + fontPx * 0.7,
+          );
         }
       }
+
+      // Particles — drawn in world space so they pan with the camera.
+      for (const p of st.particles) {
+        const a = Math.max(0, Math.min(1, p.life / p.maxLife));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = `hsl(${p.hue}, 90%, 65%)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Floating "+N" score popups (world space, drift up + fade).
+      for (const sp of st.scorePopups) {
+        const k = sp.t / 1.0;
+        ctx.globalAlpha = 1 - k;
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#fde68a";
+        ctx.shadowColor = "rgba(0,0,0,0.7)";
+        ctx.shadowBlur = 6;
+        ctx.fillText(sp.text, sp.x, sp.y - k * 70);
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
 
       ctx.restore();
 
@@ -637,6 +811,37 @@ export default function Agar() {
       </div>
     </div>
   );
+}
+
+/** Two googly eyes on the front face of the cell. The whites sit
+ *  slightly forward (offset along look direction) and the pupils are
+ *  pulled further forward so they read as "looking that way". */
+function drawEyes(ctx: CanvasRenderingContext2D, c: Cell) {
+  if (c.r < 9) return; // too small to render legibly
+  const lx = c.lookX ?? 1;
+  const ly = c.lookY ?? 0;
+  // Perpendicular to look direction → eye separation axis.
+  const px = -ly;
+  const py = lx;
+  const eyeSep = c.r * 0.36;
+  const forward = c.r * 0.18;
+  const eyeR = Math.max(3, c.r * 0.22);
+  const pupilR = eyeR * 0.55;
+  const pupilOff = eyeR * 0.42;
+  const eyes = [
+    { x: c.x + px * eyeSep + lx * forward, y: c.y + py * eyeSep + ly * forward },
+    { x: c.x - px * eyeSep + lx * forward, y: c.y - py * eyeSep + ly * forward },
+  ];
+  for (const e of eyes) {
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, eyeR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0a0a18";
+    ctx.beginPath();
+    ctx.arc(e.x + lx * pupilOff, e.y + ly * pupilOff, pupilR, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function Stat({
