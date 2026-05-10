@@ -227,3 +227,71 @@ export const Sfx = {
       volume: 0.15,
     }),
 };
+
+/** Continuous engine-noise generator. Two oscillators (sawtooth +
+ *  triangle a fifth above) feed a low-pass filter and a master gain;
+ *  the caller updates frequency every frame to bind pitch to vehicle
+ *  speed. Respects the global mute flag. Returns null if WebAudio
+ *  isn't available. */
+export type Engine = {
+  /** Set the engine's note (Hz) and master volume in one call. */
+  update: (freq: number, volume: number) => void;
+  /** Tear down the oscillators and disconnect the graph. */
+  stop: () => void;
+};
+
+export function createEngine(): Engine | null {
+  if (typeof window === "undefined") return null;
+  const ac = ensureCtx();
+  if (!ac) return null;
+
+  const osc = ac.createOscillator();
+  osc.type = "sawtooth";
+  const harmonic = ac.createOscillator();
+  harmonic.type = "triangle";
+
+  const lp = ac.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.Q.value = 0.7;
+  lp.frequency.value = 800;
+
+  const gain = ac.createGain();
+  gain.gain.value = 0;
+
+  osc.connect(lp);
+  harmonic.connect(lp);
+  lp.connect(gain);
+  gain.connect(ac.destination);
+
+  osc.start();
+  harmonic.start();
+
+  let stopped = false;
+
+  return {
+    update(freq, volume) {
+      if (stopped) return;
+      const t = ac.currentTime;
+      osc.frequency.setTargetAtTime(freq, t, 0.04);
+      harmonic.frequency.setTargetAtTime(freq * 1.5, t, 0.04);
+      lp.frequency.setTargetAtTime(400 + freq * 1.4, t, 0.08);
+      const target = isMuted() ? 0 : volume;
+      gain.gain.setTargetAtTime(target, t, 0.05);
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      try {
+        osc.stop();
+        harmonic.stop();
+      } catch {
+        // already stopped
+      }
+      try {
+        gain.disconnect();
+      } catch {
+        // already disconnected
+      }
+    },
+  };
+}
