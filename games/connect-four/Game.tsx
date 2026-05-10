@@ -314,17 +314,29 @@ export default function ConnectFour() {
       </div>
 
       <div className="shrink-0 mt-2 h-6 text-white text-xs sm:text-sm text-center">
-        {winLine && turn === 1 && <span>🎉 You connected four!</span>}
-        {winLine && turn === 2 && <span>🤖 AI got four in a row.</span>}
-        {!winLine && full && <span>Board full — draw!</span>}
+        {!over && (
+          <span className="text-white/70">
+            Click an arrow above a column to drop your red disc. Connect four
+            in a row to win.
+          </span>
+        )}
+        {winLine && turn === 1 && (
+          <span className="font-bold">🎉 You connected four!</span>
+        )}
+        {winLine && turn === 2 && (
+          <span className="font-bold">🤖 AI got four in a row.</span>
+        )}
+        {!winLine && full && <span className="font-bold">Board full — draw!</span>}
       </div>
 
-      <button
-        onClick={reset}
-        className="shrink-0 mt-1 mx-auto px-5 py-2 rounded-lg bg-white text-black text-xs sm:text-sm font-bold hover:scale-105 transition-transform"
-      >
-        New game
-      </button>
+      {over && (
+        <button
+          onClick={reset}
+          className="shrink-0 mt-1 mx-auto px-5 py-2 rounded-lg bg-white text-black text-xs sm:text-sm font-bold hover:scale-105 transition-transform"
+        >
+          New game
+        </button>
+      )}
     </div>
   );
 }
