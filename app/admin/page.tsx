@@ -8,6 +8,7 @@ import {
   isAdminClientConfigured,
 } from "@/lib/supabase/admin";
 import { GAMES } from "@/lib/catalog";
+import { avatarSrc } from "@/lib/avatars";
 import { AdminTabs } from "./AdminTabs";
 
 export const metadata = { title: "Admin — Nexplay" };
@@ -201,6 +202,7 @@ export default async function AdminPage({
         <form action="/api/admin/lock" method="post">
           <button
             type="submit"
+            title="Clear admin elevation and return to /profile. Your regular login stays signed in — coming back into the panel will require another email OTP."
             className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-500 text-xs font-bold hover:bg-red-500 hover:text-white transition-colors"
           >
             🔒 Lock admin
@@ -314,22 +316,25 @@ function Overview({
         ) : (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
             {recentSignups.map((s) => {
+              // The avatar_emoji column stores one of three things:
+              //   - a preset slug like "lucas" → /public/avatars/lucas.svg
+              //   - a custom upload URL (Supabase storage)
+              //   - a literal emoji glyph (legacy)
+              // avatarSrc() resolves the first two to a loadable src;
+              // anything else (or null) returns null and falls through
+              // to the text/initial path.
+              const src = avatarSrc(s.avatar_emoji);
               const a = s.avatar_emoji?.trim();
-              const isUrl =
-                !!a && (/^https?:\/\//i.test(a) || a.startsWith("/"));
-              // For users without an emoji/url avatar, fall back to
-              // the first letter of their display_name or email — much
-              // friendlier than a generic 👤 in a list of admins.
               const fallbackInitial =
                 (s.display_name?.trim()?.[0] ?? s.email?.trim()?.[0] ?? "?")
                   .toUpperCase();
               return (
                 <div key={s.id} className="flex items-center gap-3 p-3">
                   <span className="w-9 h-9 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm font-bold text-[var(--muted)] overflow-hidden shrink-0">
-                    {isUrl ? (
+                    {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={a}
+                        src={src}
                         alt=""
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
