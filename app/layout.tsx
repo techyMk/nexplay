@@ -117,6 +117,7 @@ export default async function RootLayout({
                     <li><a href="/multiplayer" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Multiplayer</a></li>
                     <li><a href="/friends" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Friends</a></li>
                     <li><a href="/guide" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">How to play</a></li>
+                    <li><a href="/feedback" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Send feedback</a></li>
                   </ul>
                 </div>
                 <div className="lg:col-span-3">
