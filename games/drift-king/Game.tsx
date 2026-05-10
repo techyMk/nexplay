@@ -6,7 +6,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createEngine, type Engine } from "@/lib/sound";
 
 // Canvas + road geometry
 const W = 480;
@@ -42,6 +42,26 @@ const EVENT_FIRST_AT = 14;
 const EVENT_GAP_MIN = 11;
 const EVENT_GAP_RANGE = 7;
 const EVENT_WARNING_SECONDS = 1.4;
+
+// Engine / gearbox
+/** Number of speed-band "gears" — each shift gives a satisfying
+ *  pitch dip + thud. Five matches the feel of a real gearbox. */
+const GEAR_COUNT = 5;
+/** Per-gear base frequency lift (Hz). Each successive gear sits a
+ *  little higher than the last so even the dip after a shift still
+ *  reads as climbing through the powerband. */
+const GEAR_BASE_LIFT = 8;
+/** Frequency span of each gear in Hz — the engine note rises this
+ *  much from the bottom to the top of a single gear. */
+const GEAR_FREQ_SPAN = 70;
+/** Spawn-time check: how much *gap* (in pixels) we want between the
+ *  bumpers of two vehicles when one is spawning. */
+const SPAWN_VERTICAL_BUFFER = 24;
+const SPAWN_LATERAL_BUFFER = 6;
+/** Run-time follow distance — when a vehicle's leader (same lane,
+ *  ahead) is closer than this gap, the rear vehicle clamps to the
+ *  leader's speed instead of overrunning it. */
+const FOLLOW_BUFFER = 60;
 
 type EventKind = "normal" | "rush" | "tunnel" | "slick";
 
@@ -286,6 +306,8 @@ export default function DriftKing() {
   speedRef.current = speed;
 
   const stateRef = useRef<State>(makeFreshState());
+  const engineRef = useRef<Engine | null>(null);
+  const gearRef = useRef(0);
 
   useEffect(() => {
     setBest(Number(localStorage.getItem("nexplay:drift-best") || 0));
@@ -293,6 +315,11 @@ export default function DriftKing() {
 
   const start = useCallback(() => {
     stateRef.current = makeFreshState();
+    gearRef.current = 0;
+    // Lazily create the engine on the first start — the AudioContext
+    // can't be unlocked before a user gesture, and start() is wired to
+    // a button click.
+    if (!engineRef.current) engineRef.current = createEngine();
     setScore(0);
     setCombo(0);
     setSpeed(SPEED_BASE);
@@ -300,6 +327,15 @@ export default function DriftKing() {
     setStarted(true);
     setPaused(false);
     setCrashStats(null);
+  }, []);
+
+  // Tear down the engine when the component unmounts so a navigation
+  // away from the page doesn't leave the oscillators humming forever.
+  useEffect(() => {
+    return () => {
+      engineRef.current?.stop();
+      engineRef.current = null;
+    };
   }, []);
 
   const togglePause = useCallback(() => {
@@ -368,6 +404,12 @@ export default function DriftKing() {
       const st = stateRef.current;
       const k = keys.current;
       const live = startedRef.current && !pausedRef.current && !overRef.current;
+
+      // Silence the engine the moment the game isn't live so a paused
+      // / crashed / pre-start screen doesn't keep humming.
+      if (!live && engineRef.current) {
+        engineRef.current.update(60, 0);
+      }
 
       if (live) {
         st.elapsed += dt;
@@ -440,22 +482,56 @@ export default function DriftKing() {
           // spawns above so the player runs them down.
           const fromBehind = fSpeed > st.speed;
           const startY = fromBehind ? H + def.h / 2 + 10 : -def.h / 2 - 10;
-          const x = rng(roadL + def.w / 2 + 4, roadR - def.w / 2 - 4);
-          const wobble =
-            def.canWobble && st.event === "rush" && Math.random() < 0.4;
-          const hue =
-            def.hueChoices[Math.floor(Math.random() * def.hueChoices.length)];
-          st.obstacles.push({
-            kind,
-            x,
-            y: startY,
-            w: def.w,
-            h: def.h,
-            hue,
-            vx: wobble ? rng(-50, 50) : 0,
-            forwardSpeed: fSpeed,
-            passed: false,
-          });
+          // Try a handful of x positions before giving up; rejects
+          // any spot that would overlap an existing vehicle's bumper
+          // box. Without this, spawn could land on top of a slow
+          // truck still hanging near the spawn line.
+          let chosenX: number | null = null;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const candidateX = rng(
+              roadL + def.w / 2 + 4,
+              roadR - def.w / 2 - 4,
+            );
+            let conflict = false;
+            for (const existing of st.obstacles) {
+              const dx = Math.abs(existing.x - candidateX);
+              const dy = Math.abs(existing.y - startY);
+              if (
+                dx < (existing.w + def.w) / 2 + SPAWN_LATERAL_BUFFER &&
+                dy < (existing.h + def.h) / 2 + SPAWN_VERTICAL_BUFFER
+              ) {
+                conflict = true;
+                break;
+              }
+            }
+            if (!conflict) {
+              chosenX = candidateX;
+              break;
+            }
+          }
+          if (chosenX === null) {
+            // Couldn't find an empty slot this tick — try again very
+            // soon rather than waiting a full interval.
+            st.spawnTimer = 0.18;
+          } else {
+            const wobble =
+              def.canWobble && st.event === "rush" && Math.random() < 0.4;
+            const hue =
+              def.hueChoices[
+                Math.floor(Math.random() * def.hueChoices.length)
+              ];
+            st.obstacles.push({
+              kind,
+              x: chosenX,
+              y: startY,
+              w: def.w,
+              h: def.h,
+              hue,
+              vx: wobble ? rng(-50, 50) : 0,
+              forwardSpeed: fSpeed,
+              passed: false,
+            });
+          }
         }
 
         // ----- Spawn coins (sparser than obstacles) -----
@@ -504,10 +580,28 @@ export default function DriftKing() {
         // Each obstacle has its own forward speed; we apply it as a
         // *relative* scroll, so slower vehicles drift down toward the
         // player and faster ones move up the screen and overtake.
+        // Before moving, we check for a "leader" in the same lane —
+        // if one is within FOLLOW_BUFFER, we cap our forward speed
+        // to the leader's so a fast sports car doesn't drive *through*
+        // the bus in front of it.
         let crashed = false;
         for (const o of st.obstacles) {
+          let effectiveFwd = o.forwardSpeed;
+          for (const other of st.obstacles) {
+            if (other === o) continue;
+            const ldx = Math.abs(o.x - other.x);
+            if (ldx > (o.w + other.w) / 2 - 2) continue; // not same lane
+            // "Ahead" in screen terms = smaller y (closer to top of
+            // road). In world terms it's also "ahead" because both
+            // vehicles travel the same direction.
+            if (other.y >= o.y) continue;
+            const gap = o.y - other.y - (o.h + other.h) / 2;
+            if (gap < FOLLOW_BUFFER) {
+              effectiveFwd = Math.min(effectiveFwd, other.forwardSpeed);
+            }
+          }
           const prevY = o.y;
-          const relScroll = (st.speed - o.forwardSpeed) * dt;
+          const relScroll = (st.speed - effectiveFwd) * dt;
           o.y += relScroll;
           o.x += o.vx * dt;
           // Bounce wobblers off the live lane walls
@@ -681,6 +775,35 @@ export default function DriftKing() {
             st.elapsed + EVENT_GAP_MIN + Math.random() * EVENT_GAP_RANGE;
         }
         if (st.bannerTimer > 0) st.bannerTimer = Math.max(0, st.bannerTimer - dt);
+
+        // ----- Engine sound -----
+        // Map speed → engine note within a 5-gear gearbox. Each gear
+        // spans GEAR_FREQ_SPAN Hz; a shift drops the pitch back to
+        // (gearBase + 0) but at a slightly higher base, so the
+        // overall climb still reads as "going faster" with audible
+        // gear-change punctuation.
+        if (engineRef.current) {
+          const speedRatio = Math.max(
+            0,
+            Math.min(
+              1,
+              (st.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN),
+            ),
+          );
+          const gearFloat = speedRatio * GEAR_COUNT;
+          const gear = Math.min(GEAR_COUNT - 1, Math.floor(gearFloat));
+          const gearProgress = gearFloat - gear;
+          const baseFreq = 70 + gear * GEAR_BASE_LIFT;
+          const freq = baseFreq + gearProgress * GEAR_FREQ_SPAN;
+          const vol = 0.025 + speedRatio * 0.045;
+          engineRef.current.update(freq, vol);
+          // Detect upshifts and play a brief mechanical thud
+          if (gear !== gearRef.current) {
+            const prev = gearRef.current;
+            gearRef.current = gear;
+            if (gear > prev) Sfx.thud();
+          }
+        }
 
         // ----- Crash -----
         if (crashed && !overRef.current) {
