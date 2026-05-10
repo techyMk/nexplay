@@ -15,7 +15,14 @@ const ROW_OFFSET = (W - COLS * RADIUS * 2) / 2;
 const COLORS = ["#ef4444", "#3b82f6", "#facc15", "#16a34a", "#7c5cff", "#ec4899"];
 const SHOOTER_Y = H - 60;
 
-type Bubble = { x: number; y: number; color: number };
+type Bubble = {
+  x: number;
+  y: number;
+  color: number;
+  /** Game-time stamp at which this bubble landed in the grid. Used by
+   *  drawBubble to apply a brief overshoot-and-settle scale on snap. */
+  placedAt?: number;
+};
 type Shot = { x: number; y: number; vx: number; vy: number; color: number };
 type Falling = {
   x: number;
@@ -25,7 +32,23 @@ type Falling = {
   color: number;
   alpha: number;
 };
-type Pop = { x: number; y: number; color: number; t: number };
+/** Pop ring for a cleared bubble. `delay` staggers the start so a
+ *  cluster radiates outward from the impact point instead of
+ *  detonating uniformly. `t` accrues real game time. */
+type Pop = { x: number; y: number; color: number; t: number; delay: number };
+/** Tiny coloured shard that flies off when a bubble pops. Gravity
+ *  pulls it down; alpha is derived from `life`. */
+type Particle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+};
+/** Floating "+N" badge at the cluster centre. */
+type ScorePopup = { x: number; y: number; text: string; t: number };
 
 function rowY(row: number) {
   return RADIUS + row * (RADIUS * 1.85);
@@ -92,6 +115,11 @@ export default function BubbleShooter() {
     holdColor: Math.floor(Math.random() * 5),
     falling: [] as Falling[],
     pops: [] as Pop[],
+    particles: [] as Particle[],
+    scorePopups: [] as ScorePopup[],
+    /** Running game-time accumulator. Used as the timestamp for
+     *  bubble.placedAt and as the seed for marching-ants aim line. */
+    gameTime: 0,
     mouseX: W / 2,
     mouseY: H - 80,
   });
@@ -106,6 +134,9 @@ export default function BubbleShooter() {
       holdColor: pickShotColor(g),
       falling: [],
       pops: [],
+      particles: [],
+      scorePopups: [],
+      gameTime: 0,
       mouseX: W / 2,
       mouseY: H - 80,
     };
@@ -278,7 +309,12 @@ export default function BubbleShooter() {
             }
           }
           if (bestR >= 0) {
-            const placed = { x: colX(bestC, bestR), y: rowY(bestR), color: st.shot.color };
+            const placed: Bubble = {
+              x: colX(bestC, bestR),
+              y: rowY(bestR),
+              color: st.shot.color,
+              placedAt: st.gameTime,
+            };
             st.grid[bestR][bestC] = placed;
             // flood fill same-color
             const cluster: [number, number][] = [];
@@ -295,14 +331,49 @@ export default function BubbleShooter() {
               for (const [nr, nc] of neighbors(r, c)) stack.push([nr, nc]);
             }
             if (cluster.length >= 3) {
+              const impactX = placed.x;
+              const impactY = placed.y;
               for (const [r, c] of cluster) {
                 const cell = st.grid[r][c];
                 if (cell) {
-                  st.pops.push({ x: cell.x, y: cell.y, color: cell.color, t: 0 });
+                  // Stagger pop start time so the cluster radiates out
+                  // from the impact point — feels more dynamic than a
+                  // simultaneous detonation.
+                  const dist = Math.hypot(cell.x - impactX, cell.y - impactY);
+                  const delay = Math.min(0.18, dist / 600);
+                  st.pops.push({
+                    x: cell.x,
+                    y: cell.y,
+                    color: cell.color,
+                    t: 0,
+                    delay,
+                  });
+                  // Particle spray — 6 small shards per popped bubble.
+                  for (let i = 0; i < 6; i++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const sp = 80 + Math.random() * 110;
+                    st.particles.push({
+                      x: cell.x,
+                      y: cell.y,
+                      vx: Math.cos(ang) * sp,
+                      vy: Math.sin(ang) * sp - 40,
+                      life: 0.55 + Math.random() * 0.25,
+                      maxLife: 0.8,
+                      color: COLORS[cell.color],
+                    });
+                  }
                 }
                 st.grid[r][c] = null;
               }
-              setScore((s) => s + cluster.length * 10);
+              const earned = cluster.length * 10;
+              setScore((s) => s + earned);
+              // Floating "+N" at the cluster centre.
+              st.scorePopups.push({
+                x: impactX,
+                y: impactY - 6,
+                text: `+${earned}`,
+                t: 0,
+              });
               Sfx.match();
               // drop floaters: anything not connected to row 0
               const reachable = new Set<string>();
@@ -361,6 +432,7 @@ export default function BubbleShooter() {
 
       // Animations only advance while live
       if (live) {
+        st.gameTime += dt;
         const gravity = 1100;
         for (const f of st.falling) {
           f.vy += gravity * dt;
@@ -370,7 +442,21 @@ export default function BubbleShooter() {
         }
         st.falling = st.falling.filter((f) => f.alpha > 0);
         for (const p of st.pops) p.t += dt;
-        st.pops = st.pops.filter((p) => p.t < 0.32);
+        // Pops live `delay + 0.32s`, then expire.
+        st.pops = st.pops.filter((p) => p.t - p.delay < 0.32);
+        // Particles: drift with gravity, fade with life.
+        const partG = 360;
+        for (const p of st.particles) {
+          p.vy += partG * dt;
+          p.vx *= 0.98;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt;
+        }
+        st.particles = st.particles.filter((p) => p.life > 0);
+        // Score popups: float up + fade across ~0.85s.
+        for (const sp of st.scorePopups) sp.t += dt;
+        st.scorePopups = st.scorePopups.filter((sp) => sp.t < 0.85);
       }
 
       // ---- draw ----
@@ -385,7 +471,9 @@ export default function BubbleShooter() {
       ctx.fillStyle = "rgba(255,255,255,0.04)";
       ctx.fillRect(0, 0, W, 2);
 
-      // Aim guide line
+      // Aim guide line — marching-ants effect by sliding the dash
+      // offset over time, so the trajectory reads as flowing toward
+      // the target instead of static.
       if (!st.shot) {
         const { points, targetColor } = computeAimLine(st.grid, st.aim);
         ctx.strokeStyle = targetColor != null
@@ -393,20 +481,24 @@ export default function BubbleShooter() {
           : "rgba(255,255,255,0.3)";
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 8]);
+        ctx.lineDashOffset = -st.gameTime * 60;
         ctx.beginPath();
         ctx.moveTo(points[0][0], points[0][1]);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
       }
 
-      // Grid bubbles
+      // Grid bubbles — pass age (since placement) so newly snapped
+      // bubbles can do a quick overshoot-and-settle.
       for (let r = 0; r < st.grid.length; r++) {
         const row = st.grid[r];
         for (let c = 0; c < row.length; c++) {
           const b = row[c];
           if (!b) continue;
-          drawBubble(ctx, b.x, b.y, RADIUS, b.color);
+          const age = b.placedAt != null ? st.gameTime - b.placedAt : Infinity;
+          drawBubble(ctx, b.x, b.y, RADIUS, b.color, age);
         }
       }
 
@@ -417,9 +509,12 @@ export default function BubbleShooter() {
         ctx.globalAlpha = 1;
       }
 
-      // Pop animations
+      // Pop animations — use (t - delay) so each cluster member
+      // detonates a touch later than the one nearer the impact.
       for (const p of st.pops) {
-        const t = p.t / 0.32; // 0..1
+        const localT = p.t - p.delay;
+        if (localT < 0) continue;
+        const t = Math.min(1, localT / 0.32);
         const r = RADIUS + t * RADIUS * 1.4;
         ctx.globalAlpha = 1 - t;
         ctx.strokeStyle = COLORS[p.color];
@@ -430,12 +525,49 @@ export default function BubbleShooter() {
         ctx.globalAlpha = 1;
       }
 
+      // Particle shards — drawn over pops so they read as "burst out".
+      for (const p of st.particles) {
+        const a = Math.max(0, Math.min(1, p.life / p.maxLife));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Floating +N score badges, drift up and fade.
+      for (const sp of st.scorePopups) {
+        const k = sp.t / 0.85;
+        ctx.globalAlpha = 1 - k;
+        ctx.fillStyle = "white";
+        ctx.font = "bold 22px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(sp.text, sp.x, sp.y - k * 50);
+        ctx.textAlign = "start";
+      }
+      ctx.globalAlpha = 1;
+
       // Shooter base + next bubble
       ctx.fillStyle = "rgba(255,255,255,0.06)";
       ctx.beginPath();
       ctx.arc(W / 2, SHOOTER_Y, RADIUS + 8, 0, Math.PI * 2);
       ctx.fill();
       drawBubble(ctx, W / 2, SHOOTER_Y, RADIUS, st.nextColor);
+
+      // Aim arrow — small triangle ahead of the shooter that rotates
+      // with the aim vector. Reads as the barrel of the cannon.
+      ctx.save();
+      ctx.translate(W / 2, SHOOTER_Y);
+      ctx.rotate(st.aim);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.moveTo(RADIUS + 18, 0);
+      ctx.lineTo(RADIUS + 6, -7);
+      ctx.lineTo(RADIUS + 6, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
 
       // Next-up indicator (smaller, off to the right)
       ctx.fillStyle = "rgba(255,255,255,0.05)";
@@ -532,33 +664,45 @@ export default function BubbleShooter() {
   );
 }
 
+/** Brief overshoot-and-settle scale curve for newly placed bubbles.
+ *  Peaks at ~1.18x at t=0.1s, then settles to 1.0x by t=0.22s. After
+ *  that, it stays at exactly 1.0 — older bubbles render unchanged. */
+function snapScale(age: number): number {
+  if (age < 0.1) return 1 + (age / 0.1) * 0.18;
+  if (age < 0.22) return 1.18 - ((age - 0.1) / 0.12) * 0.18;
+  return 1;
+}
+
 function drawBubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   radius: number,
   colorIndex: number,
+  age?: number,
 ) {
+  const r =
+    age != null && age >= 0 && age < 0.22 ? radius * snapScale(age) : radius;
   const color = COLORS[colorIndex];
   const grad = ctx.createRadialGradient(
-    x - radius * 0.35,
-    y - radius * 0.35,
-    radius * 0.1,
+    x - r * 0.35,
+    y - r * 0.35,
+    r * 0.1,
     x,
     y,
-    radius,
+    r,
   );
   grad.addColorStop(0, lighten(color, 0.35));
   grad.addColorStop(0.7, color);
   grad.addColorStop(1, darken(color, 0.25));
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+  ctx.arc(x, y, r - 1, 0, Math.PI * 2);
   ctx.fill();
   // Highlight
   ctx.fillStyle = "rgba(255,255,255,0.45)";
   ctx.beginPath();
-  ctx.arc(x - radius * 0.32, y - radius * 0.32, radius * 0.28, 0, Math.PI * 2);
+  ctx.arc(x - r * 0.32, y - r * 0.32, r * 0.28, 0, Math.PI * 2);
   ctx.fill();
 }
 
