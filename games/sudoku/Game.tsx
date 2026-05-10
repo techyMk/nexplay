@@ -150,25 +150,30 @@ export default function Sudoku() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a0a18] to-[#0b0d12] p-2 sm:p-3 select-none">
+    <div className="absolute inset-0 flex flex-col bg-[var(--background)] text-[var(--foreground)] p-2 sm:p-3 select-none">
       {/* HUD */}
-      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
-        <span className="px-2.5 py-1 rounded-lg bg-white/10 inline-flex items-center gap-1.5">
-          ⏱️ <b>{String(Math.floor(time / 60)).padStart(2, "0")}:{String(time % 60).padStart(2, "0")}</b>
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-xs flex-wrap">
+        <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] inline-flex items-center gap-1.5">
+          ⏱️
+          <b className="font-mono tabular-nums">
+            {String(Math.floor(time / 60)).padStart(2, "0")}:
+            {String(time % 60).padStart(2, "0")}
+          </b>
         </span>
-        <span className="px-2.5 py-1 rounded-lg bg-white/10 inline-flex items-center gap-1.5">
-          ❌ <b className={errors > 3 ? "text-red-300" : ""}>{errors}</b>
+        <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] inline-flex items-center gap-1.5">
+          <span className="text-[var(--accent-2)]">✕</span>
+          <b className={errors > 3 ? "text-red-500" : ""}>{errors}</b>
         </span>
         {/* Difficulty segmented control */}
-        <div className="inline-flex rounded-lg bg-white/10 p-0.5 text-[11px]">
+        <div className="inline-flex rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-0.5 text-[11px]">
           {PUZZLES.map((p, i) => (
             <button
               key={p.diff}
               onClick={() => setPuzzleIdx(i)}
-              className={`px-2.5 py-1 rounded-md font-bold transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-bold transition-all ${
                 puzzleIdx === i
-                  ? "bg-white/20 text-white"
-                  : "text-white/60 hover:text-white"
+                  ? "bg-[var(--accent)] text-white shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
             >
               {p.diff}
@@ -181,7 +186,7 @@ export default function Sudoku() {
       </div>
 
       {/* Helper hint reflects what's currently being highlighted */}
-      <div className="shrink-0 text-center text-[10px] text-white/40 -mt-1 mb-1">
+      <div className="shrink-0 text-center text-[10px] text-[var(--muted)] -mt-1 mb-2">
         {diff === "Easy" && "Helpers: row · column · box · same digit"}
         {diff === "Medium" && "Helper: 3×3 box only"}
         {diff === "Hard" && "No helpers — only your cell is highlighted"}
@@ -190,10 +195,11 @@ export default function Sudoku() {
       {/* Board */}
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         <div
-          className="grid grid-cols-9 gap-px p-1 rounded-lg bg-black/60 border-2 border-white/30 h-full max-w-full shadow-xl"
+          className="grid grid-cols-9 p-0 rounded-2xl bg-[var(--surface)] border-2 border-[var(--border-strong)] h-full max-w-full overflow-hidden"
           style={{
             aspectRatio: "1",
             gridTemplateRows: "repeat(9, 1fr)",
+            boxShadow: "var(--shadow-lg)",
           }}
         >
           {board.map((row, r) =>
@@ -203,39 +209,55 @@ export default function Sudoku() {
                 cell.value > 0 &&
                 parseInt(initial.solution[r * 9 + c], 10) !== cell.value;
               const hl = highlightCell(r, c);
+              const boxParity =
+                (Math.floor(r / 3) + Math.floor(c / 3)) % 2 === 0;
+              // Layered backgrounds: subtle box-parity tint (so 3×3
+              // groups read at a glance) under the highlight tint.
+              let bg = boxParity
+                ? "bg-[var(--surface)]"
+                : "bg-[var(--surface-2)]";
+              let ring = "";
+              if (wrong) {
+                bg = "bg-red-500/15";
+              } else if (hl === "selected") {
+                bg = "bg-[var(--accent)]/25";
+                ring = "ring-2 ring-[var(--accent)] ring-inset z-10";
+              } else if (hl === "same") {
+                bg = "bg-[var(--accent-2)]/18";
+              } else if (hl === "peer") {
+                bg = "bg-[var(--accent)]/10";
+              }
+              const textColor = cell.given
+                ? "text-[var(--foreground)]"
+                : wrong
+                  ? "text-red-500"
+                  : "text-[var(--accent)]";
               return (
                 <button
                   key={`${r}-${c}`}
                   onClick={() => setSel({ r, c })}
-                  className={`relative flex items-center justify-center text-base sm:text-xl font-bold transition-colors ${
-                    hl === "selected"
-                      ? "bg-[var(--accent)]/55 ring-2 ring-[var(--accent)] z-10"
-                      : hl === "peer"
-                        ? "bg-white/12"
-                        : hl === "same"
-                          ? "bg-[var(--accent)]/15"
-                          : "bg-[var(--surface-2)]"
-                  } ${cell.given ? "" : "hover:bg-white/10"}`}
+                  className={`relative flex items-center justify-center text-lg sm:text-2xl font-semibold transition-colors ${bg} ${ring} ${
+                    cell.given ? "" : "hover:bg-[var(--accent)]/15 cursor-pointer"
+                  }`}
                   style={{
+                    // Thin 1px line between cells, thicker 2px line
+                    // between 3×3 boxes — drawn on right/bottom of
+                    // each cell so we never double-border.
                     borderRight:
-                      c % 3 === 2 && c !== 8
-                        ? "2px solid rgba(255,255,255,0.4)"
+                      c < 8
+                        ? c % 3 === 2
+                          ? "2px solid var(--border-strong)"
+                          : "1px solid var(--border)"
                         : undefined,
                     borderBottom:
-                      r % 3 === 2 && r !== 8
-                        ? "2px solid rgba(255,255,255,0.4)"
+                      r < 8
+                        ? r % 3 === 2
+                          ? "2px solid var(--border-strong)"
+                          : "1px solid var(--border)"
                         : undefined,
                   }}
                 >
-                  <span
-                    className={`${
-                      cell.given
-                        ? "text-white"
-                        : wrong
-                          ? "text-red-400"
-                          : "text-[var(--accent)]"
-                    }`}
-                  >
+                  <span className={textColor}>
                     {cell.value > 0 ? cell.value : ""}
                   </span>
                 </button>
@@ -255,7 +277,7 @@ export default function Sudoku() {
             key={n}
             onClick={() => setValue(n)}
             disabled={!sel || won || paused || !started}
-            className="aspect-square rounded-lg bg-[var(--surface-2)] hover:bg-[var(--accent)] disabled:opacity-40 disabled:hover:bg-[var(--surface-2)] text-white font-black text-lg transition-colors"
+            className="aspect-square rounded-xl bg-[var(--surface-2)] border border-[var(--border)] hover:bg-[var(--accent)] hover:text-white hover:border-[var(--accent)] disabled:opacity-40 disabled:hover:bg-[var(--surface-2)] disabled:hover:text-[var(--foreground)] disabled:hover:border-[var(--border)] text-[var(--foreground)] font-black text-lg transition-all shadow-sm"
           >
             {n}
           </button>
@@ -265,7 +287,7 @@ export default function Sudoku() {
           disabled={!sel || won || paused || !started}
           title="Erase"
           aria-label="Erase"
-          className="aspect-square rounded-lg bg-white/10 hover:bg-red-500/40 disabled:opacity-40 disabled:hover:bg-white/10 text-white font-black text-lg transition-colors flex items-center justify-center"
+          className="aspect-square rounded-xl bg-[var(--surface-2)] border border-[var(--border)] hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:hover:bg-[var(--surface-2)] disabled:hover:text-[var(--foreground)] disabled:hover:border-[var(--border)] text-[var(--foreground)] font-black text-lg transition-all shadow-sm flex items-center justify-center"
         >
           ⌫
         </button>
