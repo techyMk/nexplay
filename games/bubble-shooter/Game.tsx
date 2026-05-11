@@ -799,7 +799,7 @@ export default function BubbleShooter() {
           <span className="opacity-60">DROP IN</span>
           <b>{shotsUntilDrop}</b>
         </span>
-        <span className="opacity-80">
+        <span className="opacity-80 hidden sm:inline">
           <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Space</kbd> shoot ·{" "}
           <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Q</kbd> swap ·{" "}
           <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pause

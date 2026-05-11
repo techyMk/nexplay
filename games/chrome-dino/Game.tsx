@@ -491,7 +491,7 @@ export default function ChromeDino() {
           )}
         </div>
       </div>
-      <div className="shrink-0 mt-2 text-[11px] text-[var(--muted)] text-center">
+      <div className="shrink-0 mt-2 text-[11px] hidden sm:block text-[var(--muted)] text-center">
         <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border)] text-[var(--foreground)] font-mono font-semibold">
           Space
         </kbd>

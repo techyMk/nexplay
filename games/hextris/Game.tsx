@@ -524,7 +524,7 @@ export default function Hextris() {
           )}
         </div>
       </div>
-      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">
+      <div className="shrink-0 mt-2 text-[11px] hidden sm:block text-white/60 text-center">
         <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">←</kbd>/
         <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">A</kbd>{" "}
         and{" "}

@@ -221,9 +221,9 @@ export default function Game2048() {
         )}
         <button
           onClick={reset}
-          className="px-4 py-2 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform"
+          className="px-3 sm:px-4 py-2 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform whitespace-nowrap"
         >
-          New game
+          ↻<span className="hidden sm:inline"> New game</span>
         </button>
       </div>
 
@@ -253,7 +253,7 @@ export default function Game2048() {
         </div>
       </div>
 
-      <div className="shrink-0 mt-2 text-white/70 text-[11px] text-center">
+      <div className="shrink-0 mt-2 text-white/70 text-[11px] text-center hidden sm:block">
         Arrow keys / WASD · Swipe on mobile · P pauses
       </div>
 

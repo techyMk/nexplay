@@ -440,7 +440,7 @@ export default function Breakout() {
           Score: <b>{score}</b> · Best: <b>{best}</b> · Lives:{" "}
           <b className="text-rose-300">{"♥".repeat(lives) || "—"}</b>
         </span>
-        <span className="opacity-70">
+        <span className="opacity-70 hidden sm:inline">
           Arrows / A,D or drag · Space / tap to launch · P pauses
         </span>
         <SoundToggle />

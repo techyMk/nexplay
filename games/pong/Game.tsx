@@ -468,9 +468,10 @@ export default function Pong() {
         />
         <Link
           href="/multiplayer/pong"
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-bold hover:scale-105 transition-transform inline-flex items-center gap-1.5"
+          title="Play online"
+          className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-bold hover:scale-105 transition-transform inline-flex items-center gap-1.5"
         >
-          🌐 Online →
+          🌐<span className="hidden sm:inline"> Online →</span>
         </Link>
         {!winner && mode !== ("online" as Mode) && (
           <button
@@ -610,13 +611,15 @@ function ModeTab({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${
+      title={label}
+      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${
         active
           ? "bg-white text-black"
           : "bg-white/10 text-white/80 hover:bg-white/15"
       }`}
     >
-      <span>{icon}</span> {label}
+      <span>{icon}</span>
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }

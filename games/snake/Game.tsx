@@ -457,16 +457,22 @@ export default function Snake() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1f0d] to-[#0b0d12] p-2 sm:p-3">
-      {/* HUD row 1 — stats */}
-      <div className="shrink-0 flex items-center justify-center gap-2 mb-1.5 text-white text-xs sm:text-sm flex-wrap">
+      {/* HUD row 1 — stats. Score / Length / Speed are gameplay; Best
+          is historical. On mobile we keep the four stats in a single
+          row by using tighter padding + smaller labels, and float the
+          sound/pause toggles into a second row that's only present
+          while playing. */}
+      <div className="shrink-0 flex items-center justify-center gap-1 sm:gap-2 mb-1.5 text-white text-xs sm:text-sm flex-wrap">
         <Stat label="Score" value={score} accent />
         <Stat label="Length" value={length} />
         <Stat label="Speed" value={`${hudSpeed.toFixed(1)}/s`} />
         <Stat label="Best" value={best} />
-        <SoundToggle />
-        {started && !over && (
-          <PauseToggle paused={paused} onClick={togglePause} />
-        )}
+        <div className="flex items-center gap-1 ml-auto sm:ml-0">
+          <SoundToggle />
+          {started && !over && (
+            <PauseToggle paused={paused} onClick={togglePause} />
+          )}
+        </div>
       </div>
 
       {/* HUD row 2 — difficulty */}
@@ -542,7 +548,7 @@ export default function Snake() {
           )}
         </div>
       </div>
-      <div className="shrink-0 mt-2 text-[11px] text-white/60 text-center">
+      <div className="shrink-0 mt-2 text-[11px] hidden sm:block text-white/60 text-center">
         Arrow keys / WASD · Swipe on mobile · <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">P</kbd> pauses
       </div>
     </div>
@@ -560,13 +566,13 @@ function Stat({
 }) {
   return (
     <span
-      className={`px-3 py-1 rounded-lg ${
+      className={`px-2 sm:px-3 py-1 rounded-lg ${
         accent
           ? "bg-[var(--accent)]/20 border border-[var(--accent)]/40"
           : "bg-white/10"
       }`}
     >
-      <span className="text-[10px] uppercase tracking-wider opacity-60 mr-1.5">
+      <span className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-60 mr-1 sm:mr-1.5">
         {label}
       </span>
       <b>{value}</b>

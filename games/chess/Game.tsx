@@ -339,38 +339,39 @@ export default function ChessGame() {
         />
         <button
           onClick={() => setFlipped((f) => !f)}
-          className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+          className="px-2 sm:px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5"
           title="Flip the board"
         >
-          ⇅ Flip
+          ⇅<span className="hidden sm:inline"> Flip</span>
         </button>
         <button
           onClick={undoLast}
           disabled={over !== null || aiThinking || history.length === 0}
-          className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-white/10 border border-white/15 text-white text-xs font-bold transition-colors"
+          className="px-2 sm:px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-white/10 border border-white/15 text-white text-xs font-bold transition-colors"
           title="Undo your last move (and the AI's reply)"
         >
-          ↶ Undo
+          ↶<span className="hidden sm:inline"> Undo</span>
         </button>
         <button
           onClick={() => newGame()}
-          className="px-2.5 py-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold transition-colors"
+          className="px-2 sm:px-2.5 py-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold transition-colors"
         >
-          ↻ New
+          ↻<span className="hidden sm:inline"> New</span>
         </button>
         <button
           onClick={resign}
           disabled={over !== null || history.length === 0}
-          className="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-40 disabled:hover:bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs font-bold transition-colors"
+          className="px-2 sm:px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-40 disabled:hover:bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs font-bold transition-colors"
+          title="Resign"
         >
-          🏳 Resign
+          🏳<span className="hidden sm:inline"> Resign</span>
         </button>
         <Link
           href="/multiplayer/chess"
-          className="px-2.5 py-1 rounded-md bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-xs font-bold transition-colors inline-flex items-center gap-1"
+          className="px-2 sm:px-2.5 py-1 rounded-md bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-xs font-bold transition-colors inline-flex items-center gap-1"
           title="Play against another person online"
         >
-          🌐 Online
+          🌐<span className="hidden sm:inline"> Online</span>
         </Link>
         <SoundToggle />
       </div>
@@ -732,25 +733,25 @@ function ColorPicker({
     <div className="inline-flex rounded-md bg-white/10 border border-white/15 p-0.5">
       <button
         onClick={() => onChange("w")}
-        className={`px-2.5 py-1 rounded-sm text-xs font-bold transition-colors ${
+        className={`px-2 sm:px-2.5 py-1 rounded-sm text-xs font-bold transition-colors ${
           value === "w"
             ? "bg-white text-black"
             : "text-white/70 hover:text-white"
         }`}
         title="Play as white"
       >
-        ♔ White
+        ♔<span className="hidden sm:inline"> White</span>
       </button>
       <button
         onClick={() => onChange("b")}
-        className={`px-2.5 py-1 rounded-sm text-xs font-bold transition-colors ${
+        className={`px-2 sm:px-2.5 py-1 rounded-sm text-xs font-bold transition-colors ${
           value === "b"
             ? "bg-stone-900 text-white"
             : "text-white/70 hover:text-white"
         }`}
         title="Play as black"
       >
-        ♚ Black
+        ♚<span className="hidden sm:inline"> Black</span>
       </button>
     </div>
   );
