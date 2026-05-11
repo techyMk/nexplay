@@ -414,6 +414,20 @@ export default function Krunker() {
   const [damageOverlay, setDamageOverlay] = useState<
     { id: number; x: number; y: number; alpha: number; amount: number; headshot: boolean }[]
   >([]);
+  /** Bot name + HP labels, projected to screen space each frame so
+   *  the player always knows where the enemies are even at a glance. */
+  const [botLabels, setBotLabels] = useState<
+    { id: number; x: number; y: number; hpFrac: number; dist: number }[]
+  >([]);
+  /** Directional damage indicators — angle (relative to player look)
+   *  + birth ms, fade across 1.5s. Tells the player which side a hit
+   *  came from. */
+  const [damageHints, setDamageHints] = useState<
+    { id: number; angle: number; born: number }[]
+  >([]);
+  /** "Show controls" toggle — visible by default, can be hidden with
+   *  H to clean up the HUD once the player knows the bindings. */
+  const [showGuide, setShowGuide] = useState(true);
 
   const submitStatus = useSubmitScoreOnGameOver(
     "krunker",
@@ -436,6 +450,7 @@ export default function Krunker() {
     bots: Bot[];
     tracers: Tracer[];
     damageNumbers: DamageNumber[];
+    pendingDamageHints: { id: number; angle: number; born: number }[];
     keys: Set<string>;
     mouseDown: boolean;
     ads: boolean;
@@ -490,6 +505,10 @@ export default function Krunker() {
     bots: [],
     tracers: [],
     damageNumbers: [] as DamageNumber[],
+    /** Queue of directional damage hints written by updateBot()
+     *  (a top-level function that can't reach React setters) and
+     *  drained in the per-frame loop into setDamageHints. */
+    pendingDamageHints: [] as { id: number; angle: number; born: number }[],
     keys: new Set(),
     mouseDown: false,
     /** Holds whether the player is requesting ADS this frame. Tied to
@@ -543,10 +562,13 @@ export default function Krunker() {
     st.player.swapUntil = 0;
     st.tracers = [];
     st.damageNumbers = [];
+    st.pendingDamageHints = [];
     st.ads = false;
     st.jumpHeld = false;
     setKillfeed([]);
     setDamageOverlay([]);
+    setBotLabels([]);
+    setDamageHints([]);
 
     st.bots = [];
     for (let i = 0; i < BOT_COUNT; i++) {
@@ -649,11 +671,23 @@ export default function Krunker() {
       if (e.repeat) return;
       const k = e.key.toLowerCase();
       st.keys.add(k);
+      // Arrow keys would otherwise scroll the page when the canvas
+      // doesn't have keyboard focus — stop that, since arrows are
+      // movement here.
+      if (
+        k === "arrowup" ||
+        k === "arrowdown" ||
+        k === "arrowleft" ||
+        k === "arrowright"
+      ) {
+        e.preventDefault();
+      }
       if (k === "1") setWeapon("pistol");
       else if (k === "2") setWeapon("rifle");
       else if (k === "3") setWeapon("sniper");
       else if (k === "r") tryReload();
       else if (k === "c") st.player.crouching = true;
+      else if (k === "h") setShowGuide((v) => !v);
       else if (k === "p" || k === "escape") {
         // Escape unlocks pointer naturally; treat as pause.
         if (started && !over) setPaused(true);
@@ -959,10 +993,10 @@ export default function Krunker() {
         // ----- Player movement -----
         if (st.player.alive) {
           const wishDir = new THREE.Vector3();
-          if (st.keys.has("w")) wishDir.z -= 1;
-          if (st.keys.has("s")) wishDir.z += 1;
-          if (st.keys.has("a")) wishDir.x -= 1;
-          if (st.keys.has("d")) wishDir.x += 1;
+          if (st.keys.has("w") || st.keys.has("arrowup")) wishDir.z -= 1;
+          if (st.keys.has("s") || st.keys.has("arrowdown")) wishDir.z += 1;
+          if (st.keys.has("a") || st.keys.has("arrowleft")) wishDir.x -= 1;
+          if (st.keys.has("d") || st.keys.has("arrowright")) wishDir.x += 1;
           if (wishDir.lengthSq() > 0) wishDir.normalize();
           // Rotate by yaw to get world-space wish direction.
           const cs = Math.cos(st.player.yaw);
@@ -1141,6 +1175,51 @@ export default function Krunker() {
         } else if (lastOverlayHadItems) {
           setDamageOverlay([]);
           lastOverlayHadItems = false;
+        }
+
+        // ----- Bot labels: project each live bot's position above
+        //       its head into screen space so we can render an HTML
+        //       name + HP bar overlay. Filters out off-screen and
+        //       behind-camera bots.
+        const rect = mountEl.getBoundingClientRect();
+        const halfWB = (rect.width || 1) / 2;
+        const halfHB = (rect.height || 1) / 2;
+        const tmpB = new THREE.Vector3();
+        const labels: { id: number; x: number; y: number; hpFrac: number; dist: number }[] = [];
+        for (const bot of st.bots) {
+          if (!bot.alive) continue;
+          tmpB.set(bot.pos.x, BOT_HEIGHT + 0.35, bot.pos.z);
+          tmpB.project(st.camera);
+          if (tmpB.z > 1) continue; // behind camera
+          // Generous clamp so labels stay near the edge even if the
+          // bot is slightly off-screen.
+          if (tmpB.x < -1.4 || tmpB.x > 1.4) continue;
+          if (tmpB.y < -1.4 || tmpB.y > 1.4) continue;
+          const sx = tmpB.x * halfWB + halfWB;
+          const sy = -tmpB.y * halfHB + halfHB;
+          const dx = bot.pos.x - st.player.pos.x;
+          const dz = bot.pos.z - st.player.pos.z;
+          labels.push({
+            id: bot.id,
+            x: sx,
+            y: sy,
+            hpFrac: Math.max(0, bot.hp / BOT_HP),
+            dist: Math.hypot(dx, dz),
+          });
+        }
+        setBotLabels(labels);
+
+        // ----- Damage-hint drain (new hints queued from updateBot)
+        //       + prune (1.5s lifetime). Functional updater so we read
+        //       live state; same-reference return short-circuits the
+        //       re-render when nothing changed.
+        {
+          const incoming = st.pendingDamageHints.splice(0);
+          setDamageHints((hs) => {
+            const fresh = hs.filter((h) => now - h.born < 1500);
+            if (incoming.length === 0 && fresh.length === hs.length) return hs;
+            return [...fresh, ...incoming].slice(-5);
+          });
         }
 
         // ----- Killfeed prune (5s lifetime) -----
@@ -1505,6 +1584,99 @@ export default function Krunker() {
                 </div>
               ))}
             </div>
+
+            {/* Bot labels — name + HP bar floating above each live
+                bot in screen space. Distance hint helps the player
+                size up a target. */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              {botLabels.map((b) => (
+                <div
+                  key={b.id}
+                  className="absolute"
+                  style={{
+                    left: `${b.x}px`,
+                    top: `${b.y}px`,
+                    transform: "translate(-50%, -100%)",
+                  }}
+                >
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm border border-rose-400/30 text-rose-200 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
+                      Bot {b.id + 1}
+                      <span className="opacity-60 ml-1 normal-case font-normal">
+                        {b.dist < 100 ? `${Math.round(b.dist)}m` : ""}
+                      </span>
+                    </div>
+                    <div className="w-12 h-1 rounded-full bg-black/55 border border-white/10 overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          b.hpFrac > 0.6
+                            ? "bg-emerald-400"
+                            : b.hpFrac > 0.25
+                              ? "bg-amber-400"
+                              : "bg-rose-500"
+                        }`}
+                        style={{ width: `${b.hpFrac * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Directional damage indicators — small red wedges that
+                arc around a virtual circle in front of the player,
+                positioned by the angle from which the shot came.
+                Fades over 1.5s. */}
+            {damageHints.length > 0 && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                {damageHints.map((d) => {
+                  const k = Math.min(
+                    1,
+                    (performance.now() - d.born) / 1500,
+                  );
+                  if (k >= 1) return null;
+                  // 120 = radius in px from screen centre.
+                  return (
+                    <div
+                      key={d.id}
+                      className="absolute w-0 h-0"
+                      style={{
+                        opacity: 1 - k,
+                        transform: `rotate(${d.angle}rad)`,
+                      }}
+                    >
+                      <div
+                        className="absolute -left-8 -top-32 w-16 h-4 rounded-full"
+                        style={{
+                          background:
+                            "linear-gradient(to top, rgba(239,68,68,0.95), rgba(239,68,68,0))",
+                          filter: "blur(0.5px)",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Guide text — bottom-centre, dim and unobtrusive.
+                Toggle with H. */}
+            {showGuide && (
+              <div className="pointer-events-none absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] sm:text-[11px] text-white/65 font-bold tracking-wide text-center max-w-[640px] px-3">
+                <span className="opacity-80">WASD / Arrows</span> move ·{" "}
+                <span className="opacity-80">Mouse</span> aim ·{" "}
+                <span className="opacity-80">LMB</span> fire ·{" "}
+                <span className="opacity-80">RMB</span> ADS ·{" "}
+                <span className="opacity-80">Space</span> jump ·{" "}
+                <span className="opacity-80">Shift</span> sprint ·{" "}
+                <span className="opacity-80">C</span> crouch ·{" "}
+                <span className="opacity-80">R</span> reload ·{" "}
+                <span className="opacity-80">1·2·3</span> weapons ·{" "}
+                <span className="opacity-80">Scroll</span> swap ·{" "}
+                <span className="opacity-80">P</span> pause ·{" "}
+                <span className="opacity-80">H</span> hide
+              </div>
+            )}
 
             {/* Bots-alive minimap pill */}
             <div className="pointer-events-none absolute top-3 right-3 px-3 py-1 rounded-md bg-black/55 backdrop-blur-sm border border-white/10 text-white text-xs font-bold">
@@ -1966,6 +2138,25 @@ function updateBot(
     if (Math.random() < hitChance) {
       st.player.hp -= BOT_DAMAGE;
       Sfx.hit();
+      // Spawn a directional damage indicator on the HUD so the player
+      // can see which side the hit came from, even if the attacker is
+      // behind them or behind cover.
+      const dx = bot.pos.x - st.player.pos.x;
+      const dz = bot.pos.z - st.player.pos.z;
+      const cs = Math.cos(st.player.yaw);
+      const sn = Math.sin(st.player.yaw);
+      // Forward = (-sin(yaw), 0, -cos(yaw)); Right = (cos(yaw), 0, -sin(yaw)).
+      const fwd = -dx * sn - dz * cs;
+      const rgt = dx * cs - dz * sn;
+      const angleRel = Math.atan2(rgt, fwd);
+      // Push into a queue on the state ref; the per-frame loop in
+      // the component drains this into React state via setDamageHints.
+      // (We can't call setDamageHints from a top-level function.)
+      st.pendingDamageHints.push({
+        id: now + Math.random(),
+        angle: angleRel,
+        born: now,
+      });
       if (st.player.hp <= 0) {
         st.player.hp = 0;
         st.player.alive = false;
@@ -2025,6 +2216,7 @@ function loopStateShape() {
     bots: Bot[];
     tracers: Tracer[];
     damageNumbers: DamageNumber[];
+    pendingDamageHints: { id: number; angle: number; born: number }[];
     keys: Set<string>;
     mouseDown: boolean;
     ads: boolean;
