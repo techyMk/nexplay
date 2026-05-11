@@ -73,6 +73,11 @@ export function AuthChoiceModal({
     try {
       localStorage.setItem(CHOICE_KEY, choice);
       if (choice === "guest") localStorage.setItem(WAS_GUEST_KEY, "1");
+      // Mark the WelcomeCard as dismissed too — this modal IS the
+      // welcome experience for first-time visitors, and stacking
+      // another "welcome to Nexplay" panel right after they answered
+      // the auth prompt would feel repetitive.
+      localStorage.setItem("nexplay:welcome-dismissed", "1");
     } catch {
       // private mode — UI dismisses anyway
     }

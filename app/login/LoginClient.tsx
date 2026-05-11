@@ -10,7 +10,12 @@ export function LoginClient() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // Initial mode is driven by ?mode=signup so the "Create account"
+  // CTAs around the site (AuthChoiceModal, Sidebar guest card,
+  // HomeCTA) land on the signup form instead of the login form.
+  const initialMode: "login" | "signup" =
+    params.get("mode") === "signup" ? "signup" : "login";
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
