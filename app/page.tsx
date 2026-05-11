@@ -31,7 +31,7 @@ export default function Home() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
-      <WelcomeCard />
+      <WelcomeCard gameCount={totalCount} />
       <Hero games={featured.length ? featured : GAMES.slice(0, 3)} />
 
       <RevealSection>

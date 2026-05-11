@@ -12,11 +12,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { GAMES } from "@/lib/catalog";
 
 const STORAGE_KEY = "nexplay:welcome-dismissed";
 
-export function WelcomeCard() {
+/** `gameCount` is passed in from the server page so this client
+ *  component doesn't have to import the full catalog (and ship it
+ *  in the client bundle) just to read its length. */
+export function WelcomeCard({ gameCount }: { gameCount: number }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export function WelcomeCard() {
           {/* Three quick pitches in a single row so first-time visitors can
               see what the site is in one glance without reading paragraphs. */}
           <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-            <Bullet emoji="🎮" title={`${GAMES.length} games`} desc="No downloads" />
+            <Bullet emoji="🎮" title={`${gameCount} games`} desc="No downloads" />
             <Bullet emoji="🏆" title="Leaderboards" desc="Sign in to rank" />
             <Bullet emoji="🎯" title="Daily" desc="Fresh challenges" />
           </div>
