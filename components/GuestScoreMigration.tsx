@@ -29,6 +29,7 @@
 import { useEffect } from "react";
 import { submitScore } from "@/lib/scores";
 import { useToast } from "@/components/ToastProvider";
+import { clearGuestIdentity } from "@/lib/guest";
 
 const MIGRATED_FLAG = "nexplay:guest-scores-migrated";
 
@@ -95,6 +96,9 @@ async function migrateGuestScores(
       localStorage.setItem(MIGRATED_FLAG, "1");
       // Best scores migrated, no longer "a guest who has played"
       localStorage.removeItem("nexplay:was-guest");
+      // Their guest random name (Whimsical Wombat 4815) is no longer
+      // relevant — they have a real profile now.
+      clearGuestIdentity();
     } catch {
       // ignore
     }

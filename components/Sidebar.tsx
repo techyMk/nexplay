@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useConfirm } from "./ConfirmDialog";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { readGuestIdentity, type GuestIdentity } from "@/lib/guest";
 
 type NavItem = {
   href: string;
@@ -90,6 +91,17 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const friendsUnread = useFriendsUnread(isAuthenticated);
+  // Read the guest identity on mount so we can show their friendly
+  // name on the CTA card (signed-out visitors only). null until the
+  // useEffect resolves, which keeps the SSR + first paint stable.
+  const [guest, setGuest] = useState<GuestIdentity | null>(null);
+  useEffect(() => {
+    if (isAuthenticated) {
+      setGuest(null);
+      return;
+    }
+    setGuest(readGuestIdentity());
+  }, [isAuthenticated]);
 
   useEffect(() => {
     setOpen(false);
@@ -188,6 +200,20 @@ export function Sidebar({
               <>
                 <NavRow href="/feedback" emoji="💬" label="Feedback" active={isActive("/feedback")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
+                {/* "Playing as" pill — surfaces the guest's friendly
+                    random name so they have a visible identity. Only
+                    renders once the post-hydration effect resolves
+                    so the SSR shell doesn't blink it in. */}
+                {guest && (
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-[var(--surface-2)]/60 border border-[var(--border)]">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--muted-2)] font-black">
+                      Playing as
+                    </div>
+                    <div className="text-xs font-bold truncate" title={guest.name}>
+                      {guest.name}
+                    </div>
+                  </div>
+                )}
                 {/* Prominent sign-up promo for guests — replaces the
                     plain "Log in" NavRow. Sits below the standard
                     account links so the sidebar pattern holds, but
@@ -200,8 +226,9 @@ export function Sidebar({
                     Save your scores
                   </div>
                   <div className="text-[11px] text-[var(--muted)] leading-snug mb-2">
-                    Free account · climb global leaderboards · play with
-                    friends.
+                    {guest
+                      ? `Take ${guest.name.split(" ").slice(0, 2).join(" ")} to the global leaderboard.`
+                      : "Free account · climb global leaderboards · play with friends."}
                   </div>
                   <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white text-[11px] font-black group-hover:scale-[1.03] transition-transform">
                     Sign up free →

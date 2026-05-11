@@ -22,6 +22,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { ensureGuestIdentity } from "@/lib/guest";
 
 const CHOICE_KEY = "nexplay:auth-choice";
 const WAS_GUEST_KEY = "nexplay:was-guest";
@@ -72,7 +73,13 @@ export function AuthChoiceModal({
   const close = (choice: "signup" | "login" | "guest") => {
     try {
       localStorage.setItem(CHOICE_KEY, choice);
-      if (choice === "guest") localStorage.setItem(WAS_GUEST_KEY, "1");
+      if (choice === "guest") {
+        localStorage.setItem(WAS_GUEST_KEY, "1");
+        // Give the guest a friendly random identity so the rest of
+        // the UI has something to show them as ("Whimsical Wombat
+        // 4815") instead of a bare "Guest" placeholder.
+        ensureGuestIdentity();
+      }
       // Mark the WelcomeCard as dismissed too — this modal IS the
       // welcome experience for first-time visitors, and stacking
       // another "welcome to Nexplay" panel right after they answered
