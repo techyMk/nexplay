@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,6 +22,18 @@ export function LoginClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // True when the current session is a Supabase anonymous user. In
+  // that case "Sign up" should *upgrade* their existing row (so their
+  // scores carry over) rather than spin up a fresh account.
+  const [isAnonUser, setIsAnonUser] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAnonUser(Boolean(user && user.is_anonymous));
+    });
+  }, []);
 
   if (!isSupabaseConfigured) return <SetupNotice />;
 
@@ -30,10 +42,19 @@ export function LoginClient() {
     setError(null);
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
+    // If the visitor is currently an anonymous Supabase user, link
+    // Google to their existing row (so guest scores carry over)
+    // instead of signing them in as a brand-new user. linkIdentity
+    // returns to redirectTo just like signInWithOAuth would.
+    const { error } = isAnonUser
+      ? await supabase.auth.linkIdentity({
+          provider: "google",
+          options: { redirectTo },
+        })
+      : await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo },
+        });
     if (error) {
       setError(error.message);
       setBusy(false);
@@ -59,18 +80,48 @@ export function LoginClient() {
         router.refresh();
       }
     } else {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { display_name: displayName || email.split("@")[0] },
-        },
-      });
-      if (error) {
-        setError(error.message);
+      // Upgrade flow: if the user is currently an anonymous Supabase
+      // session (they chose "Continue as guest" earlier), we attach
+      // the email + password to that existing row via updateUser so
+      // every score / play / achievement they earned as a guest
+      // carries over. For anon-upgrade Supabase emails them a
+      // confirmation link before flipping `is_anonymous` to false.
+      if (isAnonUser) {
+        const { error: nameError } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: (await supabase.auth.getUser()).data.user?.id ?? "",
+              display_name: displayName || email.split("@")[0],
+            },
+            { onConflict: "id" },
+          );
+        if (nameError) {
+          // Non-fatal — the auth update is the important part.
+          console.warn("[signup] profile upsert failed", nameError);
+        }
+        const { error } = await supabase.auth.updateUser({ email, password });
+        if (error) {
+          setError(error.message);
+        } else {
+          setInfo(
+            "Check your email to confirm — your guest progress will carry over.",
+          );
+        }
       } else {
-        setInfo("Account created! Check your email if confirmation is enabled, then log in.");
-        setMode("login");
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { display_name: displayName || email.split("@")[0] },
+          },
+        });
+        if (error) {
+          setError(error.message);
+        } else {
+          setInfo("Account created! Check your email if confirmation is enabled, then log in.");
+          setMode("login");
+        }
       }
     }
 
