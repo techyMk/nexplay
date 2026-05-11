@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { SoundToggle } from "@/components/SoundToggle";
+import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { Sfx } from "@/lib/sound";
 
 const W = 480;
@@ -213,16 +214,20 @@ export default function Flappy() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#0a1a2a] to-[#1a3344] p-2 sm:p-3">
-      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs">
-        <span>Best: <b>{best}</b></span>
+      <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
+        <span className="px-2.5 py-1 rounded-md bg-white/10">
+          <span className="opacity-60 mr-1.5">SCORE</span>
+          <b className="tabular-nums">{score}</b>
+        </span>
+        {best > 0 && (
+          <span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-200">
+            <span className="opacity-60 mr-1.5">BEST</span>
+            <b className="tabular-nums">{best}</b>
+          </span>
+        )}
         <SoundToggle />
         {phase === "play" && (
-          <button
-            onClick={togglePause}
-            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 font-bold transition-colors"
-          >
-            {paused ? "▶ Resume" : "⏸ Pause"}
-          </button>
+          <PauseToggle paused={paused} onClick={togglePause} />
         )}
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
@@ -236,46 +241,57 @@ export default function Flappy() {
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 cursor-pointer"
           />
           {paused && phase === "play" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
-              <div className="text-5xl mb-1">⏸</div>
-              <div className="text-3xl font-black text-white mb-1">Paused</div>
-              <div className="text-white/70 text-xs mb-3">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">Space</kbd> to resume
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPaused(false);
-                }}
-                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                ▶ Resume
-              </button>
-            </div>
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    P
+                  </kbd>{" "}
+                  or{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    Space
+                  </kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
           )}
-          {phase !== "play" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl pointer-events-none">
-              {phase === "ready" ? (
+          {phase === "ready" && (
+            <GameOverlay
+              variant="blur"
+              icon="🐦"
+              title="Tap to flap"
+              subtitle={
                 <>
-                  <div className="text-3xl font-black text-white mb-2">Tap or press Space</div>
-                  <div className="text-white/80">to flap · P pauses</div>
+                  Tap the screen or press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    Space
+                  </kbd>{" "}
+                  to jump · <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">P</kbd> pauses.
                 </>
-              ) : (
+              }
+              primary={{ label: "▶ Play", onClick: () => flap() }}
+            />
+          )}
+          {phase === "over" && (
+            <GameOverlay
+              icon="💀"
+              title="Game over"
+              subtitle={
                 <>
-                  <div className="text-4xl font-black text-white mb-2">Game over</div>
-                  <div className="text-white/80 mb-2">Score: {score}</div>
-                  <div className="pointer-events-auto mb-3">
-                    <ScoreStatus gameSlug="flappy" status={submitStatus} />
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); reset(); }}
-                    className="pointer-events-auto px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-                  >
-                    Try again
-                  </button>
+                  Score <b>{score}</b>
+                  {score >= best && score > 0 ? <> · 🏆 new best!</> : best > 0 ? <> · best {best}</> : null}
                 </>
-              )}
-            </div>
+              }
+              primary={{ label: "↻ Try again", onClick: reset }}
+            >
+              <ScoreStatus gameSlug="flappy" status={submitStatus} />
+            </GameOverlay>
           )}
         </div>
       </div>

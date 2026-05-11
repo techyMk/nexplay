@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useKeyboard } from "../useGameLoop";
 import { SoundToggle } from "@/components/SoundToggle";
+import { GameOverlay } from "@/components/games/GameOverlay";
 import { Sfx } from "@/lib/sound";
 
 const W = 800;
@@ -545,51 +546,49 @@ export default function Pong() {
           )}
 
           {paused && !winner && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-sm rounded-xl gap-2">
-              <div className="text-5xl mb-1">⏸</div>
-              <div className="text-3xl font-black text-white mb-1">Paused</div>
-              <div className="text-white/70 text-xs mb-3">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono">P</kbd> to resume
-              </div>
-              <button
-                onClick={() => setPaused(false)}
-                className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-              >
-                ▶ Resume
-              </button>
-            </div>
+            <GameOverlay
+              variant="blur"
+              icon="⏸"
+              title="Paused"
+              subtitle={
+                <>
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white font-mono">
+                    P
+                  </kbd>{" "}
+                  to resume
+                </>
+              }
+              primary={{ label: "▶ Resume", onClick: () => setPaused(false) }}
+            />
           )}
 
           {winner && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl gap-2">
-              <div className="text-5xl mb-1">🏆</div>
-              <div className="text-3xl font-black text-white">
-                {mode === "ai"
+            <GameOverlay
+              icon="🏆"
+              title={
+                mode === "ai"
                   ? winner === "left"
                     ? "You win!"
                     : "AI wins"
                   : winner === "left"
                     ? "Player 1 wins!"
-                    : "Player 2 wins!"}
-              </div>
-              <div className="text-white/80">
-                {score.left} – {score.right}
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={reset}
-                  className="px-5 py-2.5 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
-                >
-                  Rematch
-                </button>
-                <Link
-                  href="/multiplayer/pong"
-                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white font-bold hover:scale-105 transition-transform"
-                >
-                  Play online
-                </Link>
-              </div>
-            </div>
+                    : "Player 2 wins!"
+              }
+              subtitle={
+                <>
+                  Final score <b>{score.left}</b> – <b>{score.right}</b>
+                </>
+              }
+              primary={{ label: "↻ Rematch", onClick: reset }}
+            >
+              <Link
+                href="/multiplayer/pong"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-black hover:scale-[1.03] transition-transform shadow-md"
+              >
+                👥 Play online
+              </Link>
+            </GameOverlay>
           )}
         </div>
       </div>

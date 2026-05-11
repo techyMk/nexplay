@@ -2,8 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { ScoreStatus } from "@/components/ScoreStatus";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Sfx } from "@/lib/sound";
+import { useSubmitScoreOnGameOver } from "@/lib/scores";
+
+/** Base score per difficulty — what you earn for a perfect run.
+ *  Higher difficulties carry more points so the leaderboard naturally
+ *  rewards bigger boards. */
+const DIFFICULTY_BASE: Record<"easy" | "medium" | "hard", number> = {
+  easy: 400,
+  medium: 800,
+  hard: 1500,
+};
+/** Score penalty per wasted move (every move past the optimal count). */
+const PENALTY_PER_EXTRA_MOVE = 20;
+
+function scoreForRun(
+  diff: "easy" | "medium" | "hard",
+  totalPairs: number,
+  moves: number,
+): number {
+  const extra = Math.max(0, moves - totalPairs);
+  const base = DIFFICULTY_BASE[diff];
+  return Math.max(50, base - extra * PENALTY_PER_EXTRA_MOVE);
+}
 
 type Difficulty = "easy" | "medium" | "hard";
 type CategoryKey = "animals" | "food" | "travel" | "sports" | "nature" | "mixed";
@@ -106,9 +129,30 @@ export default function MemoryMatch() {
     [cards],
   );
   const allMatched = started && matchedPairs === totalPairs && totalPairs > 0;
+  const finalScore = allMatched
+    ? scoreForRun(difficulty, totalPairs, moves)
+    : 0;
+  const submitStatus = useSubmitScoreOnGameOver(
+    "memory-match",
+    finalScore,
+    allMatched,
+  );
+  const [best, setBest] = useState(0);
+  const bestKey = `nexplay:memory-match-best-${difficulty}`;
   useEffect(() => {
-    if (allMatched) Sfx.win();
-  }, [allMatched]);
+    setBest(Number(localStorage.getItem(bestKey) || 0));
+  }, [bestKey]);
+  useEffect(() => {
+    if (!allMatched) return;
+    Sfx.win();
+    if (finalScore <= best) return;
+    setBest(finalScore);
+    try {
+      localStorage.setItem(bestKey, String(finalScore));
+    } catch {
+      // private mode — best is nice-to-have
+    }
+  }, [allMatched, finalScore, best, bestKey]);
 
   const flip = (id: number) => {
     if (busy || !started) return;
@@ -191,9 +235,17 @@ export default function MemoryMatch() {
         <span className="px-3 py-1 rounded-lg bg-white/10">
           Matched: <b>{matchedPairs}/{totalPairs}</b>
         </span>
+        {best > 0 && (
+          <span
+            className="px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-200"
+            title={`Best score on ${difficulty}`}
+          >
+            🏆 <b>{best}</b>
+          </span>
+        )}
         <button
           onClick={() => reset()}
-          className="px-3 py-1 rounded-lg bg-white text-black text-xs font-bold hover:scale-105 transition-transform"
+          className="px-3 py-1 rounded-lg bg-white text-stone-900 text-xs font-bold hover:scale-105 transition-transform"
         >
           Reset
         </button>
@@ -296,9 +348,24 @@ export default function MemoryMatch() {
         <GameOverlay
           icon="🎉"
           title="You won!"
-          subtitle={`${totalPairs} pairs in ${moves} moves`}
+          subtitle={
+            <>
+              <b>{totalPairs}</b> pairs in <b>{moves}</b> moves
+              {moves === totalPairs && " · perfect memory!"}
+            </>
+          }
           primary={{ label: "Play again", onClick: () => reset() }}
-        />
+        >
+          <div className="text-3xl font-black text-emerald-400">
+            +{finalScore}
+          </div>
+          {finalScore >= best && finalScore > 0 && (
+            <div className="text-amber-300 font-bold text-sm">
+              🏆 New best for {difficulty}!
+            </div>
+          )}
+          <ScoreStatus gameSlug="memory-match" status={submitStatus} />
+        </GameOverlay>
       )}
     </div>
   );
