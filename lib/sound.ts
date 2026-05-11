@@ -160,6 +160,48 @@ export const Sfx = {
       type: "square",
       volume: 0.16,
     }),
+  /** Snappy, high-pitched pistol crack — tighter sweep than the
+   *  generic `shoot`. */
+  shootPistol: () =>
+    play({
+      freq: 1200,
+      endFreq: 380,
+      duration: 0.06,
+      type: "square",
+      volume: 0.18,
+    }),
+  /** Punchier mid-range rifle rip — faster decay so auto-fire reads
+   *  as a sequence of pops rather than one continuous note. */
+  shootRifle: () =>
+    play({
+      freq: 820,
+      endFreq: 220,
+      duration: 0.05,
+      type: "sawtooth",
+      volume: 0.15,
+    }),
+  /** Deep two-layer sniper boom: low sine thump under a sawtooth
+   *  tail so the report has real weight to it. */
+  shootSniper: () => {
+    play({
+      freq: 110,
+      duration: 0.09,
+      type: "sine",
+      volume: 0.3,
+    });
+    play({
+      freq: 680,
+      endFreq: 160,
+      duration: 0.14,
+      type: "sawtooth",
+      volume: 0.22,
+      delay: 0.01,
+    });
+  },
+  /** Crisp hit-confirm tick used by FPS hitmarkers — short and
+   *  high so it cuts through gunfire. */
+  hitmarker: () =>
+    play({ freq: 1500, duration: 0.04, type: "triangle", volume: 0.18 }),
   bounce: () =>
     play({ freq: 520, duration: 0.05, type: "square", volume: 0.16 }),
   match: () => {
