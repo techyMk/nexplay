@@ -47,28 +47,29 @@ const CROUCH_MULT = 0.55;
 const ADS_MULT = 0.55;
 const JUMP_VEL = 7.4;
 const GRAVITY = 22;
-/** When the player jumps the same frame they land, preserve a chunk of
- *  their horizontal velocity. With the air-friction tuning this gives
- *  bunny-hop chains a small but addictive speed kick. */
-const BHOP_PRESERVE = 0.85;
-const MOUSE_SENS = 0.0022;
+const MOUSE_SENS = 0.0024;
 const BASE_FOV = 78;
-const SPRINT_FOV = 86;
-const ADS_FOV = 55;
-const SCOPE_FOV = 22;
+const SPRINT_FOV = 84;
+const ADS_FOV = 58;
+const SCOPE_FOV = 24;
 
 const PLAYER_MAX_HP = 100;
 const RESPAWN_DELAY = 1.5;
 const ROUND_DURATION = 90; // seconds
 
+// Bot AI tuning — these are deliberately conservative. The previous
+// values (0.7s fire delay × 8 damage × 25% min hit chance) meant
+// four bots could shred the player in <2s at close range. Tuned so
+// the player can outplay a single bot but still gets pressured by
+// a flanker.
 const BOT_COUNT = 4;
-const BOT_HP = 80;
+const BOT_HP = 70;
 const BOT_RADIUS = 0.5;
 const BOT_HEIGHT = 1.7;
 const BOT_SPEED = 3.6;
 const BOT_VISION = 28;
-const BOT_FIRE_DELAY = 0.7; // seconds between shots
-const BOT_DAMAGE = 8;
+const BOT_FIRE_DELAY = 1.05; // seconds between shots
+const BOT_DAMAGE = 5;
 
 /** Y threshold above which a hit counts as a headshot. Bots are 1.7m
  *  tall with their feet at y=0; the head zone is the top 30% (y >= 1.19). */
@@ -103,10 +104,10 @@ const WEAPONS: Record<WeaponKind, WeaponSpec> = {
     kind: "pistol",
     damage: 28,
     fireDelay: 0.24,
-    hipSpread: 0.012,
-    adsSpread: 0.003,
-    recoil: 0.025,
-    recoilSide: 0.012,
+    hipSpread: 0.01,
+    adsSpread: 0.0025,
+    recoil: 0.014,
+    recoilSide: 0.008,
     magSize: 12,
     reloadMs: 1000,
     auto: false,
@@ -117,11 +118,11 @@ const WEAPONS: Record<WeaponKind, WeaponSpec> = {
     name: "Rifle",
     kind: "rifle",
     damage: 16,
-    fireDelay: 0.08,
-    hipSpread: 0.034,
-    adsSpread: 0.012,
-    recoil: 0.022,
-    recoilSide: 0.014,
+    fireDelay: 0.09,
+    hipSpread: 0.028,
+    adsSpread: 0.009,
+    recoil: 0.011,
+    recoilSide: 0.009,
     magSize: 30,
     reloadMs: 1600,
     auto: true,
@@ -132,11 +133,11 @@ const WEAPONS: Record<WeaponKind, WeaponSpec> = {
     name: "Sniper",
     kind: "sniper",
     damage: 90,
-    fireDelay: 1.05,
-    hipSpread: 0.18, // unusable from the hip — has to be scoped
+    fireDelay: 1.1,
+    hipSpread: 0.16, // unusable from the hip — has to be scoped
     adsSpread: 0.001,
-    recoil: 0.12,
-    recoilSide: 0.02,
+    recoil: 0.07,
+    recoilSide: 0.012,
     magSize: 5,
     reloadMs: 2200,
     auto: false,
@@ -627,8 +628,14 @@ export default function Krunker() {
     const onMove = (e: MouseEvent) => {
       if (!pointerLocked) return;
       const st = stateRef.current;
-      st.player.yaw -= e.movementX * MOUSE_SENS;
-      st.player.pitch -= e.movementY * MOUSE_SENS;
+      // Scale sensitivity with the current FOV so the on-screen
+      // angular velocity stays roughly constant when scoping in /
+      // sprinting. Without this, scoping the sniper (FOV 24) would
+      // make a 1cm mouse flick whip the crosshair across the entire
+      // arena. Every modern FPS does this.
+      const sensScale = st.player.fov / BASE_FOV;
+      st.player.yaw -= e.movementX * MOUSE_SENS * sensScale;
+      st.player.pitch -= e.movementY * MOUSE_SENS * sensScale;
       const max = Math.PI / 2 - 0.05;
       st.player.pitch = Math.max(-max, Math.min(max, st.player.pitch));
     };
@@ -696,12 +703,24 @@ export default function Krunker() {
       setWeapon(next);
       e.preventDefault();
     };
+    // Clear all pressed-key + mouse state when the window loses
+    // focus (alt-tab, browser switch, etc.). Without this, a key
+    // released while the page wasn't focused stays in st.keys forever
+    // and the player keeps running into a wall.
+    const onBlur = () => {
+      st.keys.clear();
+      st.mouseDown = false;
+      st.ads = false;
+      st.jumpHeld = false;
+      st.player.crouching = false;
+    };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
@@ -709,6 +728,7 @@ export default function Krunker() {
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("blur", onBlur);
     };
     // pointerLocked is read inside; we want a stable handler that consults
     // the latest value via closure — but since the handler depends on it,
@@ -722,9 +742,10 @@ export default function Krunker() {
     if (st.player.weapon === kind) return;
     if (st.player.reloadingUntil > performance.now()) return;
     st.player.weapon = kind;
-    // Trigger the swap animation — the loop sweeps the held weapon
-    // off-screen and the new one back on for the duration of swapUntil.
-    st.player.swapUntil = performance.now() + 240;
+    // Brief swap animation — long enough that the new weapon visibly
+    // rises into view but short enough that the player can fire
+    // almost immediately. Was 240ms which felt clunky.
+    st.player.swapUntil = performance.now() + 130;
     // Drop ADS while swapping so the camera doesn't visibly zoom mid-swap.
     st.ads = false;
     setHud((h) => ({
@@ -968,17 +989,9 @@ export default function Krunker() {
           // Step + collide on each axis.
           movePlayer(st.player, st.walls, dt);
 
-          // Bunny-hop: if jump is still held the moment we touch
-          // ground, bounce again immediately and preserve a fraction
-          // of horizontal momentum. Without this the air-friction
-          // would kill speed every time the player landed.
-          if (st.player.onGround && !st.player.wasOnGround && st.jumpHeld) {
-            st.player.vel.x *= BHOP_PRESERVE;
-            st.player.vel.z *= BHOP_PRESERVE;
-            st.player.vel.y = JUMP_VEL;
-            st.player.onGround = false;
-            Sfx.jump();
-          }
+          // (Auto bunny-hop was removed — it fired any time Space was
+          // held while landing, which made movement feel jittery and
+          // unintentional. Jumps now require a fresh Space press.)
           st.player.wasOnGround = st.player.onGround;
 
           // Head-bob phase: advance only when actually moving on the
@@ -1016,10 +1029,12 @@ export default function Krunker() {
 
         // ----- Recoil + bloom decay -----
         // Pitch recoil walks the camera up after each shot, then drifts
-        // back down. Yaw recoil is symmetric per-shot random kick.
-        st.player.recoilPitch *= Math.exp(-dt * 8);
-        st.player.recoilYaw *= Math.exp(-dt * 9);
-        st.player.bloom = Math.max(0, st.player.bloom - dt * 1.6);
+        // back down. Yaw recoil is a per-shot random kick. Faster
+        // decay so sustained auto-fire doesn't lift the screen off the
+        // top of the canvas.
+        st.player.recoilPitch *= Math.exp(-dt * 12);
+        st.player.recoilYaw *= Math.exp(-dt * 14);
+        st.player.bloom = Math.max(0, st.player.bloom - dt * 2.8);
 
         // ----- Player shooting -----
         if (st.player.alive) {
@@ -1046,6 +1061,7 @@ export default function Krunker() {
           const wantFire =
             st.mouseDown &&
             !reloadingNow &&
+            now >= st.player.swapUntil &&
             now - st.player.lastShotTime >= w.fireDelay * 1000;
           if (wantFire) {
             if (st.player.ammo[st.player.weapon] <= 0) {
@@ -1179,11 +1195,15 @@ export default function Krunker() {
         ? st.player.pos.y - (PLAYER_HEIGHT - PLAYER_HEIGHT_CROUCH)
         : st.player.pos.y;
       const horizSpeedNow = Math.hypot(st.player.vel.x, st.player.vel.z);
-      const bobAmp = st.player.onGround
-        ? Math.min(0.06, horizSpeedNow * 0.012)
-        : 0;
+      // Head-bob: smaller amplitude than before, and disabled entirely
+      // while ADS-ing or scoping so the reticle doesn't wobble over
+      // the target.
+      const bobAmp =
+        st.player.onGround && !st.ads
+          ? Math.min(0.035, horizSpeedNow * 0.007)
+          : 0;
       const bobY = Math.sin(st.player.bobPhase * 2) * bobAmp;
-      const bobX = Math.cos(st.player.bobPhase) * bobAmp * 0.6;
+      const bobX = Math.cos(st.player.bobPhase) * bobAmp * 0.4;
       st.camera.position.set(
         st.player.pos.x,
         eyeBase + bobY,
@@ -1192,9 +1212,9 @@ export default function Krunker() {
       st.camera.rotation.order = "YXZ";
       st.camera.rotation.y = st.player.yaw + st.player.recoilYaw;
       st.camera.rotation.x = st.player.pitch + st.player.recoilPitch;
-      // Tiny roll while strafing for some kinetic life — kept small so
-      // it doesn't disturb aim.
-      st.camera.rotation.z = bobX * 0.6;
+      // Very small roll while strafing for some kinetic life — kept
+      // far smaller than before so it doesn't fight the aim.
+      st.camera.rotation.z = bobX * 0.25;
 
       // Weapon mesh: visibility for the active weapon + swap-slide
       // animation. While swapping, the held weapon dives off-screen
@@ -1202,7 +1222,10 @@ export default function Krunker() {
       // mesh tucks toward the centre of view and slightly forward.
       if (st.weaponMesh) {
         const swapLeft = Math.max(0, st.player.swapUntil - now);
-        const swapK = swapLeft / 240; // 1 → fully off, 0 → at rest
+        // Smooth ease-out so the gun rises into place instead of
+        // linearly tweening (which read as a jerk on short durations).
+        const swapLinear = swapLeft / 130; // 1 → fully off, 0 → at rest
+        const swapK = swapLinear * swapLinear; // square = ease-out
         for (const m of st.weaponMesh.children) {
           const mesh = m as THREE.Mesh & {
             userData: { weapon?: WeaponKind; basePos?: THREE.Vector3 };
@@ -1219,10 +1242,11 @@ export default function Krunker() {
             base.y +
             (WEAPONS[wk].hasScope ? 0.07 : 0.04) * adsK; // raise into the eye line
           const adsZ = base.z + 0.08 * adsK;
-          // Swap dip on top of pose.
-          const dipY = -0.35 * swapK;
-          // Vertical bob on the gun mirrors the camera bob, but smaller.
-          const gunBob = bobY * 0.35;
+          // Smaller swap dip so it feels like a quick raise, not a
+          // full hide-and-bring-back routine.
+          const dipY = -0.18 * swapK;
+          // Gun bob mirrors a small fraction of the camera bob.
+          const gunBob = bobY * 0.25;
           mesh.position.set(adsX, adsY + dipY + gunBob, adsZ);
         }
       }
@@ -1935,8 +1959,10 @@ function updateBot(
     });
     Sfx.shoot();
     // Apply damage if the spread didn't push the bullet off-line.
-    // (Approximation: chance based on distance.)
-    const hitChance = Math.max(0.25, 1 - distToPlayer / 30);
+    // Lower floor + steeper falloff than the first cut so bots aren't
+    // free aimbots at any range — a player who keeps moving + uses
+    // cover should be able to outplay one.
+    const hitChance = Math.max(0.1, 1 - distToPlayer / 22);
     if (Math.random() < hitChance) {
       st.player.hp -= BOT_DAMAGE;
       Sfx.hit();
