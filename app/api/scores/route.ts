@@ -11,6 +11,12 @@ import { syncAchievements } from "@/lib/achievements-server";
 const VALID_SLUGS = new Set(GAMES.map((g) => g.slug));
 const MAX_SCORE = 10_000_000;
 
+/** Rate-limit cap: max submissions per user per 60-second window.
+ *  30 = roughly one score every two seconds avg — well above any
+ *  legitimate gameplay pattern, but tight enough that a script
+ *  flooding the leaderboard gets shut out fast. */
+const RATE_LIMIT_PER_MINUTE = 30;
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   if (!supabase) {
@@ -49,6 +55,32 @@ export async function POST(request: Request) {
   ) {
     console.error("[POST /api/scores] invalid score", { score });
     return NextResponse.json({ error: "Invalid score" }, { status: 400 });
+  }
+
+  // Rate limit: count this user's submissions in the last minute.
+  // A motivated client could still bypass by spreading attempts over
+  // time, but every legitimate gameplay loop comfortably fits under
+  // the cap and anyone hitting the ceiling is almost certainly
+  // running a script. Stateless implementation — no in-memory map
+  // (which wouldn't survive cold-starts on serverless anyway).
+  const sinceIso = new Date(Date.now() - 60_000).toISOString();
+  const { count: recentCount, error: countError } = await supabase
+    .from("scores")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .gte("created_at", sinceIso);
+  if (countError) {
+    console.warn("[POST /api/scores] rate-limit count failed; allowing", {
+      message: countError.message,
+    });
+  } else if (
+    typeof recentCount === "number" &&
+    recentCount >= RATE_LIMIT_PER_MINUTE
+  ) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Slow down." },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
   }
 
   const { error } = await supabase.from("scores").insert({
