@@ -6,6 +6,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
+import { TouchPad } from "@/components/games/TouchPad";
 import { Sfx, createEngine, type Engine } from "@/lib/sound";
 
 // Canvas + road geometry
@@ -1052,6 +1053,19 @@ export default function DriftKing() {
             width={W}
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
+          />
+          {/* On-screen controls for touch devices — left D-pad for
+              steering, right cluster for accelerate / brake. Hidden
+              on desktop via TouchPad's coarse-pointer media query. */}
+          <TouchPad
+            left={[
+              { key: "ArrowLeft", label: "◀" },
+              { key: "ArrowRight", label: "▶" },
+            ]}
+            right={[
+              { key: "ArrowDown", label: "▼", tone: "danger" },
+              { key: "ArrowUp", label: "▲", tone: "success" },
+            ]}
           />
           {!started && !over && (
             <GameOverlay
