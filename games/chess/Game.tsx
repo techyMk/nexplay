@@ -36,7 +36,7 @@ import { Sfx } from "@/lib/sound";
 // ---------------------------------------------------------------------------
 
 type Color = "w" | "b";
-type Difficulty = 1 | 2 | 3 | 4;
+type Difficulty = 1 | 2 | 3 | 4 | 5;
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 
@@ -64,17 +64,19 @@ const PIECE_GLYPH: Record<PieceSymbol, string> = {
 };
 
 const DIFFICULTY_NAMES: Record<Difficulty, string> = {
-  1: "Pawn",
-  2: "Knight",
-  3: "Bishop",
-  4: "Queen",
+  1: "Easy",
+  2: "Medium",
+  3: "Hard",
+  4: "Master",
+  5: "Grandmaster",
 };
 
 const DIFFICULTY_HINTS: Record<Difficulty, string> = {
-  1: "Random legal moves — great for learning.",
+  1: "Random legal moves — great for learning the pieces.",
   2: "Greedy: takes the best capture available.",
-  3: "Looks 2 plies ahead with material.",
-  4: "Looks 3 plies ahead with positional sense.",
+  3: "Looks 2 plies ahead with material evaluation.",
+  4: "Looks 3 plies ahead with alpha-beta + positional sense.",
+  5: "Looks 4 plies ahead with quiescence search (may pause briefly).",
 };
 
 // ---------------------------------------------------------------------------
@@ -169,22 +171,76 @@ function orderMoves(moves: Move[]): Move[] {
   });
 }
 
+/** Quiescence search — at a "leaf" of the minimax tree, keep looking
+ *  through CAPTURES only until the position is quiet. Prevents the
+ *  horizon effect: without this, a depth-N search could think it's
+ *  winning a queen at depth N when its own queen actually gets
+ *  recaptured at depth N+1. Used by Grandmaster.
+ *
+ *  The "stand-pat" trick: at every quiescence node we also consider
+ *  "what if we just stop searching here?". That's a lower bound for
+ *  the maximizer (or upper bound for the minimizer), and gives
+ *  alpha-beta a quick cut when the position is already settled. */
+function quiesce(
+  game: Chess,
+  alpha: number,
+  beta: number,
+  maximizing: boolean,
+): number {
+  if (game.isGameOver()) return evaluate(game);
+  const standPat = evaluate(game);
+  if (maximizing) {
+    if (standPat >= beta) return beta;
+    if (standPat > alpha) alpha = standPat;
+  } else {
+    if (standPat <= alpha) return alpha;
+    if (standPat < beta) beta = standPat;
+  }
+  // Captures only — and order them MVV-LVA so the biggest victims
+  // (taken by the smallest attackers) are tried first.
+  const captures = (game.moves({ verbose: true }) as Move[]).filter(
+    (m) => m.captured,
+  );
+  captures.sort((a, b) => {
+    const av = PIECE_VALUES[a.captured!] - PIECE_VALUES[a.piece] * 0.1;
+    const bv = PIECE_VALUES[b.captured!] - PIECE_VALUES[b.piece] * 0.1;
+    return bv - av;
+  });
+  for (const m of captures) {
+    game.move(m);
+    const v = quiesce(game, alpha, beta, !maximizing);
+    game.undo();
+    if (maximizing) {
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) return beta;
+    } else {
+      if (v < beta) beta = v;
+      if (beta <= alpha) return alpha;
+    }
+  }
+  return maximizing ? alpha : beta;
+}
+
 function minimax(
   game: Chess,
   depth: number,
   alpha: number,
   beta: number,
   maximizing: boolean,
+  useQuiescence: boolean,
 ): number {
-  if (depth === 0 || game.isGameOver()) {
-    return evaluate(game);
+  if (game.isGameOver()) return evaluate(game);
+  if (depth === 0) {
+    return useQuiescence
+      ? quiesce(game, alpha, beta, maximizing)
+      : evaluate(game);
   }
   const moves = orderMoves(game.moves({ verbose: true }) as Move[]);
   if (maximizing) {
     let best = -Infinity;
     for (const m of moves) {
       game.move(m);
-      const v = minimax(game, depth - 1, alpha, beta, false);
+      const v = minimax(game, depth - 1, alpha, beta, false, useQuiescence);
       game.undo();
       if (v > best) best = v;
       if (v > alpha) alpha = v;
@@ -195,7 +251,7 @@ function minimax(
     let best = Infinity;
     for (const m of moves) {
       game.move(m);
-      const v = minimax(game, depth - 1, alpha, beta, true);
+      const v = minimax(game, depth - 1, alpha, beta, true, useQuiescence);
       game.undo();
       if (v < best) best = v;
       if (v < beta) beta = v;
@@ -206,7 +262,15 @@ function minimax(
 }
 
 /** Pick a move for the side to play. Mutates `game` only briefly —
- *  every probe is undone before returning. */
+ *  every probe is undone before returning. Depth + quiescence ramp
+ *  with level:
+ *    1 Easy        — random.
+ *    2 Medium      — greedy best capture (or random).
+ *    3 Hard        — 2-ply minimax with material + PST.
+ *    4 Master      — 3-ply minimax with alpha-beta + PST.
+ *    5 Grandmaster — 4-ply minimax with alpha-beta + PST + quiescence
+ *                    search through capture sequences.
+ */
 function pickAIMove(game: Chess, level: Difficulty): Move | null {
   const moves = game.moves({ verbose: true }) as Move[];
   if (moves.length === 0) return null;
@@ -230,8 +294,9 @@ function pickAIMove(game: Chess, level: Difficulty): Move | null {
     return moves[Math.floor(Math.random() * moves.length)];
   }
 
-  // Minimax with alpha-beta. Depth depends on level.
-  const depth = level === 3 ? 2 : 3;
+  // Levels 3-5: minimax with alpha-beta. Depth + quiescence ramp.
+  const depth = level === 3 ? 2 : level === 4 ? 3 : 4;
+  const useQuiescence = level === 5;
   const isWhite = game.turn() === "w";
   // Within an equal-score tie, pick at random to avoid robotic play.
   let bestMoves: Move[] = [];
@@ -245,6 +310,7 @@ function pickAIMove(game: Chess, level: Difficulty): Move | null {
       -Infinity,
       Infinity,
       !isWhite,
+      useQuiescence,
     );
     game.undo();
     if (isWhite) {
@@ -349,7 +415,11 @@ export default function ChessGame() {
     // levels 3-4 don't lock up the main thread.
     let cancelled = false;
     setAiThinking(true);
-    const delayMs = difficulty <= 2 ? 240 : 380;
+    // Pre-search delay so the "AI thinking…" pill renders before the
+    // search blocks the main thread. Higher tiers get more — both to
+    // hint at "deeper thought" and so the user notices the pill.
+    const delayMs =
+      difficulty <= 2 ? 240 : difficulty === 3 ? 380 : difficulty === 4 ? 500 : 700;
     const handle = setTimeout(() => {
       if (cancelled || over) {
         setAiThinking(false);
@@ -884,7 +954,7 @@ function DifficultyPicker({
           role="listbox"
           className="absolute left-0 mt-1 z-30 min-w-[210px] rounded-xl bg-[#11141d] border border-white/15 shadow-xl py-1 overflow-hidden"
         >
-          {([1, 2, 3, 4] as Difficulty[]).map((d) => (
+          {([1, 2, 3, 4, 5] as Difficulty[]).map((d) => (
             <li key={d}>
               <button
                 type="button"
