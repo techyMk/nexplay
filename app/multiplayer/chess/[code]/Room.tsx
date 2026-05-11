@@ -266,6 +266,9 @@ export function ChessRoomClient({
         return;
       }
       const nextState = stateFromGame(g);
+      // Making a move clears any outstanding draw offer — playing on
+      // signals you'd rather keep going.
+      nextState.drawOfferedBy = null;
       // Optimistic local update so the player sees their move
       // immediately, even before the server roundtrips.
       setState(nextState);
@@ -282,6 +285,66 @@ export function ChessRoomClient({
     },
     [myTurn, state.pgn, roomId, stateFromGame],
   );
+
+  // ----- Draw offer / accept / decline -----
+  const offerDraw = useCallback(async () => {
+    if (!myColor || state.winner) return;
+    const next: ChessOnlineState = {
+      ...state,
+      drawOfferedBy: myColor,
+    };
+    setState(next);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("rooms")
+      .update({ state: next })
+      .eq("id", roomId);
+    if (err) setError(err.message);
+  }, [myColor, state, roomId]);
+
+  const cancelDrawOffer = useCallback(async () => {
+    if (!myColor || state.drawOfferedBy !== myColor) return;
+    const next: ChessOnlineState = { ...state, drawOfferedBy: null };
+    setState(next);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("rooms")
+      .update({ state: next })
+      .eq("id", roomId);
+    if (err) setError(err.message);
+  }, [myColor, state, roomId]);
+
+  const acceptDraw = useCallback(async () => {
+    if (!myColor || !state.drawOfferedBy) return;
+    if (state.drawOfferedBy === myColor) return; // can't accept your own
+    const next: ChessOnlineState = {
+      ...state,
+      status: "finished",
+      winner: "draw",
+      reason: "agreement",
+      drawOfferedBy: null,
+    };
+    setState(next);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("rooms")
+      .update({ state: next, status: "finished" })
+      .eq("id", roomId);
+    if (err) setError(err.message);
+  }, [myColor, state, roomId]);
+
+  const declineDraw = useCallback(async () => {
+    if (!myColor || !state.drawOfferedBy) return;
+    if (state.drawOfferedBy === myColor) return;
+    const next: ChessOnlineState = { ...state, drawOfferedBy: null };
+    setState(next);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("rooms")
+      .update({ state: next })
+      .eq("id", roomId);
+    if (err) setError(err.message);
+  }, [myColor, state, roomId]);
 
   // Resign — set winner to opponent + push.
   const resign = useCallback(async () => {
@@ -609,6 +672,40 @@ export function ChessRoomClient({
             </div>
           </div>
 
+          {/* Draw offer surface — three possible states. Note that
+              the underlying buttons are placed *outside* this block
+              so they always render in their normal row; this banner
+              is only the "an offer is on the table" alert. */}
+          {state.drawOfferedBy && !state.winner && (
+            <div className="rounded-xl bg-amber-500/15 border border-amber-400/40 px-3 py-2 text-xs">
+              {state.drawOfferedBy === myColor ? (
+                <div className="text-amber-200">
+                  You offered a draw. Waiting for the opponent…
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="text-amber-100 font-bold">
+                    🤝 Opponent offered a draw.
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={acceptDraw}
+                      className="flex-1 px-3 py-1.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+                    >
+                      ✓ Accept
+                    </button>
+                    <button
+                      onClick={declineDraw}
+                      className="flex-1 px-3 py-1.5 rounded-md bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs font-bold hover:bg-rose-500/25 transition-colors"
+                    >
+                      ✗ Decline
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <button
               onClick={resign}
@@ -617,6 +714,35 @@ export function ChessRoomClient({
             >
               🏳 Resign
             </button>
+            {/* Draw button is contextual:
+                  - I've offered: "Cancel draw offer"
+                  - Opponent offered: hidden (we have Accept/Decline above)
+                  - Nobody offered: "Offer draw" */}
+            {state.drawOfferedBy === myColor ? (
+              <button
+                onClick={cancelDrawOffer}
+                disabled={!myColor || !!state.winner}
+                className="flex-1 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-bold hover:bg-amber-500/25 transition-colors disabled:opacity-40"
+              >
+                ↺ Cancel offer
+              </button>
+            ) : (
+              !state.drawOfferedBy && (
+                <button
+                  onClick={offerDraw}
+                  disabled={
+                    !myColor ||
+                    !!state.winner ||
+                    status !== "playing" ||
+                    history.length === 0
+                  }
+                  className="flex-1 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-bold hover:bg-amber-500/25 transition-colors disabled:opacity-40"
+                  title="Propose a draw to your opponent"
+                >
+                  🤝 Offer draw
+                </button>
+              )
+            )}
             {myRole === "host" && state.winner && (
               <button
                 onClick={rematch}
@@ -874,6 +1000,8 @@ function readableReason(reason: ChessOnlineReason): string {
       return "stalemate";
     case "resign":
       return "opponent resigned";
+    case "agreement":
+      return "draw by agreement";
     case "repetition":
       return "threefold repetition";
     case "material":

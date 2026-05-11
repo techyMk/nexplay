@@ -18,6 +18,7 @@ export type ChessOnlineReason =
   | "checkmate"
   | "stalemate"
   | "resign"
+  | "agreement"
   | "repetition"
   | "material"
   | "fifty"
@@ -29,6 +30,11 @@ export type ChessOnlineState = {
   status: "playing" | "finished";
   winner: ChessOnlineWinner;
   reason: ChessOnlineReason;
+  /** Side that has an outstanding draw offer (null = none). Cleared
+   *  on accept, decline, or by the offering side making any move
+   *  (since making a move signals continued play). May be undefined
+   *  on rooms created before this field was added — treat as null. */
+  drawOfferedBy?: "w" | "b" | null;
 };
 
 export const INITIAL_CHESS_STATE: ChessOnlineState = {
@@ -36,4 +42,5 @@ export const INITIAL_CHESS_STATE: ChessOnlineState = {
   status: "playing",
   winner: null,
   reason: null,
+  drawOfferedBy: null,
 };
