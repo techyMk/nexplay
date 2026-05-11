@@ -1058,6 +1058,7 @@ export default function DriftKing() {
               steering, right cluster for accelerate / brake. Hidden
               on desktop via TouchPad's coarse-pointer media query. */}
           <TouchPad
+            visible={started && !over && !paused}
             left={[
               { key: "ArrowLeft", label: "◀" },
               { key: "ArrowRight", label: "▶" },

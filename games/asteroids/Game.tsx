@@ -688,8 +688,11 @@ export default function Asteroids() {
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
           />
-          {/* Touch controls — rotate / thrust / fire. */}
+          {/* Touch controls — rotate / thrust / fire. Hidden behind
+              the intro / pause / over overlays so they don't compete
+              with the primary action button. */}
           <TouchPad
+            visible={started && !over && !paused}
             left={[
               { key: "ArrowLeft", label: "↺" },
               { key: "ArrowRight", label: "↻" },

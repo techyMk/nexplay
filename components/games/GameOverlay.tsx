@@ -75,7 +75,9 @@ export function GameOverlay({
           {primary && (
             <button
               onClick={primary.onClick}
-              className="px-6 py-3 rounded-lg bg-white text-black font-bold hover:scale-105 transition-transform"
+              // h-12 sm:h-auto + py-3 keeps a consistent 48px target
+              // on mobile (Apple HIG / Material both want >= 44px).
+              className="inline-flex items-center justify-center h-12 sm:h-auto px-6 py-3 rounded-lg bg-white text-black font-bold text-base hover:scale-105 active:scale-95 transition-transform shadow-lg"
             >
               {primary.label}
             </button>
@@ -83,7 +85,7 @@ export function GameOverlay({
           {secondary && (
             <button
               onClick={secondary.onClick}
-              className="px-5 py-2.5 rounded-lg bg-white/10 text-white font-bold hover:bg-white/20 transition-colors"
+              className="inline-flex items-center justify-center h-12 sm:h-auto px-5 py-2.5 rounded-lg bg-white/10 text-white font-bold text-base hover:bg-white/20 active:bg-white/30 transition-colors"
             >
               {secondary.label}
             </button>
@@ -93,7 +95,9 @@ export function GameOverlay({
       {showHome && (
         <Link
           href={homeHref}
-          className="mt-1 inline-flex items-center gap-1.5 text-xs text-white/65 hover:text-white transition-colors"
+          // text-sm on mobile so the link is tappable; the 8px gap
+          // and bigger hit area come from the inline-flex padding.
+          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm sm:text-xs text-white/70 hover:text-white transition-colors"
         >
           <svg
             viewBox="0 0 24 24"
