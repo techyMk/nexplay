@@ -32,9 +32,16 @@ export type TouchPadButton = {
 export function TouchPad({
   left = [],
   right = [],
+  visible = true,
 }: {
   left?: TouchPadButton[];
   right?: TouchPadButton[];
+  /**
+   * When false, hides the pad. Use this to keep the pad out of the
+   * way during intro/pause/game-over overlays so the play button is
+   * the only thing the user sees.
+   */
+  visible?: boolean;
 }) {
   const press = useCallback((key: string) => {
     // bubbles: true lets the synthetic event flow up to window
@@ -46,6 +53,7 @@ export function TouchPad({
   }, []);
 
   if (left.length === 0 && right.length === 0) return null;
+  if (!visible) return null;
 
   return (
     // Tailwind arbitrary media query — only show on devices where
@@ -53,16 +61,23 @@ export function TouchPad({
     // `hidden` is the desktop default.
     // z-5 sits above the canvas but below GameOverlay (z-10) so the
     // pause / over screens cover the buttons cleanly.
-    <div className="pointer-events-none absolute inset-0 z-[5] hidden [@media(hover:none)]:block">
+    <div
+      className="pointer-events-none absolute inset-0 z-[5] hidden [@media(hover:none)]:block"
+      // env(safe-area-inset-bottom) keeps buttons clear of the iOS
+      // home bar; clamped to 12px on devices that don't expose it.
+      style={{
+        paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))",
+      }}
+    >
       {left.length > 0 && (
-        <div className="absolute bottom-3 left-3 flex gap-2 pointer-events-auto">
+        <div className="absolute bottom-3 left-3 flex gap-2.5 pointer-events-auto">
           {left.map((b, i) => (
             <PadBtn key={i} btn={b} onPress={press} onRelease={release} />
           ))}
         </div>
       )}
       {right.length > 0 && (
-        <div className="absolute bottom-3 right-3 flex gap-2 pointer-events-auto">
+        <div className="absolute bottom-3 right-3 flex gap-2.5 pointer-events-auto">
           {right.map((b, i) => (
             <PadBtn key={i} btn={b} onPress={press} onRelease={release} />
           ))}
@@ -82,14 +97,17 @@ function PadBtn({
   onRelease: (key: string) => void;
 }) {
   const tone = btn.tone ?? "default";
+  // Higher base opacity so the buttons are visible against bright
+  // game backgrounds — earlier 30-45% values washed out on Slither
+  // and Drift King where the canvas paints near-white particles.
   const palette =
     tone === "accent"
-      ? "bg-[var(--accent)]/35 active:bg-[var(--accent)]/60 border-[var(--accent)]/60"
+      ? "bg-[var(--accent)]/55 active:bg-[var(--accent)]/80 border-[var(--accent)]/70"
       : tone === "danger"
-        ? "bg-rose-500/30 active:bg-rose-500/55 border-rose-400/60"
+        ? "bg-rose-500/50 active:bg-rose-500/80 border-rose-400/70"
         : tone === "success"
-          ? "bg-emerald-500/30 active:bg-emerald-500/55 border-emerald-400/60"
-          : "bg-black/45 active:bg-black/70 border-white/30";
+          ? "bg-emerald-500/50 active:bg-emerald-500/80 border-emerald-400/70"
+          : "bg-black/55 active:bg-black/80 border-white/40";
 
   return (
     <button
@@ -115,7 +133,7 @@ function PadBtn({
         }
       }}
       onContextMenu={(e) => e.preventDefault()}
-      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl ${palette} border-2 backdrop-blur-sm text-white text-2xl font-black flex items-center justify-center select-none touch-none shadow-lg transition-colors`}
+      className={`w-16 h-16 sm:w-16 sm:h-16 rounded-2xl ${palette} border-2 backdrop-blur-sm text-white text-2xl font-black flex items-center justify-center select-none touch-none shadow-xl shadow-black/40 transition-colors`}
       aria-label={btn.label}
     >
       {btn.label}

@@ -904,8 +904,10 @@ export default function Doodle() {
             height={VIEW_H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 shadow-[0_0_24px_rgba(0,0,0,0.45)]"
           />
-          {/* Touch L/R steering — jumping is automatic. */}
+          {/* Touch L/R steering — jumping is automatic. Hidden
+              under the intro / pause / over overlays. */}
           <TouchPad
+            visible={started && !over && !paused}
             left={[{ key: "ArrowLeft", label: "◀" }]}
             right={[{ key: "ArrowRight", label: "▶" }]}
           />
