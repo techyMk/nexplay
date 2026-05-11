@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { Game } from "@/lib/types";
 import { GameArt } from "./GameArt";
@@ -21,17 +20,13 @@ export function Hero({ games }: { games: Game[] }) {
 
   return (
     <section className="relative overflow-hidden rounded-2xl mb-8">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`bg-${game.slug}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6 }}
-          className="absolute inset-0"
-          style={{ background: game.gradient }}
-        />
-      </AnimatePresence>
+      {/* Background gradient — keyed on slug so swapping slides
+          retriggers the fade-in. */}
+      <div
+        key={`bg-${game.slug}`}
+        className="absolute inset-0 hero-fade-in"
+        style={{ background: game.gradient }}
+      />
 
       <div
         className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none"
@@ -44,15 +39,10 @@ export function Hero({ games }: { games: Game[] }) {
 
       <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 p-6 md:p-12 min-h-[300px] md:min-h-[380px] z-10">
         <div className="flex flex-col justify-end">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`text-${game.slug}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.4 }}
-              className="text-white max-w-xl"
-            >
+          <div
+            key={`text-${game.slug}`}
+            className="text-white max-w-xl hero-text-in"
+          >
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 rounded-md bg-white text-black text-[10px] font-black uppercase tracking-widest">
                   Featured
@@ -72,7 +62,7 @@ export function Hero({ games }: { games: Game[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/game/${game.slug}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-black font-bold text-sm hover:scale-105 transition-transform shadow-md"
+                  className="inline-flex items-center gap-2 h-11 sm:h-10 px-5 rounded-lg bg-white text-black font-bold text-sm hover:scale-105 transition-transform shadow-md"
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                     <path d="M8 5v14l11-7z" />
@@ -81,28 +71,21 @@ export function Hero({ games }: { games: Game[] }) {
                 </Link>
                 <Link
                   href={`/leaderboard/${game.slug}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                  className="inline-flex items-center gap-2 h-11 sm:h-10 px-4 rounded-lg bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
                 >
                   🏆 Leaderboard
                 </Link>
               </div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
         </div>
 
         <div className="hidden lg:flex flex-col justify-end items-end">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`art-${game.slug}`}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.5 }}
-              className="drop-shadow-[0_20px_48px_rgba(0,0,0,0.35)] animate-float"
-            >
-              <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
-            </motion.div>
-          </AnimatePresence>
+          <div
+            key={`art-${game.slug}`}
+            className="drop-shadow-[0_20px_48px_rgba(0,0,0,0.35)] animate-float hero-art-in"
+          >
+            <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
+          </div>
         </div>
       </div>
 
