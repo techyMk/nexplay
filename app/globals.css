@@ -83,7 +83,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   position: relative;
-  overflow-x: hidden;
+  /* `overflow-x: hidden` creates a new scrolling context, which
+   * silently breaks `position: sticky` on descendants (the Header
+   * and Sidebar both rely on it). `overflow-x: clip` prevents
+   * horizontal scroll without creating that context, so sticky
+   * works normally. Supported in all modern browsers we ship to. */
+  overflow-x: clip;
 }
 
 body {
