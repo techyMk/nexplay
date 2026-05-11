@@ -21,13 +21,34 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** Base URL used by Next.js to resolve relative og:image / icon paths
+ *  into the absolute URLs that link-preview crawlers (Discord, X,
+ *  Slack, iMessage) require. Set via env so deploys to preview /
+ *  production URLs both work; falls back to the canonical site. */
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexplay-games.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Nexplay — Play free games online",
   description:
     "Free browser games, no downloads required. Play classics solo, climb the leaderboards, or invite friends to play live.",
   icons: {
     icon: [{ url: "/icon.webp", type: "image/webp" }],
     apple: "/nexplay-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Nexplay",
+    title: "Nexplay — Play free games online",
+    description:
+      "Free browser games. Play classics solo, climb the leaderboards, or invite friends to play live.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nexplay — Play free games online",
+    description:
+      "Free browser games. Play classics solo, climb the leaderboards, or invite friends to play live.",
   },
 };
 
