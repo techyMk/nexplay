@@ -60,11 +60,21 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getUser();
+  // `isAuthenticated` includes anonymous users (they have a real
+  // auth.users row); `isFullUser` excludes them. Most "are they a
+  // proper account?" UI gates want isFullUser — sidebar account
+  // section, the auth-choice modal, login redirect, etc. The
+  // GuestScoreMigration cleanup uses isAuthenticated because anon
+  // users with legacy localStorage scores from before anon-auth
+  // shipped still need their scores transferred to their user row.
   const isAuthenticated = Boolean(user);
+  const isFullUser = Boolean(user) && !user?.is_anonymous;
   // Admin link in the sidebar only renders when both checks pass —
   // a non-admin user can't even see the entry point.
   const adminVisible =
-    isAdminEmail(user?.email) && (await isAdminUnlocked(user?.email));
+    isFullUser &&
+    isAdminEmail(user?.email) &&
+    (await isAdminUnlocked(user?.email));
 
   return (
     <html
@@ -80,7 +90,7 @@ export default async function RootLayout({
         <ConfirmProvider>
           <Header />
           <div className="flex-1 flex">
-            <Sidebar isAuthenticated={isAuthenticated} adminVisible={adminVisible} />
+            <Sidebar isAuthenticated={isFullUser} adminVisible={adminVisible} />
             <main className="flex-1 min-w-0">{children}</main>
           </div>
           <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
@@ -208,7 +218,13 @@ export default async function RootLayout({
               </div>
           </footer>
           <FloatingMenu />
-          <AuthChoiceModal isAuthenticated={isAuthenticated} />
+          {/* Modal gates on `isFullUser` so anon-auth guests
+              (technically "authenticated" by Supabase) don't re-see
+              their own welcome flow. */}
+          <AuthChoiceModal isAuthenticated={isFullUser} />
+          {/* Migration uses the broader `isAuthenticated` so anon
+              users still pull their legacy localStorage scores into
+              their server-side user row. */}
           <GuestScoreMigration isAuthenticated={isAuthenticated} />
         </ConfirmProvider>
         </ToastProvider>

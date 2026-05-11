@@ -21,8 +21,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ensureGuestIdentity } from "@/lib/guest";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 const CHOICE_KEY = "nexplay:auth-choice";
 const WAS_GUEST_KEY = "nexplay:was-guest";
@@ -48,6 +50,8 @@ export function AuthChoiceModal({
 }) {
   const [show, setShow] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) return;
@@ -70,16 +74,10 @@ export function AuthChoiceModal({
     };
   }, [show]);
 
-  const close = (choice: "signup" | "login" | "guest") => {
+  const close = async (choice: "signup" | "login" | "guest") => {
     try {
       localStorage.setItem(CHOICE_KEY, choice);
-      if (choice === "guest") {
-        localStorage.setItem(WAS_GUEST_KEY, "1");
-        // Give the guest a friendly random identity so the rest of
-        // the UI has something to show them as ("Whimsical Wombat
-        // 4815") instead of a bare "Guest" placeholder.
-        ensureGuestIdentity();
-      }
+      if (choice === "guest") localStorage.setItem(WAS_GUEST_KEY, "1");
       // Mark the WelcomeCard as dismissed too — this modal IS the
       // welcome experience for first-time visitors, and stacking
       // another "welcome to Nexplay" panel right after they answered
@@ -87,6 +85,43 @@ export function AuthChoiceModal({
       localStorage.setItem("nexplay:welcome-dismissed", "1");
     } catch {
       // private mode — UI dismisses anyway
+    }
+
+    if (choice === "guest") {
+      // Always give them a local identity first so the UI never
+      // shows an unnamed guest, even if anonymous auth fails.
+      const identity = ensureGuestIdentity();
+
+      // Try to upgrade to a real Supabase anonymous session so their
+      // scores can land on the global leaderboard immediately. If
+      // anonymous auth isn't enabled on the project, or the network
+      // call fails, we silently fall back to the local-only flow.
+      if (isSupabaseConfigured && identity) {
+        setBusy(true);
+        try {
+          const supabase = createClient();
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (!error && data.user) {
+            // Best-effort: create their profile row with the random
+            // name so the leaderboard / friends UI has something to
+            // display. Failures (RLS, race) are non-fatal.
+            await supabase.from("profiles").upsert(
+              {
+                id: data.user.id,
+                display_name: identity.name,
+                avatar_emoji: "liam",
+              },
+              { onConflict: "id", ignoreDuplicates: true },
+            );
+            // Refresh so server components pick up the new session.
+            router.refresh();
+          }
+        } catch {
+          // Network / config issue — local guest still works.
+        } finally {
+          setBusy(false);
+        }
+      }
     }
     setShow(false);
   };
@@ -158,9 +193,10 @@ export function AuthChoiceModal({
           <button
             type="button"
             onClick={() => close("guest")}
-            className="block w-full px-4 py-2.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] font-medium transition-colors"
+            disabled={busy}
+            className="block w-full px-4 py-2.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] font-medium transition-colors disabled:opacity-60"
           >
-            Continue as guest →
+            {busy ? "Setting up…" : "Continue as guest →"}
           </button>
         </div>
       </div>

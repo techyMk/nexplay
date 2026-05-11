@@ -91,16 +91,50 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const friendsUnread = useFriendsUnread(isAuthenticated);
-  // Read the guest identity on mount so we can show their friendly
-  // name on the CTA card (signed-out visitors only). null until the
-  // useEffect resolves, which keeps the SSR + first paint stable.
+  // Read the guest identity for non-full-account visitors. Anonymous
+  // Supabase users have a `profiles` row; we prefer the display_name
+  // off it (so the name they'll appear under on leaderboards matches
+  // what's shown here). Falls back to the localStorage random name
+  // for visitors whose anonymous auth didn't succeed (eg if the
+  // project doesn't have anon auth enabled).
   const [guest, setGuest] = useState<GuestIdentity | null>(null);
   useEffect(() => {
     if (isAuthenticated) {
       setGuest(null);
       return;
     }
-    setGuest(readGuestIdentity());
+    let cancelled = false;
+    (async () => {
+      const localId = readGuestIdentity();
+      // Try to read the live display_name from Supabase first.
+      if (isSupabaseConfigured) {
+        try {
+          const supabase = createClient();
+          const { data: userResp } = await supabase.auth.getUser();
+          const u = userResp?.user;
+          if (u?.is_anonymous) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", u.id)
+              .maybeSingle();
+            if (!cancelled) {
+              setGuest({
+                id: u.id,
+                name: profile?.display_name ?? localId?.name ?? "Guest",
+              });
+              return;
+            }
+          }
+        } catch {
+          // ignore — fall through to localStorage
+        }
+      }
+      if (!cancelled) setGuest(localId);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
