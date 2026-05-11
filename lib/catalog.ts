@@ -591,7 +591,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "doodle-jump",
-    icon: "game-icons:cricket-bat",
+    icon: "game-icons:high-jump",
     title: "Doodle",
     short: "Bounce ever upward through skies and storms.",
     description:
@@ -599,7 +599,7 @@ export const GAMES: Game[] = [
     categories: ["arcade", "action"],
     tags: ["arcade", "endless", "highscore"],
     gradient: "linear-gradient(135deg, #3aafff 0%, #7c3aed 100%)",
-    glyph: "🦗",
+    glyph: "🦘",
     source: "custom",
     controls: ["Arrow Keys", "WASD", "Touch"],
     players: "single",
