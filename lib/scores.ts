@@ -90,6 +90,32 @@ export function useSubmitScoreOnGameOver(
     submitScore(gameSlug, score).then((r) => {
       setStatus(r.status);
 
+      // Guest user: pitch sign-in once per session. The
+      // sessionStorage flag means we only nag them on the first
+      // game they end, not on every game-over for an hour.
+      if (r.status === "anon") {
+        try {
+          const FLAG = "nexplay:guest-toast-shown";
+          if (!sessionStorage.getItem(FLAG)) {
+            sessionStorage.setItem(FLAG, "1");
+            toast({
+              variant: "default",
+              emoji: "🏆",
+              title: "Save your score!",
+              description:
+                "Sign in to keep your scores, compete on the global leaderboard, and play live with friends.",
+              action: {
+                label: "Sign in",
+                href: `/login?next=/game/${gameSlug}`,
+              },
+              durationMs: 7000,
+            });
+          }
+        } catch {
+          // sessionStorage can throw in private mode — fall through silently
+        }
+      }
+
       // Daily challenge completion toasts
       if (r.completed && r.completed.length > 0) {
         for (const id of r.completed) {

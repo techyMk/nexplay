@@ -27,12 +27,15 @@ export function ScoreStatus({
     );
   }
   if (status === "anon") {
+    // Made deliberately CTA-shaped (button, accent gradient) so guests
+    // notice the value-prop of signing in instead of glossing over a
+    // plain text link.
     return (
       <Link
         href={`/login?next=/game/${gameSlug}`}
-        className="text-xs text-[var(--accent)] hover:underline"
+        className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-black hover:scale-[1.03] transition-transform shadow-md"
       >
-        Log in to save your score and rank up →
+        🏆 Sign in to save this score →
       </Link>
     );
   }

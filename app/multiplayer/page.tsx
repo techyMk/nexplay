@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BackButton } from "@/components/BackButton";
+import { getUser } from "@/lib/supabase/server";
 
 export const metadata = { title: "Multiplayer — Nexplay" };
 
@@ -58,7 +59,8 @@ const MULTIPLAYER_GAMES = [
   },
 ];
 
-export default function MultiplayerHub() {
+export default async function MultiplayerHub() {
+  const user = await getUser();
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 md:py-12">
       <div className="mb-4">
@@ -72,6 +74,32 @@ export default function MultiplayerHub() {
           code.
         </p>
       </div>
+
+      {/* Guest CTA — multiplayer rooms write to Supabase rooms with
+          the player's user id, so signed-out visitors can browse the
+          tile grid but the create / join actions redirect them to
+          login. Surfacing that up-front avoids the "I clicked Create
+          Room and got bounced" confusion. */}
+      {!user && (
+        <div className="mb-8 rounded-2xl border border-[var(--accent)]/30 bg-gradient-to-br from-[var(--accent)]/10 to-[var(--accent-2)]/10 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="text-3xl">🔐</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-sm mb-0.5">
+              Sign in to play multiplayer
+            </div>
+            <div className="text-xs text-[var(--muted)]">
+              Rooms are tied to your account — sign in (or create a free one)
+              to host a game or join a friend&apos;s code.
+            </div>
+          </div>
+          <Link
+            href="/login?next=/multiplayer"
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white text-xs font-black hover:scale-[1.03] transition-transform shadow-md"
+          >
+            Sign in →
+          </Link>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {MULTIPLAYER_GAMES.map((g) => {

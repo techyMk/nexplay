@@ -52,7 +52,12 @@ export async function HomeCTA() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-[var(--foreground)] font-bold text-sm hover:scale-105 transition-transform shadow-md whitespace-nowrap"
+            // Explicit dark text — using `text-[var(--foreground)]`
+            // here breaks in dark mode because the foreground token
+            // resolves to near-white, leaving white-on-white. The
+            // button's background is always white, so the text colour
+            // must be a fixed dark value too.
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-stone-900 font-bold text-sm hover:scale-105 transition-transform shadow-md whitespace-nowrap"
           >
             Create account →
           </Link>
