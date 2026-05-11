@@ -591,7 +591,7 @@ export const GAMES: Game[] = [
   },
   {
     slug: "doodle-jump",
-    icon: "game-icons:high-jump",
+    // No valid iconify slug for vertical-jumper, falls back to glyph (🦘)
     title: "Doodle",
     short: "Bounce ever upward through skies and storms.",
     description:
