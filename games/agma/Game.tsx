@@ -34,7 +34,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -194,6 +194,26 @@ export default function Agma() {
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [cellCount, setCellCount] = useState(1);
+
+  // Tense sawtooth pad — Agma is the chaotic sibling of Agar, so the
+  // bed leans on a darker E♭-minor stack with more filter movement.
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (!started) return;
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [78, 93, 117, 139], // E♭2 G♭2 B♭2 D♭3
+      type: "sawtooth",
+      volume: 0.022,
+      filterFreq: 600,
+      modDepth: 260,
+      modSpeed: 0.25,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [started]);
 
   const submitStatus = useSubmitScoreOnGameOver("agma", score, over);
 

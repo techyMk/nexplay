@@ -5,7 +5,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 const VIEW_W = 800;
 const VIEW_H = 220;
@@ -75,6 +75,27 @@ export default function ChromeDino() {
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("chrome-dino", score, over);
+
+  // Retro 8-bit ambience — a quiet A-minor square-wave drone that
+  // suits the chip-tune feel of the game. Subtle filter wobble keeps
+  // it from sounding totally flat.
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (!started) return;
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [110, 131, 165], // A2 C3 E3
+      type: "square",
+      volume: 0.018,
+      filterFreq: 600,
+      modDepth: 140,
+      modSpeed: 0.2,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [started]);
 
   const startedRef = useRef(false);
   startedRef.current = started;

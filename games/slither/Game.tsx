@@ -5,7 +5,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 // World dimensions (game space). Camera follows the player.
 const WORLD = 2400;
@@ -126,6 +126,28 @@ export default function Slither() {
   const [best, setBest] = useState(0);
   const [over, setOver] = useState(false);
   const [started, setStarted] = useState(false);
+
+  // Background ambience — slow warm triangle drone, kicks in once the
+  // round starts and tears down on unmount. Auto-subscribes to the
+  // global mute so the SoundToggle silences it. Volume is small so it
+  // sits under the pickup / boost cues, not on top of them.
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (!started) return;
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [110, 131, 165], // A2, C3, E3 — gentle minor triad
+      type: "triangle",
+      volume: 0.025,
+      filterFreq: 700,
+      modDepth: 180,
+      modSpeed: 0.15,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [started]);
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("slither", score, over);
 

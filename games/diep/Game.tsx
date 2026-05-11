@@ -5,7 +5,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 const WORLD = 3000;
 const VIEW_W = 960;
@@ -198,6 +198,27 @@ export default function Diep() {
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("diep", score, over);
+
+  // Tank-arena rumble: low C-power-chord square wave, heavily filtered,
+  // very slow modulation. Sits low in the mix so the bullet pops cut
+  // through clearly.
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (!started) return;
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [65, 98, 131], // C2 G2 C3
+      type: "square",
+      volume: 0.02,
+      filterFreq: 350,
+      modDepth: 120,
+      modSpeed: 0.08,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [started]);
 
   const startedRef = useRef(false);
   startedRef.current = started;

@@ -5,7 +5,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 const WORLD = 4200;
 const VIEW_W = 960;
@@ -116,6 +116,27 @@ export default function Agar() {
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("agar-clone", score, over);
+
+  // Bubbly underwater-cell ambience: low D-minor 7 sustained sine
+  // drone with a slow filter wobble. Sits well under the pickup +
+  // bigPickup cues without competing for the same frequency band.
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (!started) return;
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [73, 87, 110, 131], // D2 F2 A2 C3 — minor 7
+      type: "sine",
+      volume: 0.025,
+      filterFreq: 500,
+      modDepth: 150,
+      modSpeed: 0.1,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [started]);
 
   const startedRef = useRef(false);
   startedRef.current = started;
