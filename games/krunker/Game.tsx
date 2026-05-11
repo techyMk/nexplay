@@ -70,6 +70,16 @@ const BOT_SPEED = 3.6;
 const BOT_VISION = 28;
 const BOT_FIRE_DELAY = 1.05; // seconds between shots
 const BOT_DAMAGE = 5;
+/** One distinct colour per bot (hex), so the player can tell which
+ *  Bot just took a hit from the kill feed / labels. Indexed by
+ *  bot id (we have BOT_COUNT bots and reuse the list cyclically if
+ *  more are added). */
+const BOT_HUES = [0xef4444, 0xf97316, 0x22d3ee, 0xa855f7];
+
+/** Spawn-protection duration: the player is invulnerable for this
+ *  many milliseconds after respawning. Prevents a bot camping the
+ *  spawn from instantly re-killing on the next life. */
+const SPAWN_PROTECT_MS = 1500;
 
 /** Y threshold above which a hit counts as a headshot. Bots are 1.7m
  *  tall with their feet at y=0; the head zone is the top 30% (y >= 1.19). */
@@ -309,6 +319,9 @@ type Player = {
   /** Weapon-swap animation timestamp. While > now, the held weapon
    *  slides off-screen and the new one slides on. */
   swapUntil: number;
+  /** Spawn-protection timestamp. While `performance.now() < this`,
+   *  damage from bots is ignored. */
+  invincibleUntil: number;
 };
 
 type Bot = {
@@ -407,6 +420,8 @@ export default function Krunker() {
     scoped: false,
     /** True when ADS-ing (any weapon). */
     ads: false,
+    /** Spawn-protection banner — true while invincible after respawn. */
+    invincible: false,
   });
   const [killfeed, setKillfeed] = useState<KillfeedEntry[]>([]);
   /** Damage numbers projected to screen space each frame and rendered
@@ -428,6 +443,11 @@ export default function Krunker() {
   /** "Show controls" toggle — visible by default, can be hidden with
    *  H to clean up the HUD once the player knows the bindings. */
   const [showGuide, setShowGuide] = useState(true);
+  /** Last hitmarker: brief crosshair flash when our shot lands.
+   *  Cleared by a self-scheduled setTimeout. */
+  const [hitmarker, setHitmarker] = useState<
+    { id: number; headshot: boolean } | null
+  >(null);
 
   const submitStatus = useSubmitScoreOnGameOver(
     "krunker",
@@ -501,6 +521,7 @@ export default function Krunker() {
       bloom: 0,
       bobPhase: 0,
       swapUntil: 0,
+      invincibleUntil: 0,
     },
     bots: [],
     tracers: [],
@@ -560,6 +581,7 @@ export default function Krunker() {
     st.player.bloom = 0;
     st.player.bobPhase = 0;
     st.player.swapUntil = 0;
+    st.player.invincibleUntil = performance.now() + SPAWN_PROTECT_MS;
     st.tracers = [];
     st.damageNumbers = [];
     st.pendingDamageHints = [];
@@ -610,6 +632,7 @@ export default function Krunker() {
       crosshairSpread: 0,
       scoped: false,
       ads: false,
+      invincible: true,
     }));
     setOver(false);
     setPaused(false);
@@ -862,16 +885,18 @@ export default function Krunker() {
       }
     }
 
-    // Bot meshes (player has none — first-person camera). We attach a
-    // mesh per bot via userData and reuse them across deaths.
-    const botMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+    // Bot meshes — one per bot, each with its own coloured material
+    // so the four enemies are visually distinct (not just identical
+    // red boxes). Hue is determined by bot id via BOT_HUES.
     for (const bot of st.bots) {
+      const hue = BOT_HUES[bot.id % BOT_HUES.length];
       const body = new THREE.Mesh(
         new THREE.BoxGeometry(BOT_RADIUS * 2, BOT_HEIGHT, BOT_RADIUS * 2),
-        botMat,
+        new THREE.MeshLambertMaterial({ color: hue }),
       );
       body.userData.botId = bot.id;
       body.userData.kind = "bot";
+      body.userData.baseHue = hue;
       st.scene.add(body);
       // store on bot via a side-channel map (we'll rebuild meshes on reset)
       (bot as Bot & { mesh?: THREE.Mesh }).mesh = body;
@@ -979,6 +1004,7 @@ export default function Krunker() {
               sniper: WEAPONS.sniper.magSize,
             };
             st.player.reloadingUntil = 0;
+            st.player.invincibleUntil = now + SPAWN_PROTECT_MS;
             setHud((h) => ({
               ...h,
               hp: PLAYER_MAX_HP,
@@ -1101,8 +1127,21 @@ export default function Krunker() {
             if (st.player.ammo[st.player.weapon] <= 0) {
               tryReload();
             } else {
-              firePlayer(st, now, (entry) =>
-                setKillfeed((kf) => [entry, ...kf].slice(0, 5)),
+              firePlayer(
+                st,
+                now,
+                (entry) =>
+                  setKillfeed((kf) => [entry, ...kf].slice(0, 5)),
+                (headshot) => {
+                  const id = performance.now();
+                  setHitmarker({ id, headshot });
+                  // Cleared on its own timer — guarded so a newer
+                  // hitmarker doesn't get prematurely wiped by an
+                  // older one's timer.
+                  setTimeout(() => {
+                    setHitmarker((cur) => (cur?.id === id ? null : cur));
+                  }, 220);
+                },
               );
               if (!w.auto) st.mouseDown = false; // semi-auto: require re-click
             }
@@ -1262,6 +1301,7 @@ export default function Krunker() {
           crosshairSpread,
           scoped: st.ads && w.hasScope,
           ads: st.ads,
+          invincible: now < st.player.invincibleUntil,
         });
       }
 
@@ -1341,10 +1381,17 @@ export default function Krunker() {
         mesh.visible = true;
         mesh.position.set(bot.pos.x, BOT_HEIGHT / 2, bot.pos.z);
         mesh.rotation.y = bot.yaw;
+        const baseHue =
+          (mesh.userData.baseHue as number | undefined) ?? 0xef4444;
         if (bot.flashUntil > now) {
-          (mesh.material as THREE.MeshLambertMaterial).color.setHex(0xfca5a5);
+          // Lighten the bot's own colour for the hit flash rather
+          // than swapping to generic pink, so it still looks like
+          // "Bot 2" (orange) flashing rather than a different bot.
+          (mesh.material as THREE.MeshLambertMaterial).color.setHex(
+            lightenHex(baseHue, 0.55),
+          );
         } else {
-          (mesh.material as THREE.MeshLambertMaterial).color.setHex(0xef4444);
+          (mesh.material as THREE.MeshLambertMaterial).color.setHex(baseHue);
         }
       }
 
@@ -1462,6 +1509,49 @@ export default function Krunker() {
               </div>
             ) : (
               <Crosshair spread={hud.crosshairSpread} ads={hud.ads} />
+            )}
+
+            {/* Hitmarker — short 'X' flash on the crosshair when a
+                shot lands. Larger + rose for headshots, white for
+                body hits. Pure CSS animation keyed by hitmarker.id
+                so re-firing the same kind re-triggers the keyframes. */}
+            {hitmarker && (
+              <div
+                key={hitmarker.id}
+                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+              >
+                <div
+                  className={`relative animate-krunker-hit ${
+                    hitmarker.headshot
+                      ? "w-10 h-10 text-rose-400"
+                      : "w-7 h-7 text-white"
+                  }`}
+                  style={{
+                    filter: "drop-shadow(0 0 6px rgba(0,0,0,0.7))",
+                  }}
+                >
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 origin-center block w-full h-0.5 bg-current" />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45 origin-center block w-full h-0.5 bg-current" />
+                </div>
+              </div>
+            )}
+
+            {/* Spawn-protection badge — appears for the 1.5s window
+                after a respawn so the player understands the bots
+                aren't damaging them yet. */}
+            {hud.invincible && (
+              <div className="pointer-events-none absolute inset-0">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    boxShadow:
+                      "inset 0 0 64px 12px rgba(56, 189, 248, 0.35)",
+                  }}
+                />
+                <div className="absolute top-14 left-1/2 -translate-x-1/2 px-3 py-1 rounded-md bg-sky-500/25 border border-sky-300/50 text-sky-100 text-xs font-black uppercase tracking-wider">
+                  🛡 Spawn protected
+                </div>
+              </div>
             )}
 
             {/* Top stats */}
@@ -1881,19 +1971,16 @@ function firePlayer(
   st: NonNullable<ReturnType<typeof loopStateShape>>,
   now: number,
   pushKillfeed: (e: KillfeedEntry) => void,
+  pushHitmarker: (headshot: boolean) => void,
 ) {
   const w = WEAPONS[st.player.weapon];
   st.player.ammo[st.player.weapon] -= 1;
   st.player.lastShotTime = now;
 
-  // Per-weapon firing sound. We layer thud under shoot for the sniper
-  // so it reads as a heavier boom.
-  if (w.kind === "sniper") {
-    Sfx.thud();
-    Sfx.shoot();
-  } else {
-    Sfx.shoot();
-  }
+  // Per-weapon firing sound — pistol snap, rifle pop, sniper boom.
+  if (w.kind === "sniper") Sfx.shootSniper();
+  else if (w.kind === "rifle") Sfx.shootRifle();
+  else Sfx.shootPistol();
 
   // Apply recoil + bloom. Recoil walks the camera up + sideways for a
   // single shot; bloom grows the spread cone for the *next* shot
@@ -1974,6 +2061,9 @@ function firePlayer(
       headshot,
       born: now,
     });
+    // Crosshair hitmarker + the crisp confirm tick.
+    pushHitmarker(headshot);
+    Sfx.hitmarker();
     if (hitBot.hp <= 0) {
       hitBot.alive = false;
       hitBot.respawnIn = 2.0;
@@ -2135,7 +2225,8 @@ function updateBot(
     // free aimbots at any range — a player who keeps moving + uses
     // cover should be able to outplay one.
     const hitChance = Math.max(0.1, 1 - distToPlayer / 22);
-    if (Math.random() < hitChance) {
+    const protectedNow = now < st.player.invincibleUntil;
+    if (!protectedNow && Math.random() < hitChance) {
       st.player.hp -= BOT_DAMAGE;
       Sfx.hit();
       // Spawn a directional damage indicator on the HUD so the player
@@ -2201,6 +2292,18 @@ function resolveBotAxis(bot: Bot, walls: AABB[], axis: "x" | "z") {
     ba.min.z = bot.pos.z - BOT_RADIUS;
     ba.max.z = bot.pos.z + BOT_RADIUS;
   }
+}
+
+/** Mix a 24-bit hex colour toward white by `amount` (0..1). Used to
+ *  produce the hit-flash variant of each bot's colour. */
+function lightenHex(hex: number, amount: number): number {
+  const r = (hex >> 16) & 0xff;
+  const g = (hex >> 8) & 0xff;
+  const b = hex & 0xff;
+  const mr = Math.round(r + (255 - r) * amount);
+  const mg = Math.round(g + (255 - g) * amount);
+  const mb = Math.round(b + (255 - b) * amount);
+  return (mr << 16) | (mg << 8) | mb;
 }
 
 // Helper type to keep firePlayer / updateBot signatures honest. We use
