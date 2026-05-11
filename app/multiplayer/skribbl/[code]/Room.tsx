@@ -13,6 +13,8 @@ import {
 } from "@/lib/skribbl/state";
 import { DrawingCanvas } from "@/components/skribbl/DrawingCanvas";
 import { Avatar } from "@/components/Avatar";
+import { SoundToggle } from "@/components/SoundToggle";
+import { Sfx } from "@/lib/sound";
 
 type ChatMessage = {
   id: string;
@@ -60,6 +62,30 @@ export function SkribblRoomClient({
   const isDrawer = state.drawer_id === myUserId;
   const phase = state.phase;
   const wordToShow = isDrawer ? state.word : null;
+
+  // ---------- Sound cues ----------
+  // Phase transitions: ding when a new round starts, soft thud when
+  // a round ends, win flourish when the whole game is finished.
+  useEffect(() => {
+    if (phase === "drawing") Sfx.pickup();
+    else if (phase === "round_end") Sfx.thud();
+    else if (phase === "finished") Sfx.win();
+  }, [phase]);
+
+  // Track the last chat-message id we played a "correct guess" tick
+  // for, so the same message doesn't re-trigger on every re-render.
+  const lastCorrectChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (chat.length === 0) return;
+    const last = chat[chat.length - 1];
+    if (!last.is_correct) return;
+    if (last.id === lastCorrectChatIdRef.current) return;
+    lastCorrectChatIdRef.current = last.id;
+    // Don't double-play if I'm the guesser (sendChat already played
+    // Sfx.match locally).
+    if (last.user_id === myUserId) return;
+    Sfx.bigPickup();
+  }, [chat, myUserId]);
 
   // ---------- Channel: postgres_changes + broadcast (chat / strokes) ----------
   useEffect(() => {
@@ -144,6 +170,15 @@ export function SkribblRoomClient({
   const secondsLeft = state.round_ends_at
     ? Math.max(0, Math.ceil((new Date(state.round_ends_at).getTime() - now) / 1000))
     : 0;
+
+  // Time warning — when the clock just hit 10s during a drawing phase,
+  // play a brief urgency tick. Gated on `=== 10` so it fires once per
+  // round instead of every frame below 10.
+  useEffect(() => {
+    if (phase === "drawing" && secondsLeft === 10) {
+      Sfx.error();
+    }
+  }, [phase, secondsLeft]);
 
   // ---------- Helpers to mutate state on the server ----------
   const updateState = useCallback(
@@ -320,6 +355,7 @@ export function SkribblRoomClient({
 
     if (correct) {
       guessedThisRound.current = true;
+      Sfx.match();
       const position =
         state.guessers.filter((g) => g.user_id !== me.user_id).length + 1;
       const points = pointsForGuess(position);
@@ -527,8 +563,9 @@ export function SkribblRoomClient({
         </div>
       </div>
 
-      {/* Footer: leave / close */}
-      <div className="flex justify-end pt-2">
+      {/* Footer: sound toggle + leave / close */}
+      <div className="flex justify-end items-center gap-2 pt-2">
+        <SoundToggle />
         <button
           type="button"
           onClick={leaveOrClose}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { SoundToggle } from "@/components/SoundToggle";
-import { Sfx } from "@/lib/sound";
+import { Sfx, createAmbience, type Ambience } from "@/lib/sound";
 
 const W = 900;
 const H = 380;
@@ -32,6 +32,31 @@ export default function NeonRunner() {
   const [phase, setPhase] = useState<"ready" | "play" | "over">("ready");
   const [paused, setPaused] = useState(false);
   const submitStatus = useSubmitScoreOnGameOver("neon-runner", score, phase === "over");
+
+  // Cyberpunk driving pad — sustained F#-major7 sawtooth with brisk
+  // filter movement so it feels propulsive. Mounts when the round
+  // goes live and tears down when we leave the play phase (or unmount).
+  const ambienceRef = useRef<Ambience | null>(null);
+  useEffect(() => {
+    if (phase !== "play") {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+      return;
+    }
+    if (ambienceRef.current) return;
+    ambienceRef.current = createAmbience({
+      notes: [92, 110, 139, 165], // F#2 A2 C#3 E3
+      type: "sawtooth",
+      volume: 0.025,
+      filterFreq: 800,
+      modDepth: 280,
+      modSpeed: 0.3,
+    });
+    return () => {
+      ambienceRef.current?.stop();
+      ambienceRef.current = null;
+    };
+  }, [phase]);
 
   const stateRef = useRef({
     y: GROUND - PLAYER_R,
