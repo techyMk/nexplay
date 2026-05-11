@@ -283,14 +283,15 @@ export default function MemoryMatch() {
                 setCategory(c);
                 reset(difficulty, c);
               }}
-              className={`px-2 py-1 rounded-md font-bold transition-colors ${
+              title={CATEGORIES[c].label}
+              className={`px-2 py-1 rounded-md font-bold transition-colors whitespace-nowrap ${
                 category === c
                   ? "bg-white/20 text-white"
                   : "text-white/60 hover:text-white"
               }`}
             >
-              <span className="mr-1">{CATEGORIES[c].chip}</span>
-              {CATEGORIES[c].label}
+              <span className="sm:mr-1">{CATEGORIES[c].chip}</span>
+              <span className="hidden sm:inline">{CATEGORIES[c].label}</span>
             </button>
           ))}
         </div>

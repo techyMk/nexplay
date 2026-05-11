@@ -658,9 +658,15 @@ export default function Asteroids() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gradient-to-br from-[#020118] to-[#0b0d12] p-2 sm:p-3">
       <div className="shrink-0 flex items-center justify-center gap-2 mb-2 text-white text-xs flex-wrap">
-        <span>
-          Best: <b>{best}</b> · Wave <b>{wave}</b> · Arrows/WASD · Space fires · P
-          pauses · <span className="text-pink-300">$</span> score{" "}
+        {/* Mobile: just Best + Wave + sound + pause. Desktop adds
+            the keyboard cheatsheet since hover-keyboard users can
+            scan it without losing canvas space. */}
+        <span className="font-bold">
+          Best: <b>{best}</b> · Wave <b>{wave}</b>
+        </span>
+        <span className="hidden sm:inline text-white/60">
+          · Arrows/WASD · Space fires · P pauses ·{" "}
+          <span className="text-pink-300">$</span> score{" "}
           <span className="text-pink-300">R</span> rapid{" "}
           <span className="text-cyan-300">S</span> shield
         </span>

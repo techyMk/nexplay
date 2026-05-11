@@ -36,7 +36,12 @@ export function GameFrame({ game }: { game: Game }) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-[var(--border)] shadow-md"
+      // 16:9 (aspect-video) is unplayably short on phones — a 375px
+      // viewport collapses to ~211px tall, leaving no room for HUD +
+      // canvas + controls + intro overlay. On mobile we use a portrait
+      // 3:4 frame (~500px tall) so every game has working vertical
+      // real estate. The aspect-video kicks back in at sm+.
+      className="relative w-full aspect-[3/4] sm:aspect-video bg-black rounded-2xl overflow-hidden border border-[var(--border)] shadow-md"
     >
       {!started ? (
         <button

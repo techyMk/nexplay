@@ -325,7 +325,7 @@ export default function Minesweeper() {
           )}
         </div>
       </div>
-      <div className="shrink-0 mt-2 text-[11px] text-white/55 text-center">
+      <div className="shrink-0 mt-2 text-[11px] hidden sm:block text-white/55 text-center">
         Left-click to reveal · Right-click to flag · Smiley to reset
       </div>
       {!started && !over && !won && (
