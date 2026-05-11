@@ -32,6 +32,19 @@ import { ScoreStatus } from "@/components/ScoreStatus";
 import { SoundToggle } from "@/components/SoundToggle";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { Sfx } from "@/lib/sound";
+import {
+  WEAPONS,
+  WEAPON_ORDER,
+  type WeaponKind,
+  type WeaponSpec,
+} from "./weapons";
+import {
+  aabbFromBox,
+  aabbOverlap,
+  buildMap,
+  type AABB,
+  type MapBox,
+} from "./map";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -85,202 +98,6 @@ const SPAWN_PROTECT_MS = 1500;
  *  tall with their feet at y=0; the head zone is the top 30% (y >= 1.19). */
 const HEADSHOT_Y = BOT_HEIGHT * 0.7;
 const HEADSHOT_MULT = 2;
-
-type WeaponKind = "pistol" | "rifle" | "sniper";
-type WeaponSpec = {
-  name: string;
-  kind: WeaponKind;
-  damage: number;
-  fireDelay: number; // seconds between shots
-  hipSpread: number; // radians of cone when hip-firing
-  adsSpread: number; // radians of cone when aiming down sights
-  /** Recoil kick applied to camera pitch on each shot, in radians. */
-  recoil: number;
-  /** Random horizontal kick applied per shot. */
-  recoilSide: number;
-  magSize: number;
-  reloadMs: number;
-  auto: boolean;
-  /** Sniper has an actual scope overlay. The other guns just narrow
-   *  FOV when ADS-ing for a soft zoom. */
-  hasScope: boolean;
-  /** Used by the per-weapon sound dispatch. */
-  soundKind: "click-snap" | "rifle-rip" | "sniper-boom";
-};
-
-const WEAPONS: Record<WeaponKind, WeaponSpec> = {
-  pistol: {
-    name: "Pistol",
-    kind: "pistol",
-    damage: 28,
-    fireDelay: 0.24,
-    hipSpread: 0.01,
-    adsSpread: 0.0025,
-    recoil: 0.014,
-    recoilSide: 0.008,
-    magSize: 12,
-    reloadMs: 1000,
-    auto: false,
-    hasScope: false,
-    soundKind: "click-snap",
-  },
-  rifle: {
-    name: "Rifle",
-    kind: "rifle",
-    damage: 16,
-    fireDelay: 0.09,
-    hipSpread: 0.028,
-    adsSpread: 0.009,
-    recoil: 0.011,
-    recoilSide: 0.009,
-    magSize: 30,
-    reloadMs: 1600,
-    auto: true,
-    hasScope: false,
-    soundKind: "rifle-rip",
-  },
-  sniper: {
-    name: "Sniper",
-    kind: "sniper",
-    damage: 90,
-    fireDelay: 1.1,
-    hipSpread: 0.16, // unusable from the hip — has to be scoped
-    adsSpread: 0.001,
-    recoil: 0.07,
-    recoilSide: 0.012,
-    magSize: 5,
-    reloadMs: 2200,
-    auto: false,
-    hasScope: true,
-    soundKind: "sniper-boom",
-  },
-};
-
-const WEAPON_ORDER: WeaponKind[] = ["pistol", "rifle", "sniper"];
-
-// ---------------------------------------------------------------------------
-// AABB helpers — we use simple box colliders for everything, which keeps the
-// player↔world resolution to three swept-axis passes per step.
-// ---------------------------------------------------------------------------
-
-type AABB = { min: THREE.Vector3; max: THREE.Vector3 };
-
-function aabbFromBox(center: THREE.Vector3, size: THREE.Vector3): AABB {
-  const half = size.clone().multiplyScalar(0.5);
-  return {
-    min: center.clone().sub(half),
-    max: center.clone().add(half),
-  };
-}
-
-function aabbOverlap(a: AABB, b: AABB): boolean {
-  return (
-    a.min.x < b.max.x &&
-    a.max.x > b.min.x &&
-    a.min.y < b.max.y &&
-    a.max.y > b.min.y &&
-    a.min.z < b.max.z &&
-    a.max.z > b.min.z
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Map definition — boxes that act as both visible meshes and AABB colliders.
-// `kind: "ground"` is excluded from the wall AABB list so we collide with the
-// floor only via the player's vertical resolution path.
-// ---------------------------------------------------------------------------
-
-type MapBox = {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-  h: number;
-  d: number;
-  color: number;
-  kind?: "wall" | "ground";
-};
-
-function buildMap(): MapBox[] {
-  const boxes: MapBox[] = [];
-
-  // Ground
-  boxes.push({
-    x: 0,
-    y: -0.5,
-    z: 0,
-    w: MAP_HALF * 2,
-    h: 1,
-    d: MAP_HALF * 2,
-    color: 0x202736,
-    kind: "ground",
-  });
-
-  // Outer walls (4 ring walls, 5m tall, 1m thick)
-  const wallH = 5;
-  const wallT = 1;
-  const ringColor = 0x3b4a6b;
-  boxes.push({
-    x: 0,
-    y: wallH / 2,
-    z: -MAP_HALF - wallT / 2,
-    w: MAP_HALF * 2 + wallT * 2,
-    h: wallH,
-    d: wallT,
-    color: ringColor,
-  });
-  boxes.push({
-    x: 0,
-    y: wallH / 2,
-    z: MAP_HALF + wallT / 2,
-    w: MAP_HALF * 2 + wallT * 2,
-    h: wallH,
-    d: wallT,
-    color: ringColor,
-  });
-  boxes.push({
-    x: -MAP_HALF - wallT / 2,
-    y: wallH / 2,
-    z: 0,
-    w: wallT,
-    h: wallH,
-    d: MAP_HALF * 2,
-    color: ringColor,
-  });
-  boxes.push({
-    x: MAP_HALF + wallT / 2,
-    y: wallH / 2,
-    z: 0,
-    w: wallT,
-    h: wallH,
-    d: MAP_HALF * 2,
-    color: ringColor,
-  });
-
-  // Interior cover. A symmetric layout keeps both halves of the map fair.
-  const cover = (x: number, z: number, w: number, h: number, d: number, c: number) =>
-    boxes.push({ x, y: h / 2, z, w, h, d, color: c });
-
-  // Central pillar
-  cover(0, 0, 3, 3, 3, 0x7c5cff);
-  // Mid-range cubes (4 around the centre)
-  cover(-9, -9, 2, 1.6, 2, 0x4fa3ff);
-  cover(9, -9, 2, 1.6, 2, 0x4fa3ff);
-  cover(-9, 9, 2, 1.6, 2, 0x4fa3ff);
-  cover(9, 9, 2, 1.6, 2, 0x4fa3ff);
-  // Long sight-blockers near each side
-  cover(-18, 0, 1.2, 2.6, 6, 0x6b7388);
-  cover(18, 0, 1.2, 2.6, 6, 0x6b7388);
-  cover(0, -18, 6, 2.6, 1.2, 0x6b7388);
-  cover(0, 18, 6, 2.6, 1.2, 0x6b7388);
-  // Tall corner posts you can run around
-  cover(-22, -22, 2, 4, 2, 0xff5cae);
-  cover(22, -22, 2, 4, 2, 0xff5cae);
-  cover(-22, 22, 2, 4, 2, 0xff5cae);
-  cover(22, 22, 2, 4, 2, 0xff5cae);
-
-  return boxes;
-}
 
 // ---------------------------------------------------------------------------
 // Player / Bot state
