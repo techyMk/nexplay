@@ -17,9 +17,13 @@ export function Header() {
           <Image
             src="/nexplay-logo.png"
             alt="Nexplay"
-            width={2000}
-            height={1000}
+            width={400}
+            height={200}
             priority
+            // Displayed at 40-48px tall (≈80-96px wide). With explicit
+            // sizes, next/image picks the right srcset variant rather
+            // than serving the full-size asset to every viewport.
+            sizes="(min-width: 640px) 96px, 80px"
             className="h-10 sm:h-12 w-auto group-hover:scale-105 transition-transform"
           />
         </Link>

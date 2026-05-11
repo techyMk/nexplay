@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     "Free browser games, no downloads required. Play classics solo, climb the leaderboards, or invite friends to play live.",
   icons: {
     icon: [{ url: "/icon.webp", type: "image/webp" }],
-    apple: "/nexplay-icon.png",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",

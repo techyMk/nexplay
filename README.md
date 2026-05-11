@@ -204,7 +204,7 @@ A portfolio piece should be transparent about what's missing. As of this writing
 - **Test coverage is thin.** 44 tests covering pure logic (daily challenges, checkers, connect-four, catalog, formatters). No React-render or e2e tests yet — `npm test` runs the suite and CI gates on it.
 - **Production error monitoring is env-gated.** A lightweight telemetry client posts to Sentry's HTTP ingest when `NEXT_PUBLIC_SENTRY_DSN` is set; otherwise it's silent.
 - **Game-quality variance.** Chess, Krunker, Bubble Shooter, Treasure Hunt, GeoGuessr, Agma are showcase pieces. Tic-Tac-Toe, Whack-a-Mole, Memory Match are deliberately simpler — they exist to round out the catalog.
-- **Performance not yet benchmarked.** Lighthouse scores haven't been recorded in CI.
+- **Mobile Lighthouse score is mid.** Desktop is 95-100 across the board, but mobile perf is 41 — TBT 960 ms and CLS 0.286 from React hydration cost. See `docs/lighthouse/` for the full reports and the open optimisation list.
 - **Mobile not fully tested.** Touch works for the keyboard-only games; layouts are responsive; not yet validated against every real device.
 - **No i18n.** Every string is English.
 - **React Compiler warnings.** The new `eslint-plugin-react-hooks` v7 ships compiler-aware style rules (`react-hooks/refs`, `set-state-in-effect`, `immutability`, `purity`). These are downgraded to warnings — they're stylistic hints, not bugs. CI still gates on the actually-correctness-related rules.
@@ -214,6 +214,7 @@ A portfolio piece should be transparent about what's missing. As of this writing
 ## Docs & scripts
 
 - `docs/schema.md` — full Postgres data model (tables, views, RLS patterns, triggers, migration order)
+- `docs/lighthouse/` — Lighthouse audit reports + reproduction instructions
 - `tests/` — vitest suite for pure-logic library code (44 tests)
 - `scripts/seed.ts` — `npm run seed` populates the DB with 20 demo users + plausible scores so leaderboards aren't empty (requires `SUPABASE_SERVICE_ROLE_KEY`)
 - `.github/workflows/ci.yml` — typecheck + test + build gate on every push / PR to `main`

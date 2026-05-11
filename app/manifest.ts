@@ -25,24 +25,24 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "any",
     categories: ["games", "entertainment"],
     icons: [
-      // Same 2000px asset declared at several sizes — browsers pick
-      // the closest match and downscale. The `purpose: "any maskable"`
-      // entry lets Android crop the icon into adaptive shapes
-      // (circle / squircle / etc.) without it looking weird.
+      // Properly-sized PNGs per declared dimension. Browsers pick the
+      // closest match. The `purpose: "maskable"` entry lets Android
+      // crop into adaptive shapes (circle / squircle / etc.) without
+      // looking weird.
       {
-        src: "/nexplay-icon.png",
+        src: "/nexplay-icon-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/nexplay-icon.png",
+        src: "/nexplay-icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/nexplay-icon.png",
+        src: "/nexplay-icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
