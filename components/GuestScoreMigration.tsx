@@ -123,7 +123,7 @@ async function migrateGuestScores(
 
 function collectEntries(): Entry[] {
   const out: Entry[] = [];
-  let keys: string[] = [];
+  const keys: string[] = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);

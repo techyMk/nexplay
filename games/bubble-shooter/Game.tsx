@@ -323,7 +323,7 @@ export default function BubbleShooter() {
       let x = W / 2;
       let y = SHOOTER_Y;
       let dx = Math.cos(angle);
-      let dy = Math.sin(angle);
+      const dy = Math.sin(angle);
       let bounces = 0;
       const step = 4;
       let targetColor: number | undefined;

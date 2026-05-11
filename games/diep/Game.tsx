@@ -34,7 +34,6 @@ const BOT_BULLET_DAMAGE = 12;
 const BULLET_LIFE = 1.6;
 
 const POLYGON_TARGET = 26;
-const POLY_RAM_DAMAGE = 8; // touching a polygon hurts you (and them)
 const POLY_RAM_HURT = 12;
 
 type PolygonKind = "square" | "triangle" | "pentagon";

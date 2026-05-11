@@ -388,7 +388,6 @@ export default function Snake() {
 
       // Snake — head, body, tail
       const headColor = "#a78bfa";
-      const bodyColor = "#7c5cff";
       st.snake.forEach((s, i) => {
         const cx = s.x * CELL + CELL / 2;
         const cy = s.y * CELL + CELL / 2;

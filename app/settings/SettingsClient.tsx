@@ -244,6 +244,8 @@ function ThemePicker() {
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
             >
+              {/* Iconify SVG — see components/GameArt.tsx for rationale. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`https://api.iconify.design/${o.icon}.svg?color=${encodeURIComponent(
                   theme === o.value ? "#7c5cff" : "#71717a",

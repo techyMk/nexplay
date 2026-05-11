@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   BALL_R,
@@ -84,12 +84,6 @@ export function PongRoomClient({
   const stateRef = useRef(pongState);
   stateRef.current = pongState;
   const lastEventAtRef = useRef<number>(Date.now());
-
-  const myMark: 1 | 2 | null = useMemo(() => {
-    if (myRole === "host") return 1;
-    if (myRole === "guest") return 2;
-    return null;
-  }, [myRole]);
 
   // Apply DB row updates (status, scores, winner, guest join)
   const applyRow = useCallback(async (row: RoomRow) => {

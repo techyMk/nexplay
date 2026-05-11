@@ -207,7 +207,7 @@ A portfolio piece should be transparent about what's missing. As of this writing
 - **Performance not yet benchmarked.** Lighthouse scores haven't been recorded in CI.
 - **Mobile not fully tested.** Touch works for the keyboard-only games; layouts are responsive; not yet validated against every real device.
 - **No i18n.** Every string is English.
-- **Lint debt.** ~170 pre-existing lint issues. CI surfaces them but doesn't gate on them.
+- **React Compiler warnings.** The new `eslint-plugin-react-hooks` v7 ships compiler-aware style rules (`react-hooks/refs`, `set-state-in-effect`, `immutability`, `purity`). These are downgraded to warnings — they're stylistic hints, not bugs. CI still gates on the actually-correctness-related rules.
 
 ---
 

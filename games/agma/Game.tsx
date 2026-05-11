@@ -141,10 +141,6 @@ function rng(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-function dist(a: Vec2, b: Vec2): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
 /** Mass conservation when merging two cells: r_new = sqrt(r1² + r2²). */
 function combineRadii(r1: number, r2: number): number {
   return Math.sqrt(r1 * r1 + r2 * r2);

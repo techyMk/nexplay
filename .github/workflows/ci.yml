@@ -36,6 +36,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Type check
         run: npx tsc --noEmit
 
@@ -44,10 +47,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      # Lint is informational only — the codebase has pre-existing
-      # issues that don't affect runtime. Track in a follow-up rather
-      # than gating PRs on a long warning list.
-      - name: Lint (non-blocking)
-        run: npm run lint
-        continue-on-error: true

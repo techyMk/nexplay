@@ -638,15 +638,6 @@ export default function Krunker() {
     setPaused(false);
   }, []);
 
-  const start = useCallback(() => {
-    reset();
-    setStarted(true);
-    // The lock request must be tied to the user gesture that called it,
-    // so do it here on the same tick — we'll recover from blur in the
-    // pointer-lock listener.
-    requestPointerLock();
-  }, [reset]);
-
   // -------------------------------------------------------------------------
   // Pointer lock + input
   // -------------------------------------------------------------------------
@@ -656,6 +647,15 @@ export default function Krunker() {
     if (!el) return;
     el.requestPointerLock?.();
   }, []);
+
+  const start = useCallback(() => {
+    reset();
+    setStarted(true);
+    // The lock request must be tied to the user gesture that called it,
+    // so do it here on the same tick — we'll recover from blur in the
+    // pointer-lock listener.
+    requestPointerLock();
+  }, [reset, requestPointerLock]);
 
   useEffect(() => {
     const el = canvasMountRef.current;
@@ -1968,7 +1968,7 @@ function resolveAxis(p: Player, walls: AABB[], axis: "x" | "y" | "z") {
 // ---------------------------------------------------------------------------
 
 function firePlayer(
-  st: NonNullable<ReturnType<typeof loopStateShape>>,
+  st: LoopState,
   now: number,
   pushKillfeed: (e: KillfeedEntry) => void,
   pushHitmarker: (headshot: boolean) => void,
@@ -2120,7 +2120,7 @@ function rayAabb(
 
 function updateBot(
   bot: Bot,
-  st: NonNullable<ReturnType<typeof loopStateShape>>,
+  st: LoopState,
   dt: number,
   now: number,
 ) {
@@ -2306,33 +2306,30 @@ function lightenHex(hex: number, amount: number): number {
   return (mr << 16) | (mg << 8) | mb;
 }
 
-// Helper type to keep firePlayer / updateBot signatures honest. We use
-// the runtime stateRef.current shape via this typeof helper, but never
-// actually call the helper — its sole purpose is type inference.
-function loopStateShape() {
-  return null as unknown as {
-    scene: THREE.Scene;
-    camera: THREE.PerspectiveCamera;
-    walls: AABB[];
-    boxes: MapBox[];
-    player: Player;
-    bots: Bot[];
-    tracers: Tracer[];
-    damageNumbers: DamageNumber[];
-    pendingDamageHints: { id: number; angle: number; born: number }[];
-    keys: Set<string>;
-    mouseDown: boolean;
-    ads: boolean;
-    jumpHeld: boolean;
-    elapsed: number;
-    timeLeft: number;
-    kills: number;
-    deaths: number;
-    score: number;
-    weaponMesh: THREE.Group | null;
-    muzzleLight: THREE.PointLight | null;
-    muzzleUntil: number;
-    killfeedSeq: number;
-    damageNumberSeq: number;
-  };
-}
+// The runtime shape of stateRef.current — used by firePlayer / updateBot
+// to share a single canonical state type without re-declaring fields.
+type LoopState = {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  walls: AABB[];
+  boxes: MapBox[];
+  player: Player;
+  bots: Bot[];
+  tracers: Tracer[];
+  damageNumbers: DamageNumber[];
+  pendingDamageHints: { id: number; angle: number; born: number }[];
+  keys: Set<string>;
+  mouseDown: boolean;
+  ads: boolean;
+  jumpHeld: boolean;
+  elapsed: number;
+  timeLeft: number;
+  kills: number;
+  deaths: number;
+  score: number;
+  weaponMesh: THREE.Group | null;
+  muzzleLight: THREE.PointLight | null;
+  muzzleUntil: number;
+  killfeedSeq: number;
+  damageNumberSeq: number;
+};

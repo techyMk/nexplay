@@ -34,6 +34,10 @@ export function GameArt({
   if (showIcon) {
     const url = `https://api.iconify.design/${icon}.svg?color=${encodeURIComponent(color)}`;
     return (
+      // SVGs from iconify — next/image would need a remote pattern entry
+      // for a 1-2kb icon that won't dominate LCP anyway. Plain img + lazy
+      // loading + onError fallback is the right tool here.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt=""
