@@ -16,6 +16,7 @@ import { Hero } from "@/components/Hero";
 import { HomeCTA } from "@/components/HomeCTA";
 import { RecentlyPlayedRow } from "@/components/RecentlyPlayedRow";
 import { RevealSection } from "@/components/RevealSection";
+import { WelcomeCard } from "@/components/WelcomeCard";
 
 export default function Home() {
   const featured = featuredGames();
@@ -30,6 +31,7 @@ export default function Home() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
+      <WelcomeCard />
       <Hero games={featured.length ? featured : GAMES.slice(0, 3)} />
 
       <RevealSection>
@@ -43,9 +45,11 @@ export default function Home() {
       </RevealSection>
 
       <RevealSection>
-        <SectionHeader emoji="🔥" title="Trending now" />
-        <div className="mb-8">
-          <BentoGrid games={bentoGames} />
+        <div id="trending" className="scroll-mt-20">
+          <SectionHeader emoji="🔥" title="Trending now" />
+          <div className="mb-8">
+            <BentoGrid games={bentoGames} />
+          </div>
         </div>
       </RevealSection>
 
