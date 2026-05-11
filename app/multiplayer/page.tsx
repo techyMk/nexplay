@@ -1,8 +1,45 @@
 import Link from "next/link";
 import { BackButton } from "@/components/BackButton";
 import { getUser } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const metadata = { title: "Multiplayer — Nexplay" };
+// Live room counts are stale within a minute, but completely caching
+// this page would freeze the activity numbers indefinitely. 30s is a
+// reasonable middle ground.
+export const revalidate = 30;
+
+/** Query Supabase for the number of active rooms (status in waiting /
+ *  playing) per game slug. Skribbl uses a separate table; merge it in.
+ *  Returns a Map keyed by game slug — slugs without any rooms are
+ *  absent (the card just won't show a badge). */
+async function fetchActiveRoomCounts(): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!isSupabaseConfigured) return counts;
+  const supabase = await createClient();
+  if (!supabase) return counts;
+
+  const [rooms, skribbl] = await Promise.all([
+    supabase
+      .from("rooms")
+      .select("game_slug")
+      .in("status", ["waiting", "playing"]),
+    supabase
+      .from("skribbl_rooms")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["lobby", "playing"]),
+  ]);
+
+  for (const row of rooms.data ?? []) {
+    const slug = (row as { game_slug: string }).game_slug;
+    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  }
+  if (typeof skribbl.count === "number") {
+    counts.set("skribbl", skribbl.count);
+  }
+  return counts;
+}
 
 const MULTIPLAYER_GAMES = [
   {
@@ -60,7 +97,11 @@ const MULTIPLAYER_GAMES = [
 ];
 
 export default async function MultiplayerHub() {
-  const user = await getUser();
+  const [user, activeRooms] = await Promise.all([
+    getUser(),
+    fetchActiveRoomCounts(),
+  ]);
+  const totalActive = [...activeRooms.values()].reduce((a, b) => a + b, 0);
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 md:py-12">
       <div className="mb-4">
@@ -73,6 +114,15 @@ export default async function MultiplayerHub() {
           Real-time games with friends. Pick a game, create a room, share the
           code.
         </p>
+        {totalActive > 0 && (
+          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 text-xs font-black uppercase tracking-wider">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            {totalActive} {totalActive === 1 ? "room" : "rooms"} live now
+          </div>
+        )}
       </div>
 
       {/* Guest CTA — multiplayer rooms write to Supabase rooms with
@@ -103,6 +153,7 @@ export default async function MultiplayerHub() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {MULTIPLAYER_GAMES.map((g) => {
+          const liveCount = activeRooms.get(g.slug) ?? 0;
           const Inner = (
             <div
               className={`rounded-2xl overflow-hidden border border-[var(--border)] transition-all h-full ${
@@ -124,6 +175,19 @@ export default async function MultiplayerHub() {
                 {g.badge && (
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white text-black text-[10px] font-black uppercase tracking-wider">
                     {g.badge}
+                  </div>
+                )}
+                {/* Live-rooms pill in the top-right when there's any
+                    activity. Pulsing green dot mirrors the header
+                    "Multiplayer" indicator so the visual language is
+                    consistent. */}
+                {g.available && liveCount > 0 && (
+                  <div className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-wider">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                    </span>
+                    {liveCount} live
                   </div>
                 )}
               </div>
