@@ -22,9 +22,28 @@ export async function generateMetadata({
   const { slug } = await params;
   const game = getGame(slug);
   if (!game) return {};
+  const title = `${game.title} — Play free on Nexplay`;
+  // The dynamic image at app/game/[slug]/opengraph-image.tsx is
+  // picked up automatically by Next.js for `og:image` — we just
+  // need to set the rest of the OpenGraph / Twitter card metadata
+  // so crawlers know what kind of card to render.
   return {
-    title: `${game.title} — Play free on Nexplay`,
+    title,
     description: game.description,
+    openGraph: {
+      type: "website",
+      title,
+      description: game.short,
+      url: `/game/${game.slug}`,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: game.short,
+    },
+    alternates: {
+      canonical: `/game/${game.slug}`,
+    },
   };
 }
 
