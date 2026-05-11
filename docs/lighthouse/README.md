@@ -8,21 +8,30 @@ captured 2026-05-11. Reports live alongside this README — open the
 
 | Route                       | Profile | Perf | A11y | BP  | SEO |
 | --------------------------- | ------- | ---- | ---- | --- | --- |
-| `/` (home)                  | Desktop | 95   | 92   | 100 | 100 |
-| `/` (home)                  | Mobile  | 41   | 92   | 100 | 100 |
+| `/` (home)                  | Desktop | 93   | 91   | 100 | 100 |
+| `/` (home)                  | Mobile  | 71   | 91   | 100 | 100 |
 | `/game/snake` (catalog page)| Desktop | 100  | 96   | 96  | 100 |
 
 ## Core Web Vitals (home, mobile)
 
 | Metric                          | Value   | Target  |
 | ------------------------------- | ------- | ------- |
-| Largest Contentful Paint (LCP)  | 5.5 s   | < 2.5 s |
-| Total Blocking Time (TBT)       | 960 ms  | < 200 ms|
-| Cumulative Layout Shift (CLS)   | 0.286   | < 0.1   |
-| First Contentful Paint (FCP)    | 1.3 s   | < 1.8 s |
-| Speed Index                     | 2.4 s   | < 3.4 s |
+| Largest Contentful Paint (LCP)  | 4.4 s   | < 2.5 s |
+| Total Blocking Time (TBT)       | 480 ms  | < 200 ms|
+| Cumulative Layout Shift (CLS)   | 0       | < 0.1   |
+| First Contentful Paint (FCP)    | 1.6 s   | < 1.8 s |
+| Speed Index                     | 3.9 s   | < 3.4 s |
 
-Desktop scores all green. Mobile has known gaps — see below.
+CLS is perfect (0). TBT is the main remaining mobile bottleneck —
+hydration cost on a 4× CPU-throttled profile.
+
+## History
+
+| Date       | Mobile Perf | LCP    | TBT    | CLS   | Notes                                                  |
+| ---------- | ----------- | ------ | ------ | ----- | ------------------------------------------------------ |
+| 2026-05-11 | 32          | 21 s   | 1570ms | 0.286 | Initial. 3 MB apple-touch-icon downloaded every page  |
+| 2026-05-11 | 41          | 5.5 s  |  960ms | 0.286 | Resized icons (3 MB → 47 KB) + smaller logo          |
+| 2026-05-11 | 71          | 4.4 s  |  480ms | 0     | Removed framer-motion, fixed WelcomeCard CLS         |
 
 ## What changed during this audit pass
 
@@ -39,28 +48,30 @@ Desktop scores all green. Mobile has known gaps — see below.
    slug (`game-icons:high-jump`) that doesn't exist. A single
    network 404 is enough to fail Best Practices entirely. Removed
    the broken icon — the emoji glyph fallback was already wired up.
+4. **Removed framer-motion (~227 KB chunk).** Six components used
+   it for simple fade / scale / translate effects. Replaced each
+   with CSS keyframes + transitions, and the scroll-reveal pattern
+   with a native IntersectionObserver. TBT 960 ms → 480 ms.
+5. **WelcomeCard CLS fix.** The card used to render `null` during
+   SSR and pop in after hydration, pushing everything below it
+   down by ~250 px. Now it renders visible by default and only
+   collapses if the dismissed flag is in localStorage. CLS 0.286 → 0.
 
 ## Known mobile gaps
 
 Mobile audits use 4× CPU throttling and a slow-4G profile, which
 amplifies any client-side work. The remaining mobile bottlenecks:
 
-- **TBT 960 ms.** Mainly React hydration of the home page (~3 MB of
-  JS uncompressed, ~250 KB gzipped). Realistic optimisations:
-  - Defer framer-motion below-the-fold animations (it's loaded
-    eagerly by six components, ~227 KB chunk, ~35 % unused)
-  - Lazy-import the Supabase auth client on routes that don't need
-    it (it's currently in the layout for the auth-aware header)
-- **CLS 0.286.** Hero card and bento grid items reflow as their
-  client-side data arrives. Reservable: skeleton placeholders with
-  fixed heights matching the final content.
-- **LCP 5.5 s.** Dominated by the JS hydration cost, not asset
-  size. Same fixes as TBT.
+- **TBT 480 ms.** Down from 960 ms but still over the 200 ms target.
+  Mostly React hydration of the home page client components. The
+  next lever is lazy-importing the Supabase auth client on routes
+  that don't need it (currently in the layout for the auth-aware
+  header).
+- **LCP 4.4 s.** Dominated by JS hydration cost, not asset size.
+  Same fix as TBT.
 
-The desktop profile shows these aren't fundamental issues — the
-production assets and code paths are fine on a typical laptop.
-Squeezing mobile perf above ~70 needs an architectural pass on
-hydration, not micro-optimisations.
+The desktop profile is all-green — these aren't fundamental issues,
+they're 4× CPU-throttling artifacts on the mobile preset.
 
 ## Reproducing
 

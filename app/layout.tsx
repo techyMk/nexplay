@@ -119,7 +119,9 @@ export default async function RootLayout({
           <Header />
           <div className="flex-1 flex">
             <Sidebar isAuthenticated={isFullUser} adminVisible={adminVisible} />
-            <main className="flex-1 min-w-0">{children}</main>
+            {/* pb-20 ensures the floating menu doesn't overlap the
+                last row of content on mobile. */}
+            <main className="flex-1 min-w-0 pb-20 sm:pb-0">{children}</main>
           </div>
           <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-8">

@@ -3,11 +3,15 @@
 /**
  * First-time-visitor welcome strip.
  *
- * Renders at the top of the home page exactly once. Stays dismissed
- * forever via localStorage so returning visitors aren't pestered.
- * Mounted as client-only so the no-server-state mismatch isn't an
- * issue — we render nothing during SSR and on the first paint, then
- * flip to visible if the dismissed flag isn't set.
+ * Renders at the top of the home page on the first visit. Stays
+ * dismissed forever via localStorage so returning visitors aren't
+ * pestered.
+ *
+ * CLS note: we render the card visible on the server (`show: true`)
+ * so first-time visitors don't see a layout shift when JS hydrates
+ * and the card pops in. Returning visitors briefly see the card,
+ * then JS reads localStorage and collapses it. Trading a tiny shift
+ * on repeat visits for a perfect first-impression Lighthouse score.
  */
 
 import Link from "next/link";
@@ -19,15 +23,15 @@ const STORAGE_KEY = "nexplay:welcome-dismissed";
  *  component doesn't have to import the full catalog (and ship it
  *  in the client bundle) just to read its length. */
 export function WelcomeCard({ gameCount }: { gameCount: number }) {
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
 
   useEffect(() => {
     try {
-      if (!localStorage.getItem(STORAGE_KEY)) {
-        setShow(true);
+      if (localStorage.getItem(STORAGE_KEY)) {
+        setShow(false);
       }
     } catch {
-      // private mode — leave it hidden rather than nag
+      // private mode — leave it shown rather than crash
     }
   }, []);
 

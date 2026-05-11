@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import type { Game } from "@/lib/types";
 import { GameArt } from "./GameArt";
 import { TilePattern } from "./TilePattern";
@@ -10,8 +9,12 @@ export type GameCardSize = "default" | "large" | "wide" | "tall";
 
 const SIZE_CLASS: Record<GameCardSize, string> = {
   default: "",
-  large: "sm:col-span-2 sm:row-span-2",
-  wide: "sm:col-span-2",
+  // `large` and `wide` go full-width on mobile so the always-on title
+  // overlay has room. Without col-span-2 on mobile they'd render as
+  // half-width cards with cramped overlay text, looking inconsistent
+  // next to default cards (which show the title below the tile).
+  large: "col-span-2 row-span-2 sm:col-span-2 sm:row-span-2",
+  wide: "col-span-2 sm:col-span-2",
   tall: "sm:row-span-2",
 };
 
@@ -39,16 +42,15 @@ export function GameCard({
   index?: number;
 }) {
   const isBig = size !== "default";
+  // Staggered fade-in. Capped at 250ms so cards lower in the grid
+  // still feel responsive — long-running stagger animations were
+  // hurting LCP on slow devices.
+  const animDelay = `${Math.min(index * 18, 250)}ms`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.25,
-        delay: Math.min(index * 0.018, 0.25),
-      }}
-      className={`group ${SIZE_CLASS[size]}`}
+    <div
+      className={`group card-fade-in ${SIZE_CLASS[size]}`}
+      style={{ animationDelay: animDelay }}
     >
       <Link
         href={`/game/${game.slug}`}
@@ -155,6 +157,6 @@ export function GameCard({
           </h3>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

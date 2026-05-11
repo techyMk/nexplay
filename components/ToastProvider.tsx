@@ -1,12 +1,12 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,9 +27,12 @@ export type ToastInput = {
   action?: { label: string; href: string };
 };
 
-type Toast = ToastInput & { id: string };
+type Toast = ToastInput & { id: string; leaving?: boolean };
 
 const ToastContext = createContext<((t: ToastInput) => void) | null>(null);
+
+// Match the CSS keyframe duration in globals.css (.toast-leave).
+const EXIT_MS = 180;
 
 export function useToast() {
   const ctx = useContext(ToastContext);
@@ -40,14 +43,38 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [mounted, setMounted] = useState(false);
+  const exitTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
 
   useEffect(() => {
     setMounted(true);
+    return () => {
+      exitTimers.current.forEach(clearTimeout);
+      exitTimers.current.clear();
+    };
   }, []);
 
-  const dismiss = useCallback((id: string) => {
+  const remove = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+    const timer = exitTimers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      exitTimers.current.delete(id);
+    }
   }, []);
+
+  // Trigger the leave animation, then remove after it completes.
+  const dismiss = useCallback(
+    (id: string) => {
+      setToasts((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)),
+      );
+      const timer = setTimeout(() => remove(id), EXIT_MS);
+      exitTimers.current.set(id, timer);
+    },
+    [remove],
+  );
 
   const show = useCallback(
     (t: ToastInput) => {
@@ -68,20 +95,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       aria-live="polite"
       aria-atomic="false"
     >
-      <AnimatePresence initial={false}>
-        {toasts.map((t) => (
-          <motion.div
-            key={t.id}
-            initial={{ opacity: 0, x: 40, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 40, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 260, damping: 26 }}
-            className="pointer-events-auto"
-          >
-            <ToastCard toast={t} onDismiss={() => dismiss(t.id)} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`pointer-events-auto ${t.leaving ? "toast-leave" : "toast-enter"}`}
+        >
+          <ToastCard toast={t} onDismiss={() => dismiss(t.id)} />
+        </div>
+      ))}
     </div>
   );
 

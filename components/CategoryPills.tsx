@@ -3,7 +3,17 @@ import { CATEGORIES } from "@/lib/catalog";
 
 export function CategoryPills({ activeSlug }: { activeSlug?: string }) {
   return (
-    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 mb-6">
+    // The right-side fade hints that there's more content to scroll;
+    // without it the chips look like they end at the screen edge.
+    <div
+      className="flex gap-1.5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 mb-6"
+      style={{
+        WebkitMaskImage:
+          "linear-gradient(to right, black calc(100% - 24px), transparent)",
+        maskImage:
+          "linear-gradient(to right, black calc(100% - 24px), transparent)",
+      }}
+    >
       <Link
         href="/"
         className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold transition-colors whitespace-nowrap ${

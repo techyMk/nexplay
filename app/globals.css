@@ -172,6 +172,109 @@ body::before {
 }
 .animate-float { animation: float 5s ease-in-out infinite; }
 
+/* Mount-time fade-in-from-below for game cards. The animation-delay
+ * is set per-card via inline style for the staggered effect. */
+@keyframes card-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-fade-in {
+  animation: card-fade-in 0.25s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-fade-in { animation: none; }
+}
+
+/* Cross-fade between hero slides. The leaving slide stays at full
+ * opacity for a tick to avoid a flash of background while the new
+ * slide ramps in. */
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.hero-fade-in {
+  animation: hero-fade-in 0.6s ease-out both;
+}
+@keyframes hero-text-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-text-in {
+  animation: hero-text-in 0.4s ease-out both;
+}
+@keyframes hero-art-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.hero-art-in {
+  animation: hero-art-in 0.5s ease-out both;
+}
+
+/* In-view reveal. Content is always visible — `.reveal-section`
+ * has no hidden state. When the IntersectionObserver in JS confirms
+ * the element is on screen it adds `.reveal-shown`, which plays a
+ * one-shot fade-up. If the observer never fires (no JS, headless
+ * browser) the section is just visible from the start. */
+.reveal-section {
+  /* no hidden state — content always renders */
+}
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-shown {
+  animation: reveal-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-shown { animation: none; }
+}
+
+/* Modal / toast overlay transitions. Opening = scale-up + fade in.
+ * Closing = scale-down slightly + fade out. The exit timing has to
+ * match the JS `setTimeout` that removes the node from the DOM. */
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes modal-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-card-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(4px) scale(0.97); }
+}
+.overlay-enter { animation: overlay-fade-in 0.18s ease-out both; }
+.overlay-leave { animation: overlay-fade-out 0.18s ease-in both; }
+.modal-card-enter { animation: modal-card-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.modal-card-leave { animation: modal-card-out 0.18s ease-in both; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(40px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(40px) scale(0.95); }
+}
+.toast-enter { animation: toast-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.toast-leave { animation: toast-out 0.18s ease-in both; }
+
+/* Floating-menu items: staggered fade-up. Index applied via
+ * --i custom property in the template. */
+@keyframes fab-item-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.85); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.fab-item-enter {
+  animation: fab-item-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
 /* Wordle tile reveal — flip on the X axis. The colour change in the
  * tile happens at the same moment, so the eye reads it as
  * "old tile spins, then the new colour shows." */

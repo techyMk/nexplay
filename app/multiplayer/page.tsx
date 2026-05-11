@@ -115,7 +115,9 @@ export default async function MultiplayerHub() {
           code.
         </p>
         {totalActive > 0 && (
-          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 text-xs font-black uppercase tracking-wider">
+          // text-emerald-700 keeps WCAG contrast on the light theme;
+          // dark theme overrides via the bg/border opacity.
+          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/50 text-emerald-700 dark:text-emerald-200 text-xs font-black uppercase tracking-wider">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />

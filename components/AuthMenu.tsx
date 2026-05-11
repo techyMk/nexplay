@@ -22,9 +22,24 @@ export async function AuthMenu() {
     return (
       <Link
         href="/login"
-        className="text-sm font-medium px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
+        className="shrink-0 inline-flex items-center justify-center gap-1.5 h-9 px-2 sm:px-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors text-sm font-medium"
+        aria-label="Log in"
       >
-        Log in
+        {/* User-circle icon on mobile, label on larger screens. */}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="w-4 h-4 sm:hidden"
+          aria-hidden
+        >
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        <span className="hidden sm:inline">Log in</span>
       </Link>
     );
   }

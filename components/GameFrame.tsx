@@ -45,14 +45,21 @@ export function GameFrame({ game }: { game: Game }) {
           className="absolute inset-0 group"
           style={{ background: game.gradient }}
         >
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
-            <div className="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 ml-1">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 sm:gap-4 p-4">
+            {/* xl on small screens, hero on larger — keeps the hero
+                art from overflowing the aspect-video frame on phones. */}
+            <div className="block sm:hidden">
+              <GameArt icon={game.icon} glyph={game.glyph} size="xl" />
+            </div>
+            <div className="hidden sm:block">
+              <GameArt icon={game.icon} glyph={game.glyph} size="hero" />
+            </div>
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-white text-black flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 sm:w-10 sm:h-10 ml-0.5 sm:ml-1">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-            <div className="text-white text-xl font-bold drop-shadow-lg">
+            <div className="text-white text-base sm:text-xl font-bold drop-shadow-lg text-center">
               Click to play {game.title}
             </div>
           </div>

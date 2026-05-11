@@ -32,7 +32,16 @@ export function CategoryRow({
         )}
       </div>
 
-      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar snap-x snap-mandatory">
+      <div
+        className="flex gap-3 md:gap-4 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar snap-x snap-mandatory"
+        // Soft right-edge fade so users can tell the row keeps going.
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to right, black calc(100% - 24px), transparent)",
+          maskImage:
+            "linear-gradient(to right, black calc(100% - 24px), transparent)",
+        }}
+      >
         {games.map((game, i) => (
           <div
             key={game.slug}
