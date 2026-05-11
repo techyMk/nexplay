@@ -528,7 +528,7 @@ export const GAMES: Game[] = [
     gradient: "linear-gradient(135deg, #f59e0b 0%, #1f2937 100%)",
     glyph: "🔫",
     source: "custom",
-    controls: ["Mouse", "WASD", "Space"],
+    controls: ["Mouse", "WASD", "Arrow Keys", "Space"],
     players: "single",
     isNew: true,
     rating: 4.3,
