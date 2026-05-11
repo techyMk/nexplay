@@ -8,6 +8,7 @@ import { FloatingMenu } from "@/components/FloatingMenu";
 import { GuestScoreMigration } from "@/components/GuestScoreMigration";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
+import { TelemetryListener } from "@/components/TelemetryListener";
 import { ThemeScript } from "@/components/ThemeScript";
 import { ToastProvider } from "@/components/ToastProvider";
 import { getUser } from "@/lib/supabase/server";
@@ -252,6 +253,7 @@ export default async function RootLayout({
               users still pull their legacy localStorage scores into
               their server-side user row. */}
           <GuestScoreMigration isAuthenticated={isAuthenticated} />
+          <TelemetryListener />
         </ConfirmProvider>
         </ToastProvider>
       </body>

@@ -14,6 +14,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { reportError } from "@/lib/telemetry";
 
 export default function Error({
   error,
@@ -23,10 +24,9 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log to the browser console so developers can still see it.
-    // Production telemetry isn't wired up yet; if it is later, this
-    // is where the report would go.
     console.error("[app error boundary]", error);
+    // No-ops unless NEXT_PUBLIC_SENTRY_DSN is set.
+    reportError(error, { digest: error.digest, boundary: "app" });
   }, [error]);
 
   return (
