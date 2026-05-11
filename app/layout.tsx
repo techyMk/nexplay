@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -52,6 +52,32 @@ export const metadata: Metadata = {
     description:
       "Free browser games. Play classics solo, climb the leaderboards, or invite friends to play live.",
   },
+  // Apple PWA tag set — alongside the apple-touch-icon Next.js wires
+  // up from `icons.apple`, this lets iOS render the installed app
+  // shell without the Safari chrome. The status-bar style picks up
+  // the theme dynamically once the user has a theme preference set.
+  appleWebApp: {
+    capable: true,
+    title: "Nexplay",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+/**
+ * Viewport / theme-color must be exported separately in the Next.js
+ * 16 metadata model (lives outside `Metadata`). Two themeColor
+ * entries let the mobile browser chrome track our light/dark
+ * palettes automatically instead of always showing one shade.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // The accent is the dark-mode brand-ish purple; for light mode we
+  // shade toward the surface to keep the chrome subtle.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf8f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0c14" },
+  ],
 };
 
 export default async function RootLayout({
