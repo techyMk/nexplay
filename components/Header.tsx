@@ -5,6 +5,7 @@ import { SearchBar } from "./SearchBar";
 import { AuthMenu } from "./AuthMenu";
 import { NotificationBell } from "./NotificationBell";
 import { HamburgerButton } from "./HamburgerButton";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
   return (
@@ -54,6 +55,7 @@ export function Header() {
           </Link>
         </nav>
 
+        <ThemeToggle />
         <NotificationBell />
         <AuthMenu />
       </div>
