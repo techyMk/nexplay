@@ -127,12 +127,53 @@ export default async function LeaderboardPage({
       {!isSupabaseConfigured ? (
         <SetupBanner />
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center text-[var(--muted)]">
-          {scope === "friends"
-            ? friendCount === 0
-              ? <>You don&apos;t have any friends here yet — <Link href="/friends" className="text-[var(--accent)] hover:underline">add some</Link> to compare scores.</>
-              : "No scores yet — be the first to play!"
-            : "No scores yet — be the first!"}
+        // Empty leaderboard — turn the dead-end into a CTA pointing
+        // at the actual game. Far more inviting than a one-liner.
+        <div className="relative rounded-2xl overflow-hidden border border-[var(--border)]">
+          <div
+            className="absolute inset-0 opacity-25"
+            style={{ background: game.gradient }}
+          />
+          <div className="relative px-6 py-10 text-center">
+            <div className="text-5xl mb-3" aria-hidden>
+              {game.glyph ?? "🏆"}
+            </div>
+            <h2 className="text-2xl font-black mb-2">
+              {scope === "friends" && friendCount === 0
+                ? "Add friends to compete"
+                : "No scores yet — be the first!"}
+            </h2>
+            <p className="text-sm text-[var(--muted)] max-w-md mx-auto mb-5">
+              {scope === "friends" && friendCount === 0 ? (
+                <>
+                  You don&apos;t have any friends here yet. Add some to compare
+                  scores side-by-side.
+                </>
+              ) : (
+                <>
+                  Drop a score on <b>{game.title}</b> and your name lands at the
+                  top of this page.
+                </>
+              )}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {scope === "friends" && friendCount === 0 ? (
+                <Link
+                  href="/friends"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white font-black text-sm hover:scale-[1.03] transition-transform shadow-md"
+                >
+                  👥 Find friends →
+                </Link>
+              ) : (
+                <Link
+                  href={`/game/${slug}`}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white font-black text-sm hover:scale-[1.03] transition-transform shadow-md"
+                >
+                  ▶ Play {game.title}
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">

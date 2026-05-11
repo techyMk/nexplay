@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { GAMES } from "@/lib/catalog";
+import { GAMES, popularGames } from "@/lib/catalog";
 import { syncAchievements } from "@/lib/achievements-server";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { isAdminEmail, isAdminUnlocked } from "@/lib/admin";
@@ -126,8 +126,35 @@ export default async function ProfilePage() {
 
       <h2 className="text-xl font-black mb-4">Your best scores</h2>
       {bestByGame.size === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-          No scores yet. Go play some games!
+        // Brand-new user with no plays — suggest 4 popular games so
+        // they have a concrete starting point instead of a plain
+        // dead-end message.
+        <div className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center">
+          <div className="text-4xl mb-2">🎮</div>
+          <div className="font-black text-base mb-1">No scores yet</div>
+          <p className="text-sm text-[var(--muted)] max-w-sm mx-auto mb-4">
+            Play any game and your high score lands here automatically.
+            A few popular picks to get going:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
+            {popularGames(4).map((g) => (
+              <Link
+                key={g.slug}
+                href={`/game/${g.slug}`}
+                className="group rounded-xl overflow-hidden border border-[var(--border)] hover:border-[var(--accent)] card-lift"
+              >
+                <div
+                  className="aspect-square flex items-center justify-center text-4xl"
+                  style={{ background: g.gradient }}
+                >
+                  {g.glyph}
+                </div>
+                <div className="px-2 py-1.5 bg-[var(--surface)] text-left">
+                  <div className="font-black text-xs truncate">{g.title}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
