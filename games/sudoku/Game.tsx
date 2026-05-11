@@ -35,8 +35,6 @@ const PUZZLES = [
   },
 ];
 
-type Difficulty = (typeof PUZZLES)[number]["diff"];
-
 function parseBoard(s: string): Board {
   const b: Board = [];
   for (let r = 0; r < 9; r++) {

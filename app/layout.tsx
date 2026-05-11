@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthChoiceModal } from "@/components/AuthChoiceModal";
@@ -179,11 +180,11 @@ export default async function RootLayout({
                     Play
                   </div>
                   <ul className="space-y-2 text-sm">
-                    <li><a href="/" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Home</a></li>
-                    <li><a href="/multiplayer" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Multiplayer</a></li>
-                    <li><a href="/friends" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Friends</a></li>
-                    <li><a href="/guide" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">How to play</a></li>
-                    <li><a href="/feedback" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Send feedback</a></li>
+                    <li><Link href="/" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Home</Link></li>
+                    <li><Link href="/multiplayer" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Multiplayer</Link></li>
+                    <li><Link href="/friends" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Friends</Link></li>
+                    <li><Link href="/guide" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">How to play</Link></li>
+                    <li><Link href="/feedback" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Send feedback</Link></li>
                   </ul>
                 </div>
                 <div className="lg:col-span-3">
@@ -191,10 +192,10 @@ export default async function RootLayout({
                     Discover
                   </div>
                   <ul className="space-y-2 text-sm">
-                    <li><a href="/category/puzzle" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Puzzle</a></li>
-                    <li><a href="/category/action" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Action</a></li>
-                    <li><a href="/category/arcade" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Arcade</a></li>
-                    <li><a href="/category/adventure" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Adventure</a></li>
+                    <li><Link href="/category/puzzle" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Puzzle</Link></li>
+                    <li><Link href="/category/action" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Action</Link></li>
+                    <li><Link href="/category/arcade" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Arcade</Link></li>
+                    <li><Link href="/category/adventure" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Adventure</Link></li>
                   </ul>
                 </div>
                 <div className="lg:col-span-3">
@@ -202,9 +203,9 @@ export default async function RootLayout({
                     Account
                   </div>
                   <ul className="space-y-2 text-sm">
-                    <li><a href="/login" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Log in</a></li>
-                    <li><a href="/profile" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Profile</a></li>
-                    <li><a href="/settings" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Settings</a></li>
+                    <li><Link href="/login" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Log in</Link></li>
+                    <li><Link href="/profile" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Profile</Link></li>
+                    <li><Link href="/settings" className="hover:text-[var(--foreground)] text-[var(--muted)] transition-colors">Settings</Link></li>
                   </ul>
                 </div>
               </div>

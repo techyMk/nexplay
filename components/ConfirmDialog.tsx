@@ -137,6 +137,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                             : "bg-[var(--accent)]/10 text-[var(--accent)]"
                         }`}
                       >
+                        {/* Iconify SVG — see components/GameArt.tsx for rationale. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={`https://api.iconify.design/${pending.opts.icon}.svg?color=${encodeURIComponent(
                             pending.opts.danger ? "#ef4444" : "#7c5cff",

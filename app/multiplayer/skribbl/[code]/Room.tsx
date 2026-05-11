@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isCorrectGuess, maskWord, pickWordChoices } from "@/lib/skribbl/words";
@@ -45,7 +45,7 @@ export function SkribblRoomClient({
 }) {
   const router = useRouter();
   const [state, setState] = useState<SkribblState>(initialState);
-  const [roomStatus, setRoomStatus] = useState(initialStatus);
+  const [, setRoomStatus] = useState(initialStatus);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [now, setNow] = useState(Date.now());

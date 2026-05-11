@@ -501,6 +501,10 @@ export default function GeoGuessr() {
             </div>
           )}
           {phase !== "loading" && imageUrl && !imageError && (
+            // Wikimedia URLs from runtime API — can't enumerate every
+            // host in next.config remotePatterns. Plain img with the
+            // existing onError fallback is correct here.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt="Landmark"

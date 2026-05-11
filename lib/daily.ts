@@ -117,7 +117,7 @@ export function gameTitle(slug: string): string {
 export function computeStreak(distinctDates: string[], today: string): number {
   const set = new Set(distinctDates);
   // If today isn't completed yet, the "live" streak is whatever ended yesterday.
-  let cursor = new Date(`${today}T00:00:00Z`);
+  const cursor = new Date(`${today}T00:00:00Z`);
   if (!set.has(today)) cursor.setUTCDate(cursor.getUTCDate() - 1);
   let streak = 0;
   while (set.has(cursor.toISOString().slice(0, 10))) {

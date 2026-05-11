@@ -630,7 +630,7 @@ export default function Doodle() {
               Sfx.hit();
             } else {
               // Player dies
-              if (!overRef.current) endRun(st);
+              if (!overRef.current) endRun();
             }
           }
         }
@@ -686,7 +686,7 @@ export default function Doodle() {
 
         // ----- Game over: fall below screen -----
         if (st.py > st.cameraY + VIEW_H + 60 && !overRef.current) {
-          endRun(st);
+          endRun();
         }
 
         // ----- Update HUD-bound state -----
@@ -856,7 +856,7 @@ export default function Doodle() {
       raf = requestAnimationFrame(tick);
     };
 
-    function endRun(_st: State) {
+    function endRun() {
       setOver(true);
       Sfx.gameOver();
       // Score already tracks height + bonuses; freeze it for the
