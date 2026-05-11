@@ -5,6 +5,7 @@ import { useKeyboard } from "../useGameLoop";
 import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay } from "@/components/games/GameOverlay";
+import { TouchPad } from "@/components/games/TouchPad";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Sfx } from "@/lib/sound";
 
@@ -680,6 +681,17 @@ export default function Asteroids() {
             width={W}
             height={H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10"
+          />
+          {/* Touch controls — rotate / thrust / fire. */}
+          <TouchPad
+            left={[
+              { key: "ArrowLeft", label: "↺" },
+              { key: "ArrowRight", label: "↻" },
+            ]}
+            right={[
+              { key: "ArrowUp", label: "▲", tone: "success" },
+              { key: " ", label: "🔥", tone: "danger" },
+            ]}
           />
           {!started && !over && (
             <GameOverlay

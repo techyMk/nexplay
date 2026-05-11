@@ -5,6 +5,7 @@ import { useSubmitScoreOnGameOver } from "@/lib/scores";
 import { ScoreStatus } from "@/components/ScoreStatus";
 import { GameOverlay, PauseToggle } from "@/components/games/GameOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
+import { TouchPad } from "@/components/games/TouchPad";
 import { Sfx } from "@/lib/sound";
 
 // Canvas dimensions
@@ -902,6 +903,11 @@ export default function Doodle() {
             width={VIEW_W}
             height={VIEW_H}
             className="absolute inset-0 w-full h-full block rounded-xl border border-white/10 shadow-[0_0_24px_rgba(0,0,0,0.45)]"
+          />
+          {/* Touch L/R steering — jumping is automatic. */}
+          <TouchPad
+            left={[{ key: "ArrowLeft", label: "◀" }]}
+            right={[{ key: "ArrowRight", label: "▶" }]}
           />
           {!started && !over && (
             <GameOverlay
