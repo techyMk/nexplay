@@ -85,7 +85,7 @@ export function GameOfTheDay() {
 
           {/* CTA */}
           <div className="flex sm:flex-col items-stretch gap-2 shrink-0">
-            <span className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-[var(--foreground)] font-bold text-sm shadow-md whitespace-nowrap">
+            <span className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-stone-900 font-bold text-sm shadow-md whitespace-nowrap">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                 <path d="M8 5v14l11-7z" />
               </svg>

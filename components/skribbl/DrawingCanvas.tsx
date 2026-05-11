@@ -217,7 +217,7 @@ export function DrawingCanvas({
               className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
                 tool === "eraser"
                   ? "bg-[var(--accent)] text-white"
-                  : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-white"
+                  : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-3)]"
               }`}
             >
               Eraser

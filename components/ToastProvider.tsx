@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
 import {
   createContext,
   useCallback,
@@ -21,6 +22,9 @@ export type ToastInput = {
   variant?: ToastVariant;
   /** Auto-dismiss duration in ms. Defaults to 4500. */
   durationMs?: number;
+  /** Optional CTA link rendered as a button under the description.
+   *  Clicking it navigates and dismisses the toast. */
+  action?: { label: string; href: string };
 };
 
 type Toast = ToastInput & { id: string };
@@ -132,6 +136,15 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           <div className="text-xs text-[var(--muted)] mt-0.5 leading-snug">
             {toast.description}
           </div>
+        )}
+        {toast.action && (
+          <Link
+            href={toast.action.href}
+            onClick={onDismiss}
+            className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-md bg-gradient-to-br ${accent} text-white text-[11px] font-black hover:scale-[1.03] transition-transform shadow`}
+          >
+            {toast.action.label} →
+          </Link>
         )}
       </div>
       <button
