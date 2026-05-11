@@ -28,6 +28,7 @@
 
 import { useEffect } from "react";
 import { submitScore } from "@/lib/scores";
+import { useToast } from "@/components/ToastProvider";
 
 const MIGRATED_FLAG = "nexplay:guest-scores-migrated";
 
@@ -44,6 +45,7 @@ export function GuestScoreMigration({
 }: {
   isAuthenticated: boolean;
 }) {
+  const toast = useToast();
   useEffect(() => {
     if (!isAuthenticated) return;
     let alreadyDone = false;
@@ -56,15 +58,17 @@ export function GuestScoreMigration({
 
     // Defer so we don't compete with first-paint work.
     const handle = setTimeout(() => {
-      void migrateGuestScores();
+      void migrateGuestScores(toast);
     }, 1500);
     return () => clearTimeout(handle);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, toast]);
 
   return null;
 }
 
-async function migrateGuestScores() {
+async function migrateGuestScores(
+  toast: ReturnType<typeof useToast>,
+) {
   const entries: Entry[] = collectEntries();
   if (entries.length === 0) {
     try {
@@ -75,15 +79,16 @@ async function migrateGuestScores() {
     return;
   }
 
-  let allOk = true;
+  let okCount = 0;
   for (const e of entries) {
     try {
       const res = await submitScore(e.slug, e.score);
-      if (!res.ok) allOk = false;
+      if (res.ok) okCount += 1;
     } catch {
-      allOk = false;
+      // counted as failure via the okCount tally
     }
   }
+  const allOk = okCount === entries.length;
 
   if (allOk) {
     try {
@@ -93,6 +98,21 @@ async function migrateGuestScores() {
     } catch {
       // ignore
     }
+  }
+
+  if (okCount > 0) {
+    // Celebrate the migration so the user sees their guest progress
+    // didn't vanish. Counting okCount (not entries.length) means a
+    // partial success still gets a positive note, with the rest
+    // retried on next page-load.
+    toast({
+      variant: "success",
+      emoji: "🏆",
+      title: `Synced ${okCount} ${okCount === 1 ? "score" : "scores"} to your account`,
+      description:
+        "Your guest progress is now on the global leaderboard. Welcome aboard!",
+      durationMs: 6000,
+    });
   }
   // If !allOk we leave the flag unset and the next mount retries.
 }
