@@ -188,7 +188,31 @@ export function Sidebar({
               <>
                 <NavRow href="/feedback" emoji="💬" label="Feedback" active={isActive("/feedback")} />
                 <NavRow href="/settings" emoji="⚙️" label="Settings" active={isActive("/settings")} />
-                <NavRow href="/login" emoji="🔑" label="Log in" active={isActive("/login")} />
+                {/* Prominent sign-up promo for guests — replaces the
+                    plain "Log in" NavRow. Sits below the standard
+                    account links so the sidebar pattern holds, but
+                    visually stands out as a CTA card with copy. */}
+                <Link
+                  href="/login?mode=signup"
+                  className="mt-2 block rounded-xl bg-gradient-to-br from-[var(--accent)]/15 via-[var(--accent-2)]/15 to-[var(--accent-3)]/15 border border-[var(--accent)]/30 p-3 hover:border-[var(--accent)]/60 transition-colors group"
+                >
+                  <div className="text-xs font-black mb-0.5">
+                    Save your scores
+                  </div>
+                  <div className="text-[11px] text-[var(--muted)] leading-snug mb-2">
+                    Free account · climb global leaderboards · play with
+                    friends.
+                  </div>
+                  <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white text-[11px] font-black group-hover:scale-[1.03] transition-transform">
+                    Sign up free →
+                  </div>
+                </Link>
+                <Link
+                  href="/login"
+                  className="block text-center text-[11px] text-[var(--muted)] hover:text-[var(--foreground)] mt-1.5 transition-colors"
+                >
+                  Already have an account? Log in
+                </Link>
               </>
             )}
           </nav>

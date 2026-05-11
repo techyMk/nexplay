@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthChoiceModal } from "@/components/AuthChoiceModal";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { FloatingMenu } from "@/components/FloatingMenu";
+import { GuestScoreMigration } from "@/components/GuestScoreMigration";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeScript } from "@/components/ThemeScript";
@@ -206,6 +208,8 @@ export default async function RootLayout({
               </div>
           </footer>
           <FloatingMenu />
+          <AuthChoiceModal isAuthenticated={isAuthenticated} />
+          <GuestScoreMigration isAuthenticated={isAuthenticated} />
         </ConfirmProvider>
         </ToastProvider>
       </body>
