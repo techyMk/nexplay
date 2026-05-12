@@ -67,7 +67,7 @@ export function GameOfTheDay() {
                 Featured today
               </span>
               {game.isNew && (
-                <span className="px-2 py-0.5 rounded-md bg-[var(--accent-2)] text-white text-[10px] font-black uppercase tracking-widest">
+                <span className="px-2 py-0.5 rounded-md bg-pink-700 text-white text-[10px] font-black uppercase tracking-widest">
                   New
                 </span>
               )}

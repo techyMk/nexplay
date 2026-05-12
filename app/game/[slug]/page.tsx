@@ -5,10 +5,14 @@ import { GameFrame } from "@/components/GameFrame";
 import { GameCard } from "@/components/GameCard";
 import { GameArt } from "@/components/GameArt";
 import { BackButton } from "@/components/BackButton";
+import { JsonLd } from "@/components/JsonLd";
 import { RatingWidget } from "@/components/RatingWidget";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { compactNumber } from "@/lib/format";
+
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexplay-games.vercel.app";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ slug: g.slug }));
@@ -110,8 +114,40 @@ export default async function GamePage({
       g.categories.some((c) => game.categories.includes(c)),
   ).slice(0, 6);
 
+  // VideoGame schema gives Google a rich-result eligible record for
+  // each title. The AggregateRating only renders when we have ratings,
+  // otherwise we'd ship "ratingValue": null and the schema would be
+  // technically invalid.
+  const gameSchema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    name: game.title,
+    description: game.description,
+    url: `${SITE_URL}/game/${game.slug}`,
+    image: `${SITE_URL}/game/${game.slug}/opengraph-image`,
+    genre: game.categories,
+    applicationCategory: "Game",
+    operatingSystem: "Web Browser",
+    inLanguage: "en",
+    isAccessibleForFree: true,
+    publisher: { "@type": "Organization", name: "Nexplay", url: SITE_URL },
+    gamePlatform: ["Web Browser", "Mobile Web"],
+    numberOfPlayers:
+      game.players === "multiplayer" || game.players === "both" ? "1-8" : "1",
+  };
+  if (stats.avgRating !== null && stats.ratingCount > 0) {
+    gameSchema.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: stats.avgRating,
+      ratingCount: stats.ratingCount,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <JsonLd data={gameSchema} />
       <div className="mb-4">
         <BackButton fallback="/" />
       </div>

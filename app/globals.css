@@ -11,7 +11,9 @@
   --foreground: #0a0a0f;
   --foreground-2: #2a2a35;
   --muted: #71717a;
-  --muted-2: #94949e;
+  /* Was #94949e — failed WCAG AA on cream surfaces (~3:1). Darkened
+   * to hit 5:1 against the page background. */
+  --muted-2: #6b6b76;
 
   --border: #ebe6d9;
   --border-strong: #d6d0c1;
@@ -20,6 +22,12 @@
   --accent-2: #ff4d96;
   --accent-3: #06b6d4;
   --accent-glow: rgba(124, 92, 255, 0.18);
+  /* Text-only variants — darker than the brand colours so small
+   * uppercase labels and inline links hit WCAG AA on a cream / white
+   * surface. Use these anywhere the accent appears as text, NOT as
+   * a fill / gradient backdrop. */
+  --accent-text: #5a3fdb;
+  --accent-2-text: #c41f6f;
 
   --shadow-sm: 0 1px 2px rgba(15, 15, 20, 0.06);
   --shadow-md: 0 4px 12px rgba(15, 15, 20, 0.08);
@@ -51,6 +59,9 @@
   --accent-2: #ff5ca2;
   --accent-3: #22d3ee;
   --accent-glow: rgba(139, 117, 255, 0.45);
+  /* Dark theme: text on dark surfaces — keep accents bright. */
+  --accent-text: #a99cff;
+  --accent-2-text: #ff8cbf;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);

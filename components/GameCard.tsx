@@ -86,7 +86,7 @@ export function GameCard({
             </span>
           )}
           {(game.players === "multiplayer" || game.players === "both") && (
-            <span className="px-2 py-0.5 rounded-md bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider shadow">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider shadow">
               Multi
             </span>
           )}

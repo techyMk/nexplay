@@ -8,8 +8,8 @@ captured 2026-05-11. Reports live alongside this README — open the
 
 | Route                       | Profile | Perf | A11y | BP  | SEO |
 | --------------------------- | ------- | ---- | ---- | --- | --- |
-| `/` (home)                  | Desktop | 93   | 91   | 100 | 100 |
-| `/` (home)                  | Mobile  | 71   | 91   | 100 | 100 |
+| `/` (home)                  | Desktop | 98   | 100  | 100 | 100 |
+| `/` (home)                  | Mobile  | 69   | 100  | 100 | 100 |
 | `/game/snake` (catalog page)| Desktop | 100  | 96   | 96  | 100 |
 
 ## Core Web Vitals (home, mobile)
@@ -27,11 +27,12 @@ hydration cost on a 4× CPU-throttled profile.
 
 ## History
 
-| Date       | Mobile Perf | LCP    | TBT    | CLS   | Notes                                                  |
-| ---------- | ----------- | ------ | ------ | ----- | ------------------------------------------------------ |
-| 2026-05-11 | 32          | 21 s   | 1570ms | 0.286 | Initial. 3 MB apple-touch-icon downloaded every page  |
-| 2026-05-11 | 41          | 5.5 s  |  960ms | 0.286 | Resized icons (3 MB → 47 KB) + smaller logo          |
-| 2026-05-11 | 71          | 4.4 s  |  480ms | 0     | Removed framer-motion, fixed WelcomeCard CLS         |
+| Date       | Mobile Perf | LCP    | TBT    | CLS   | A11y | Notes                                                  |
+| ---------- | ----------- | ------ | ------ | ----- | ---- | ------------------------------------------------------ |
+| 2026-05-11 | 32          | 21 s   | 1570ms | 0.286 | 91   | Initial. 3 MB apple-touch-icon downloaded every page  |
+| 2026-05-11 | 41          | 5.5 s  |  960ms | 0.286 | 91   | Resized icons (3 MB → 47 KB) + smaller logo          |
+| 2026-05-11 | 71          | 4.4 s  |  480ms | 0     | 91   | Removed framer-motion, fixed WelcomeCard CLS         |
+| 2026-05-12 | 69          | 4.6 s  |  530ms | 0     | 100  | Hit a11y 100 (contrast + heading order + tap targets) + added JSON-LD structured data |
 
 ## What changed during this audit pass
 
@@ -56,6 +57,19 @@ hydration cost on a 4× CPU-throttled profile.
    SSR and pop in after hydration, pushing everything below it
    down by ~250 px. Now it renders visible by default and only
    collapses if the dismissed flag is in localStorage. CLS 0.286 → 0.
+6. **A11y 91 → 100.** Three specific failures fixed:
+   - Hero carousel dots were 4 px tall (failed WCAG target-size).
+     Now wrapped in a 24×24 hit target with the pill visible inside.
+   - `DailyStrip` used `<h3>` directly under the page `<h1>`,
+     skipping `<h2>`. Bumped to `<h2>`.
+   - Pink "New" and emerald "Multi" badges + cream `--muted-2`
+     small caps all failed contrast on a white surface. Bumped to
+     `pink-700` / `emerald-700` and added darker text variants.
+7. **JSON-LD structured data.** Added WebSite schema in the root
+   layout (Google sitelinks search), ItemList on the home page,
+   and per-game VideoGame schema (with AggregateRating when ratings
+   exist). Search engines now get rich-result-eligible records
+   for every game.
 
 ## Known mobile gaps
 

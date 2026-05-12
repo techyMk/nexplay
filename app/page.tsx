@@ -14,9 +14,13 @@ import { GameGrid } from "@/components/GameGrid";
 import { GameOfTheDay } from "@/components/GameOfTheDay";
 import { Hero } from "@/components/Hero";
 import { HomeCTA } from "@/components/HomeCTA";
+import { JsonLd } from "@/components/JsonLd";
 import { RecentlyPlayedRow } from "@/components/RecentlyPlayedRow";
 import { RevealSection } from "@/components/RevealSection";
 import { WelcomeCard } from "@/components/WelcomeCard";
+
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexplay-games.vercel.app";
 
 export default function Home() {
   const featured = featuredGames();
@@ -29,8 +33,28 @@ export default function Home() {
     ...popular.filter((g) => !featured.some((f) => f.slug === g.slug)),
   ].slice(0, 10);
 
+  // Top-25 games as an ItemList so Google can surface them in a
+  // carousel on the SERP. Includes the featured set first, then
+  // popular by play count.
+  const listed = bentoGames.concat(
+    popular.filter((g) => !bentoGames.some((b) => b.slug === g.slug)),
+  ).slice(0, 25);
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Nexplay games",
+    numberOfItems: listed.length,
+    itemListElement: listed.map((g, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}/game/${g.slug}`,
+      name: g.title,
+    })),
+  };
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 md:py-7 max-w-[1500px] mx-auto">
+      <JsonLd data={itemListSchema} />
       <WelcomeCard gameCount={totalCount} />
       <Hero games={featured.length ? featured : GAMES.slice(0, 3)} />
 

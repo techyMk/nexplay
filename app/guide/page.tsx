@@ -78,7 +78,7 @@ export default function GuidePage() {
           href="https://github.com/techyMk/nexplay/issues"
           target="_blank"
           rel="noreferrer"
-          className="text-[var(--accent)] hover:underline"
+          className="text-[var(--accent-text)] hover:underline"
         >
           GitHub
         </a>
@@ -153,7 +153,7 @@ function GuideCard({
                   key={i}
                   className="text-sm flex items-start gap-2 leading-relaxed"
                 >
-                  <span className="text-[var(--accent)] shrink-0">•</span>
+                  <span className="text-[var(--accent-text)] shrink-0">•</span>
                   <span>{c}</span>
                 </li>
               ))}
@@ -164,7 +164,7 @@ function GuideCard({
             <ol className="space-y-2">
               {guide.steps.map((s, i) => (
                 <li key={i} className="text-sm flex gap-3 leading-relaxed">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] text-[10px] font-black flex items-center justify-center">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--accent)]/15 text-[var(--accent-text)] text-[10px] font-black flex items-center justify-center">
                     {i + 1}
                   </span>
                   <span>{s}</span>

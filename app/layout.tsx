@@ -8,6 +8,7 @@ import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { FloatingMenu } from "@/components/FloatingMenu";
 import { GuestScoreMigration } from "@/components/GuestScoreMigration";
 import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/JsonLd";
 import { Sidebar } from "@/components/Sidebar";
 import { TelemetryListener } from "@/components/TelemetryListener";
 import { ThemeScript } from "@/components/ThemeScript";
@@ -114,6 +115,38 @@ export default async function RootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Site-wide structured data — gives Google a canonical name,
+            a search action, and the publisher. Per-page schemas live
+            in the route's own component (game pages emit VideoGame,
+            home emits ItemList). */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Nexplay",
+            alternateName: "Nexplay Games",
+            url: SITE_URL,
+            description:
+              "Free browser games — single-player classics + real-time multiplayer.",
+            potentialAction: {
+              "@type": "SearchAction",
+              target: {
+                "@type": "EntryPoint",
+                urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+              },
+              "query-input": "required name=search_term_string",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "Nexplay",
+              url: SITE_URL,
+              logo: {
+                "@type": "ImageObject",
+                url: `${SITE_URL}/nexplay-icon-512.png`,
+              },
+            },
+          }}
+        />
         <ToastProvider>
         <ConfirmProvider>
           <Header />
@@ -129,8 +162,9 @@ export default async function RootLayout({
                   <Image
                     src="/nexplay-logo.png"
                     alt="Nexplay"
-                    width={2000}
-                    height={1000}
+                    width={400}
+                    height={200}
+                    sizes="160px"
                     className="h-14 w-auto mb-3"
                   />
                   <p className="text-xs text-[var(--muted)] leading-relaxed max-w-xs">
@@ -178,7 +212,7 @@ export default async function RootLayout({
                   </div>
                 </div>
                 <div className="lg:col-span-2">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[#5a5a64] dark:text-[#9da3b8] mb-3 font-bold">
                     Play
                   </div>
                   <ul className="space-y-2 text-sm">
@@ -190,7 +224,7 @@ export default async function RootLayout({
                   </ul>
                 </div>
                 <div className="lg:col-span-3">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[#5a5a64] dark:text-[#9da3b8] mb-3 font-bold">
                     Discover
                   </div>
                   <ul className="space-y-2 text-sm">
@@ -201,7 +235,7 @@ export default async function RootLayout({
                   </ul>
                 </div>
                 <div className="lg:col-span-3">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-2)] mb-3 font-bold">
+                  <div className="text-[10px] uppercase tracking-wider text-[#5a5a64] dark:text-[#9da3b8] mb-3 font-bold">
                     Account
                   </div>
                   <ul className="space-y-2 text-sm">
