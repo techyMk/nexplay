@@ -27,6 +27,17 @@ export type Game = {
   isNew?: boolean;
   rating: number;
   plays: number;
+  /**
+   * Mobile fitness tag. Surfaced in the UI when set:
+   *   • "desktop-only" — game needs mouse+keyboard / pointer lock /
+   *     fine mouse motion. We still let players open it on mobile
+   *     but warn them up-front with a banner.
+   *   • "desktop-best" — playable on touch but designed for a bigger
+   *     screen (mouse aim, dense HUD, etc). A subtle pill in the
+   *     catalog tells users it shines on desktop.
+   * If unset, the game plays comfortably on phones — the default.
+   */
+  mobileFitness?: "desktop-only" | "desktop-best";
 };
 
 export type Category = {

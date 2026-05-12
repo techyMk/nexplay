@@ -203,6 +203,38 @@ export default async function GamePage({
         </div>
       </div>
 
+      {/* Mobile-fitness notice — shown only on small screens (sm:hidden)
+          because on desktop the warning is unnecessary. Two variants:
+          a strong banner for desktop-only games (needs mouse), and a
+          softer pill for desktop-best games (works on touch but is
+          designed for a bigger screen). */}
+      {game.mobileFitness === "desktop-only" && (
+        <div className="sm:hidden mb-4 rounded-xl border border-amber-400/40 bg-amber-50 dark:bg-amber-900/15 px-4 py-3 flex items-start gap-3">
+          <div className="text-xl shrink-0" aria-hidden>
+            🖥
+          </div>
+          <div className="text-sm text-amber-900 dark:text-amber-200 leading-snug">
+            <div className="font-black mb-0.5">Best on desktop</div>
+            This game uses mouse aim or keyboard-only controls — it&apos;ll
+            run on your phone but the experience is designed for a desktop
+            with a mouse and keyboard.
+          </div>
+        </div>
+      )}
+      {game.mobileFitness === "desktop-best" && (
+        <div className="sm:hidden mb-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 flex items-start gap-3">
+          <div className="text-xl shrink-0" aria-hidden>
+            🖥
+          </div>
+          <div className="text-sm text-[var(--muted)] leading-snug">
+            <span className="font-black text-[var(--foreground)]">
+              Plays better on desktop.
+            </span>{" "}
+            Mouse aim or a larger canvas makes a real difference here.
+          </div>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 mb-10">
         <div>
           <GameFrame game={game} />

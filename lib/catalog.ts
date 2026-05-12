@@ -281,6 +281,7 @@ export const GAMES: Game[] = [
     players: "single",
     rating: 4.0,
     plays: 3_400,
+    mobileFitness: "desktop-only", // keyboard-only, no touch input
   },
   {
     slug: "tetris",
@@ -498,6 +499,7 @@ export const GAMES: Game[] = [
     players: "single",
     rating: 4.5,
     plays: 96_400,
+    mobileFitness: "desktop-best", // touch works, but mouse steering is more precise
   },
   {
     slug: "slither",
@@ -515,6 +517,7 @@ export const GAMES: Game[] = [
     players: "single",
     rating: 4.6,
     plays: 142_000,
+    mobileFitness: "desktop-best",
   },
   {
     slug: "krunker",
@@ -533,6 +536,7 @@ export const GAMES: Game[] = [
     isNew: true,
     rating: 4.3,
     plays: 73_200,
+    mobileFitness: "desktop-only", // pointer-lock + mouse aim
   },
   {
     slug: "skribbl",
@@ -552,6 +556,7 @@ export const GAMES: Game[] = [
     featured: true,
     rating: 4.8,
     plays: 0,
+    mobileFitness: "desktop-best", // drawing on a phone-sized canvas is cramped
   },
   {
     slug: "geoguessr-clone",
@@ -570,6 +575,7 @@ export const GAMES: Game[] = [
     isNew: true,
     rating: 4.6,
     plays: 39_800,
+    mobileFitness: "desktop-best", // map+photo split layout is tight on a phone
   },
   {
     slug: "agma",
@@ -588,6 +594,7 @@ export const GAMES: Game[] = [
     isNew: true,
     rating: 4.2,
     plays: 22_100,
+    mobileFitness: "desktop-best", // split / eject buttons are awkward on touch
   },
   {
     slug: "doodle-jump",
@@ -623,6 +630,7 @@ export const GAMES: Game[] = [
     players: "single",
     rating: 4.5,
     plays: 67_900,
+    mobileFitness: "desktop-best", // mouse aim is critical for accurate shooting
   },
 ];
 
