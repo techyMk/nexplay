@@ -216,6 +216,7 @@ A portfolio piece should be transparent about what's missing. As of this writing
 
 - `docs/schema.md` — full Postgres data model (tables, views, RLS patterns, triggers, migration order)
 - `docs/lighthouse/` — Lighthouse audit reports + reproduction instructions
+- `docs/comparison.md` — honest comparison vs Poki / Crazy Games / Y8 / Coolmath with per-dimension ratings
 - `tests/` — vitest suite for pure-logic library code (44 tests)
 - `scripts/seed.ts` — `npm run seed` populates the DB with 20 demo users + plausible scores so leaderboards aren't empty (requires `SUPABASE_SERVICE_ROLE_KEY`)
 - `.github/workflows/ci.yml` — typecheck + test + build gate on every push / PR to `main`
