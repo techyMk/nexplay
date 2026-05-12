@@ -205,7 +205,8 @@ A portfolio piece should be transparent about what's missing. As of this writing
 - **Production error monitoring is env-gated.** A lightweight telemetry client posts to Sentry's HTTP ingest when `NEXT_PUBLIC_SENTRY_DSN` is set; otherwise it's silent.
 - **Game-quality variance.** Chess, Krunker, Bubble Shooter, Treasure Hunt, GeoGuessr, Agma are showcase pieces. Tic-Tac-Toe, Whack-a-Mole, Memory Match are deliberately simpler — they exist to round out the catalog.
 - **Mobile Lighthouse perf is 71 / 100.** Desktop is 93-100. The remaining mobile gap is React-hydration TBT (480 ms) — the next lever is lazy-importing Supabase on routes that don't need it. CLS is 0 and BP / SEO are 100. See `docs/lighthouse/` for the trend over the last few passes.
-- **Mobile not fully tested.** Touch works for the keyboard-only games; layouts are responsive; not yet validated against every real device.
+- **Mobile not fully tested.** Touch works for the keyboard-only games; layouts are responsive; not yet validated against every real device. See `docs/screenshots/games/` for what each game looks like on a Pixel 7 viewport.
+- **In-canvas text scaling.** A few games (Treasure Hunt, Slither, Neon Runner, Asteroids) draw small fonts (8-12 px) into their canvas, which scale down with the canvas on mobile. The text stays readable on a phone with the larger portrait frame but could be bumped per-game to be punchier.
 - **No i18n.** Every string is English.
 - **React Compiler warnings.** The new `eslint-plugin-react-hooks` v7 ships compiler-aware style rules (`react-hooks/refs`, `set-state-in-effect`, `immutability`, `purity`). These are downgraded to warnings — they're stylistic hints, not bugs. CI still gates on the actually-correctness-related rules.
 

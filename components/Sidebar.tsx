@@ -153,6 +153,56 @@ export function Sidebar({
     };
   }, []);
 
+  // Swipe-to-close on touch devices. Live-drags the panel so the user
+  // gets immediate feedback; if they release past the half-way point
+  // (or with enough velocity), the panel closes. Otherwise it snaps
+  // back open. Pointer events cover both mouse-on-touchscreen and
+  // proper touch.
+  const asideRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startTime: number;
+    pointerId: number;
+  } | null>(null);
+  const [dragX, setDragX] = useState(0);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse") return; // sidebar still toggles via hamburger
+    if (!open) return;
+    dragRef.current = {
+      startX: e.clientX,
+      startTime: performance.now(),
+      pointerId: e.pointerId,
+    };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    // Only register leftward drags — drag right is a no-op so the
+    // panel can't overshoot its open position.
+    const delta = Math.min(0, e.clientX - d.startX);
+    setDragX(delta);
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const delta = e.clientX - d.startX;
+    const dt = performance.now() - d.startTime;
+    // Sidebar is w-56 = 224px. Close on:
+    //   • a drag past 70px (~31% of width), or
+    //   • a flick (>0.3 px/ms of leftward velocity).
+    const velocity = delta / Math.max(1, dt);
+    if (delta < -70 || velocity < -0.3) {
+      setOpen(false);
+    }
+    dragRef.current = null;
+    setDragX(0);
+  };
+  const onPointerCancel = () => {
+    dragRef.current = null;
+    setDragX(0);
+  };
+
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(href + "/");
@@ -175,7 +225,19 @@ export function Sidebar({
           its inner div has overflow-y-auto for users with many
           categories. */}
       <aside
-        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 w-56 shrink-0 h-[calc(100vh-4rem)] transition-transform lg:transition-none ${
+        ref={asideRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        // While the user is actively dragging we suppress the
+        // transition so the panel tracks their finger 1:1. As soon as
+        // the pointer is released and dragX returns to 0, the
+        // transition class is back on and the panel snaps into place.
+        style={dragX !== 0 ? { transform: `translateX(${dragX}px)` } : undefined}
+        className={`fixed lg:sticky top-16 left-0 z-40 lg:z-0 w-56 shrink-0 h-[calc(100vh-4rem)] ${
+          dragX !== 0 ? "" : "transition-transform lg:transition-none"
+        } ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >

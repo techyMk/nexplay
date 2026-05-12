@@ -295,26 +295,34 @@ export function C4RoomClient({
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={copyCode}
-              className="px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] hover:text-white transition-colors"
+              title="Copy room code"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] hover:text-white transition-colors"
             >
-              {copied ? "Copied ✓" : "Copy code"}
+              📋
+              <span className="hidden sm:inline">{copied ? "Copied ✓" : "Copy code"}</span>
             </button>
             <button
               onClick={copyLink}
-              className="px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] hover:text-white transition-colors"
+              title="Copy invite link"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-[var(--surface-2)] text-sm font-bold hover:bg-[var(--accent)] hover:text-white transition-colors"
             >
-              Copy link
+              🔗
+              <span className="hidden sm:inline">Copy link</span>
             </button>
             <button
               onClick={leaveRoom}
               disabled={closing}
-              className="px-4 py-2 rounded-lg bg-red-500/15 text-red-500 text-sm font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
+              title={myRole === "host" ? "Close room" : "Leave room"}
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-red-500/15 text-red-500 text-sm font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
             >
-              {closing
-                ? "Closing…"
-                : myRole === "host"
-                  ? "Close room"
-                  : "Leave"}
+              <span className="sm:hidden">✕</span>
+              <span className="hidden sm:inline">
+                {closing
+                  ? "Closing…"
+                  : myRole === "host"
+                    ? "Close room"
+                    : "Leave"}
+              </span>
             </button>
           </div>
         </div>
