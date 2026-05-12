@@ -37,6 +37,12 @@ const SLUG_ALIASES: Record<string, string> = {
   hanoi: "tower-of-hanoi",
   geoguessr: "geoguessr-clone",
   agar: "agar-clone",
+  // Pre-refactor localStorage keys used these short slugs. Without
+  // the alias the migration POSTs a slug the API doesn't recognise
+  // and the /api/scores endpoint returns 400.
+  doodle: "doodle-jump",
+  runner: "neon-runner",
+  drift: "drift-king",
 };
 
 type Entry = { slug: string; score: number };
