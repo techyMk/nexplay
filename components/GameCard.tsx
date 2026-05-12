@@ -95,6 +95,25 @@ export function GameCard({
               Hot
             </span>
           )}
+          {/* Sets expectations up-front: showing this badge on the
+              card means the user knows before tapping that the game
+              will warn them / play poorly on a phone. */}
+          {game.mobileFitness === "desktop-only" && (
+            <span
+              className="px-2 py-0.5 rounded-md bg-slate-900/85 text-white text-[10px] font-black uppercase tracking-wider shadow"
+              title="Best played on desktop"
+            >
+              🖥 Desktop
+            </span>
+          )}
+          {game.mobileFitness === "desktop-best" && (
+            <span
+              className="px-2 py-0.5 rounded-md bg-slate-700/85 text-white text-[10px] font-black uppercase tracking-wider shadow"
+              title="Best on desktop, playable on phone"
+            >
+              🖥 PC best
+            </span>
+          )}
         </div>
 
         {/* Top-right rating chip on big tiles */}
