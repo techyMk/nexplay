@@ -27,8 +27,13 @@ export function AuthMenuClient({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const onLogoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // The form is kept mounted at the root of this component (outside
+  // the conditional dropdown) so that closing the dropdown before
+  // the confirm dialog resolves doesn't unmount the form and null
+  // out formRef.current. That bug made the header Log out silently
+  // do nothing — the sidebar's LogoutRow worked only because the
+  // sidebar is always mounted.
+  const triggerLogout = async () => {
     setOpen(false);
     const ok = await confirm({
       icon: "lucide:log-out",
@@ -67,21 +72,26 @@ export function AuthMenuClient({
           >
             Profile
           </Link>
-          <form
-            ref={formRef}
-            action="/logout"
-            method="post"
-            onSubmit={onLogoutSubmit}
+          <button
+            type="button"
+            onClick={triggerLogout}
+            className="block w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-2)] text-red-500 transition-colors"
           >
-            <button
-              type="submit"
-              className="block w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-2)] text-red-500 transition-colors"
-            >
-              Log out
-            </button>
-          </form>
+            Log out
+          </button>
         </div>
       )}
+
+      {/* Always-mounted form so the ref survives the dropdown closing
+          before the confirm dialog resolves. Hidden because it has no
+          children other than the implicit submit handler. */}
+      <form
+        ref={formRef}
+        action="/logout"
+        method="post"
+        className="hidden"
+        aria-hidden
+      />
     </div>
   );
 }
