@@ -77,7 +77,7 @@ export function WelcomeCard({ gameCount }: { gameCount: number }) {
 
       <div className="relative grid sm:grid-cols-[1fr_auto] gap-4 p-5 sm:p-6 items-center">
         <div>
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-black text-[var(--accent)] mb-1.5">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-black text-[var(--accent-text)] mb-1.5">
             <span>✨</span> Welcome to Nexplay
           </div>
           <h2 className="text-xl sm:text-2xl font-black mb-2 leading-tight">

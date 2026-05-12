@@ -48,7 +48,7 @@ export function Hero({ games }: { games: Game[] }) {
                   Featured
                 </span>
                 {game.isNew && (
-                  <span className="px-2 py-0.5 rounded-md bg-[var(--accent-2)] text-white text-[10px] font-black uppercase tracking-widest">
+                  <span className="px-2 py-0.5 rounded-md bg-pink-700 text-white text-[10px] font-black uppercase tracking-widest">
                     New
                   </span>
                 )}
@@ -97,13 +97,23 @@ export function Hero({ games }: { games: Game[] }) {
               type="button"
               onClick={() => setActive(i)}
               aria-label={`Show ${g.title}`}
-              className="h-1 rounded-full transition-all"
-              style={{
-                width: i === active ? 28 : 12,
-                background:
-                  i === active ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.45)",
-              }}
-            />
+              // Visible pill is 4px tall, but the actual touch target
+              // is 24×24 (WCAG minimum) via padding + a flex-centered
+              // inner span. Lighthouse used to flag the bare h-1 dots.
+              className="inline-flex items-center justify-center h-6 w-6 cursor-pointer"
+            >
+              <span
+                aria-hidden
+                className="block h-1 rounded-full transition-all"
+                style={{
+                  width: i === active ? 28 : 12,
+                  background:
+                    i === active
+                      ? "rgba(255,255,255,1)"
+                      : "rgba(255,255,255,0.45)",
+                }}
+              />
+            </button>
           ))}
         </div>
       )}

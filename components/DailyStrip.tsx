@@ -58,7 +58,7 @@ export async function DailyStrip() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-black">
+            <span className="text-[10px] uppercase tracking-widest text-[var(--accent-text)] font-black">
               Daily challenges
             </span>
             <span className="text-[10px] uppercase tracking-widest text-[var(--muted-2)] font-bold">
@@ -66,9 +66,9 @@ export async function DailyStrip() {
             </span>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
               {completedCount}/{challenges.length} done today
-            </h3>
+            </h2>
             {streak > 0 && (
               <span className="text-sm text-[var(--muted)]">
                 {flame} {streak}-day streak
@@ -116,12 +116,12 @@ function DailyTeaser({ challenges }: { challenges: DailyChallenge[] }) {
     >
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-black mb-1">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--accent-text)] font-black mb-1">
             Daily challenges
           </div>
-          <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight">
             Three new challenges every day
-          </h3>
+          </h2>
           <p className="text-sm text-[var(--muted)] mt-0.5">
             Sign in to track your streak and progress.
           </p>
