@@ -43,6 +43,15 @@ export function FriendsClient({
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Username autocomplete — debounced search over the profiles table
+  // returning up to 6 matches. We filter the current user and existing
+  // friends client-side rather than in the query so the count stays
+  // predictable as the friend list changes.
+  type Suggestion = { user_id: string; display_name: string; avatar: string };
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
   // Realtime presence
   useEffect(() => {
     const supabase = createClient();
@@ -85,6 +94,53 @@ export function FriendsClient({
     };
   }, [myUserId, router]);
 
+  // Debounce + fetch matching profiles. We only hit the DB after the
+  // user has paused typing for 250 ms and have at least 2 chars, so
+  // single keystrokes don't fire a query each.
+  useEffect(() => {
+    const q = addInput.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_emoji")
+        .ilike("display_name", `%${q}%`)
+        .neq("id", myUserId)
+        .limit(8);
+      if (error || !data) {
+        setSuggestions([]);
+        return;
+      }
+      // Filter out anyone you're already connected to.
+      const known = new Set<string>([
+        ...friends.map((f) => f.user_id),
+        ...incoming.map((r) => r.user_id),
+        ...outgoing.map((r) => r.user_id),
+      ]);
+      const rows: Suggestion[] = data
+        .filter((p) => !known.has(p.id as string))
+        .slice(0, 6)
+        .map((p) => ({
+          user_id: p.id as string,
+          display_name: (p.display_name as string) ?? "Player",
+          avatar: (p.avatar_emoji as string) ?? "🎮",
+        }));
+      setSuggestions(rows);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [addInput, myUserId, friends, incoming, outgoing]);
+
+  const pickSuggestion = (s: Suggestion) => {
+    setAddInput(s.display_name);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setActiveIdx(-1);
+  };
+
   const onAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adding || !addInput.trim()) return;
@@ -94,6 +150,7 @@ export function FriendsClient({
     if (res.ok) {
       setFeedback({ kind: "ok", text: `Request sent to "${addInput.trim()}"` });
       setAddInput("");
+      setSuggestions([]);
     } else {
       setFeedback({ kind: "err", text: res.error });
     }
@@ -172,14 +229,73 @@ export function FriendsClient({
         <div className="text-xs uppercase tracking-widest text-[var(--muted)] mb-2 font-bold">
           Add by username
         </div>
-        <form onSubmit={onAdd} className="flex flex-col sm:flex-row gap-2">
-          <input
-            value={addInput}
-            onChange={(e) => setAddInput(e.target.value)}
-            placeholder="Manikandan"
-            maxLength={32}
-            className="flex-1 h-10 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm transition-colors"
-          />
+        <form onSubmit={onAdd} className="flex flex-col sm:flex-row gap-2 relative">
+          <div className="flex-1 relative">
+            <input
+              value={addInput}
+              onChange={(e) => {
+                setAddInput(e.target.value);
+                setShowSuggestions(true);
+                setActiveIdx(-1);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => {
+                // Delay close so a suggestion click registers first.
+                setTimeout(() => setShowSuggestions(false), 150);
+              }}
+              onKeyDown={(e) => {
+                if (!showSuggestions || suggestions.length === 0) return;
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveIdx((i) => (i + 1) % suggestions.length);
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveIdx((i) =>
+                    i <= 0 ? suggestions.length - 1 : i - 1,
+                  );
+                } else if (e.key === "Enter" && activeIdx >= 0) {
+                  e.preventDefault();
+                  pickSuggestion(suggestions[activeIdx]);
+                } else if (e.key === "Escape") {
+                  setShowSuggestions(false);
+                  setActiveIdx(-1);
+                }
+              }}
+              placeholder="Friend's username"
+              maxLength={32}
+              autoComplete="off"
+              className="w-full h-10 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none text-sm transition-colors"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[var(--surface)] shadow-2xl border border-[var(--border)] overflow-hidden z-50 max-h-72 overflow-y-auto"
+              >
+                {suggestions.map((s, i) => (
+                  <li key={s.user_id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={i === activeIdx}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => pickSuggestion(s)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                        i === activeIdx
+                          ? "bg-[var(--surface-2)]"
+                          : "hover:bg-[var(--surface-2)]"
+                      }`}
+                    >
+                      <Avatar value={s.avatar} size="sm" />
+                      <span className="text-sm font-medium truncate flex-1">
+                        {s.display_name}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="submit"
             disabled={adding || !addInput.trim()}
